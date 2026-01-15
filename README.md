@@ -5,8 +5,9 @@
 A Claude Code marketplace providing 5 powerful, zero-configuration slash commands for common development workflows. Each command is a separate installable plugin - pick what you need!
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![GitHub stars](https://img.shields.io/github/stars/avifenesh/awsome-slash.svg)](https://github.com/avifenesh/awsome-slash/stargazers)
+[![GitHub stars](https://img.shields.io/github/stars/avifenesh/awsome-slash?style=flat&color=yellow)](https://github.com/avifenesh/awsome-slash/stargazers)
 [![Claude Code](https://img.shields.io/badge/Claude-Code%20Plugin-blue)](https://code.claude.com/)
+[![GitHub issues](https://img.shields.io/github/issues/avifenesh/awsome-slash)](https://github.com/avifenesh/awsome-slash/issues)
 
 ## Quick Start
 
