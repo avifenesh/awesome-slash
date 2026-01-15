@@ -1,15 +1,31 @@
 # Awesome Slash Commands
 
-> Professional-grade slash commands for Claude Code that work across any project
+> Professional-grade slash commands that work across any project
 
-A Claude Code marketplace providing 5 powerful, zero-configuration slash commands for common development workflows. Each command is a separate installable plugin - pick what you need!
+A marketplace providing 5 powerful, zero-configuration slash commands for common development workflows. Available for **Claude Code**, **Codex CLI**, and **OpenCode**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GitHub stars](https://img.shields.io/github/stars/avifenesh/awsome-slash?style=flat&color=yellow)](https://github.com/avifenesh/awsome-slash/stargazers)
 [![Claude Code](https://img.shields.io/badge/Claude-Code%20Plugin-blue)](https://code.claude.com/)
+[![Codex CLI](https://img.shields.io/badge/Codex-CLI%20Compatible-green)](https://developers.openai.com/codex/cli)
+[![OpenCode](https://img.shields.io/badge/OpenCode-Compatible-orange)](https://opencode.ai)
 [![GitHub issues](https://img.shields.io/github/issues/avifenesh/awsome-slash)](https://github.com/avifenesh/awsome-slash/issues)
 
-## Quick Start
+## Multi-Tool Support
+
+Choose your AI coding tool:
+
+| Tool | Installation | Documentation |
+|------|--------------|---------------|
+| 🤖 **Claude Code** | `claude plugin marketplace add avifenesh/awsome-slash` | ⬇️ Below |
+| 🔮 **Codex CLI** | `./adapters/codex/install.sh` | [Codex Guide](./adapters/codex/README.md) |
+| 🔓 **OpenCode** | `./adapters/opencode/install.sh` | [OpenCode Guide](./adapters/opencode/README.md) |
+
+See [Multi-Tool Adapters](./adapters/README.md) for details.
+
+---
+
+## Quick Start (Claude Code)
 
 ### 1. Add the Marketplace
 
@@ -306,31 +322,44 @@ git add .
 - [Manual Testing](./MANUAL_TESTING.md) - Testing and validation guide
 - [Contributing](./CONTRIBUTING.md) - Contribution guidelines
 
-## Marketplace Structure
+## Repository Structure
 
-This repository serves as a Claude Code plugin marketplace hosting 5 independent plugins:
+This repository serves as both a Claude Code marketplace and multi-tool adapter source:
 
 ```
 awsome-slash/
 ├── .claude-plugin/
-│   └── marketplace.json          # Marketplace manifest
-├── plugins/
+│   └── marketplace.json          # Claude Code marketplace manifest
+├── plugins/                      # Claude Code plugins
 │   ├── deslop-around/           # AI slop cleanup plugin
 │   ├── next-task/               # Task prioritization plugin
 │   ├── project-review/          # Code review plugin
 │   ├── ship/                    # PR workflow plugin
 │   └── pr-merge/                # PR merge plugin
+├── adapters/                     # Multi-tool adapters
+│   ├── codex/                   # Codex CLI adapter
+│   │   ├── install.sh           # Installation script
+│   │   └── README.md            # Documentation
+│   └── opencode/                # OpenCode adapter
+│       ├── install.sh           # Installation script
+│       └── README.md            # Documentation
 └── docs/
 ```
 
-Each plugin contains:
+Each Claude plugin contains:
 - `.claude-plugin/plugin.json` - Plugin manifest
 - `commands/*.md` - Slash command definitions
 - `lib/` - Shared detection and pattern libraries
 
+Each adapter provides:
+- `install.sh` - One-command installation
+- `README.md` - Tool-specific documentation
+- Path adjustments for tool compatibility
+
 ## Roadmap
 
-- [ ] Support for Cursor, Gemini CLI, Codex CLI
+- [x] **Support for Codex CLI and OpenCode** ✓
+- [ ] Support for Cursor and Gemini CLI
 - [ ] BitBucket Pipelines support
 - [ ] Azure DevOps support
 - [ ] AWS CodePipeline support
