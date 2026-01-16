@@ -306,6 +306,8 @@ This phase implements a continuous monitoring loop that waits for CI AND address
 ### The Monitor Loop
 
 ```javascript
+// Note: This is pseudocode showing the algorithm flow.
+// The actual implementation uses bash functions defined below.
 const MAX_ITERATIONS = 10;  // Safety limit
 const INITIAL_WAIT_MS = 180000;  // 3 minutes - wait for auto-reviews to arrive
 const ITERATION_WAIT_MS = 30000;  // 30 seconds between iterations
@@ -341,7 +343,7 @@ while (iteration < MAX_ITERATIONS) {
 
   // Step 3: Address ALL feedback
   console.log(`Found ${feedback.unresolvedCount} unresolved comments`);
-  await addressAllFeedback(feedback);
+  await addressAllFeedback(PR_NUMBER);
 
   // Step 4: Push fixes (triggers new CI run)
   if (feedback.hasCodeChanges) {
@@ -377,8 +379,11 @@ wait_for_ci() {
       echo "✗ CI failed ($FAILED checks)"
       gh pr checks $PR_NUMBER
       return 1
-    elif [ "$PENDING" -eq 0 ]; then
+    elif [ "$PENDING" -eq 0 ] && [ "$PASSED" -gt 0 ]; then
       echo "✓ CI passed ($PASSED checks)"
+      return 0
+    elif [ "$PENDING" -eq 0 ] && [ "$PASSED" -eq 0 ]; then
+      echo "⚠ No CI checks found, proceeding..."
       return 0
     fi
 
@@ -396,11 +401,17 @@ check_pr_feedback() {
 
   echo "Checking PR feedback..."
 
+  # Extract owner and repo from git remote
+  REPO_INFO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
+  OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
+  REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
+
   # Get review state
   REVIEWS=$(gh pr view $pr_number --json reviews --jq '.reviews')
   CHANGES_REQUESTED=$(echo "$REVIEWS" | jq '[.[] | select(.state=="CHANGES_REQUESTED")] | length')
 
   # Get unresolved review threads (simplified query - only fetch isResolved)
+  # NOTE: This fetches first 100 threads. For PRs with >100 threads, implement pagination.
   UNRESOLVED_THREADS=$(gh api graphql -f query='
     query($owner: String!, $repo: String!, $pr: Int!) {
       repository(owner: $owner, name: $repo) {
@@ -413,7 +424,7 @@ check_pr_feedback() {
         }
       }
     }
-  ' -f owner="{owner}" -f repo="{repo}" -F pr=$pr_number \
+  ' -f owner="$OWNER" -f repo="$REPO" -F pr=$pr_number \
     --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
 
   echo "  Unresolved threads: $UNRESOLVED_THREADS"
@@ -598,9 +609,14 @@ reply_to_comment() {
   local comment_id=$2
   local body=$3
 
-  gh api repos/{owner}/{repo}/pulls/$pr_number/comments \
+  # Extract owner and repo from git remote
+  REPO_INFO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
+  OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
+  REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
+
+  gh api "repos/$OWNER/$REPO/pulls/$pr_number/comments" \
     -f body="$body" \
-    -f in_reply_to=$comment_id
+    -f in_reply_to="$comment_id"
 }
 ```
 
@@ -699,7 +715,11 @@ if [ $iteration -ge $MAX_ITERATIONS ]; then
   echo ""
   echo "✗ Max iterations ($MAX_ITERATIONS) reached"
   echo "Manual intervention required"
-  echo "PR: $PR_URL"
+  if [ -n "${PR_URL:-}" ]; then
+    echo "PR: $PR_URL"
+  else
+    echo "PR: #$PR_NUMBER"
+  fi
   exit 1
 fi
 ```
