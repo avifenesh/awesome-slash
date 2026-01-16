@@ -273,137 +273,451 @@ if (workflowState) {
 }
 ```
 
-## Phase 4: Wait for CI
+## Phase 4: CI & Review Monitor Loop
 
-Platform-adaptive CI monitoring:
+**⚠️ CRITICAL: This is the most important phase of the shipping workflow.**
 
-### GitHub Actions
+This phase implements a continuous monitoring loop that waits for CI AND addresses ALL PR feedback. The loop continues until:
+1. CI passes
+2. ALL comments are resolved (addressed or replied to)
+3. No "changes requested" reviews remain
 
-```bash
-if [ "$CI_PLATFORM" = "github-actions" ]; then
-  echo "Waiting for GitHub Actions CI..."
+### Why ALL Comments Matter
 
-  # Get latest run
-  RUN_ID=$(gh run list --branch $CURRENT_BRANCH --limit 1 --json databaseId --jq '.[0].databaseId')
-
-  # Watch run
-  gh run watch $RUN_ID --exit-status
-  CI_STATUS=$?
-
-  if [ $CI_STATUS -eq 0 ]; then
-    echo "✓ CI passed"
-  else
-    echo "✗ CI failed"
-    echo "View logs: $(gh run view $RUN_ID --web)"
-    exit 1
-  fi
-fi
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    EVERY COMMENT MUST BE ADDRESSED                        ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  • Critical/High issues → Fix immediately                                ║
+║  • Medium issues → Fix (don't defer)                                     ║
+║  • Minor/Nit issues → Fix (shows attention to quality)                   ║
+║  • Style suggestions → Fix (maintains codebase consistency)              ║
+║  • Questions → Answer with explanation                                   ║
+║  • False positives → Reply explaining why, then resolve                  ║
+║  • Not relevant → Reply explaining why, then resolve                     ║
+║                                                                          ║
+║  NEVER ignore a comment. NEVER leave comments unresolved.                ║
+║  A clean PR has ZERO unresolved conversations.                           ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
-```javascript
-// Update state with CI status
-updatePhase('ci-wait', {
-  ciPlatform: CI_PLATFORM,
-  passed: CI_STATUS === 0
-});
+### The Monitor Loop
 
-if (workflowState) {
-  workflowState.updateState({
-    pr: { ciStatus: CI_STATUS === 0 ? 'passed' : 'failed' }
-  });
+```javascript
+const MAX_ITERATIONS = 10;  // Safety limit
+let iteration = 0;
+let lastCommentCount = 0;
+
+while (iteration < MAX_ITERATIONS) {
+  iteration++;
+  console.log(`\n## CI & Review Monitor - Iteration ${iteration}`);
+
+  // Step 1: Wait for CI to complete
+  const ciStatus = await waitForCI();
+
+  if (ciStatus === 'failed') {
+    console.log("CI failed - fixing issues before checking comments...");
+    await fixCIFailures();
+    continue;  // Push fix, re-run CI
+  }
+
+  // Step 2: Check for PR comments and reviews
+  const feedback = await checkPRFeedback();
+
+  if (feedback.unresolvedCount === 0 && feedback.changesRequested === false) {
+    console.log("✓ CI passed, all comments resolved, no changes requested");
+    break;  // Ready to merge!
+  }
+
+  // Step 3: Address ALL feedback
+  console.log(`Found ${feedback.unresolvedCount} unresolved comments`);
+  await addressAllFeedback(feedback);
+
+  // Step 4: Push fixes (triggers new CI run)
+  if (feedback.hasCodeChanges) {
+    await commitAndPush(`fix: address review feedback (iteration ${iteration})`);
+  }
+
+  // Step 5: Sleep before next check (allow reviewers to respond)
+  console.log("Waiting 30s for CI and potential new feedback...");
+  await sleep(30000);
+}
+
+if (iteration >= MAX_ITERATIONS) {
+  console.log("✗ Max iterations reached - manual intervention required");
+  exit(1);
 }
 ```
 
-### GitLab CI
+### Step 1: Wait for CI
 
 ```bash
-if [ "$CI_PLATFORM" = "gitlab-ci" ]; then
-  echo "Waiting for GitLab CI..."
+wait_for_ci() {
+  echo "Waiting for CI checks..."
 
-  # Create secure curl config to avoid token exposure in process list
-  CURL_CONFIG=$(mktemp)
-  chmod 600 "$CURL_CONFIG"
-  echo "header = \"PRIVATE-TOKEN: $GITLAB_TOKEN\"" > "$CURL_CONFIG"
-  trap "rm -f \"$CURL_CONFIG\"" EXIT
-
-  # Poll pipeline status
   while true; do
-    STATUS=$(curl -s -K "$CURL_CONFIG" \
-      "https://gitlab.com/api/v4/projects/$PROJECT_ID/pipelines?ref=$CURRENT_BRANCH&per_page=1" \
-      | jq -r '.[0].status')
+    # Get all check runs
+    CHECKS=$(gh pr checks $PR_NUMBER --json name,state,conclusion 2>/dev/null || echo "[]")
 
-    if [ "$STATUS" = "success" ]; then
-      echo "✓ CI passed"
-      break
-    elif [ "$STATUS" = "failed" ]; then
-      echo "✗ CI failed"
-      rm -f "$CURL_CONFIG"
-      exit 1
-    fi
-
-    sleep 10
-  done
-  rm -f "$CURL_CONFIG"
-fi
-```
-
-### CircleCI / Other
-
-```bash
-if [ "$CI_PLATFORM" = "circleci" ] || [ "$CI_PLATFORM" = "jenkins" ] || [ "$CI_PLATFORM" = "travis" ]; then
-  echo "Monitoring $CI_PLATFORM CI..."
-
-  # Use gh pr checks for generic monitoring
-  while true; do
-    CHECKS=$(gh pr checks $PR_NUMBER --json state,conclusion)
-
-    PENDING=$(echo $CHECKS | jq '[.[] | select(.state=="PENDING")] | length')
-    FAILED=$(echo $CHECKS | jq '[.[] | select(.conclusion=="FAILURE")] | length')
+    PENDING=$(echo "$CHECKS" | jq '[.[] | select(.state=="pending" or .state=="queued" or .state=="in_progress")] | length')
+    FAILED=$(echo "$CHECKS" | jq '[.[] | select(.conclusion=="failure" or .conclusion=="cancelled")] | length')
+    PASSED=$(echo "$CHECKS" | jq '[.[] | select(.conclusion=="success")] | length')
 
     if [ "$FAILED" -gt 0 ]; then
-      echo "✗ CI checks failed"
+      echo "✗ CI failed ($FAILED checks)"
       gh pr checks $PR_NUMBER
-      exit 1
+      return 1
     elif [ "$PENDING" -eq 0 ]; then
-      echo "✓ All CI checks passed"
-      break
+      echo "✓ CI passed ($PASSED checks)"
+      return 0
     fi
 
-    echo "Waiting for CI... ($PENDING pending)"
+    echo "  Waiting... ($PENDING pending, $PASSED passed)"
     sleep 15
   done
+}
+```
+
+### Step 2: Check PR Feedback
+
+```bash
+check_pr_feedback() {
+  local pr_number=$1
+
+  echo "Checking PR feedback..."
+
+  # Get review comments (inline code comments)
+  REVIEW_COMMENTS=$(gh api repos/{owner}/{repo}/pulls/$pr_number/comments \
+    --jq '[.[] | select(.in_reply_to_id == null)] | length')
+
+  # Get issue comments (general PR comments)
+  ISSUE_COMMENTS=$(gh api repos/{owner}/{repo}/issues/$pr_number/comments \
+    --jq 'length')
+
+  # Get review state
+  REVIEWS=$(gh pr view $pr_number --json reviews --jq '.reviews')
+  CHANGES_REQUESTED=$(echo "$REVIEWS" | jq '[.[] | select(.state=="CHANGES_REQUESTED")] | length')
+
+  # Get unresolved review threads
+  UNRESOLVED_THREADS=$(gh api graphql -f query='
+    query($owner: String!, $repo: String!, $pr: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr) {
+          reviewThreads(first: 100) {
+            nodes {
+              isResolved
+              comments(first: 1) {
+                nodes {
+                  body
+                  path
+                  line
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ' -f owner="{owner}" -f repo="{repo}" -F pr=$pr_number \
+    --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
+
+  echo "  Review comments: $REVIEW_COMMENTS"
+  echo "  Issue comments: $ISSUE_COMMENTS"
+  echo "  Unresolved threads: $UNRESOLVED_THREADS"
+  echo "  Changes requested: $CHANGES_REQUESTED"
+
+  # Return structured data
+  echo "{\"unresolvedThreads\": $UNRESOLVED_THREADS, \"changesRequested\": $CHANGES_REQUESTED}"
+}
+```
+
+### Step 3: Address ALL Feedback
+
+**This is where EVERY comment gets addressed - no exceptions.**
+
+```javascript
+async function addressAllFeedback(prNumber) {
+  // Get all unresolved review threads with full context
+  const threads = await getUnresolvedThreads(prNumber);
+
+  console.log(`\nAddressing ${threads.length} unresolved threads...`);
+
+  for (const thread of threads) {
+    console.log(`\n--- Thread: ${thread.path}:${thread.line} ---`);
+    console.log(`Comment: ${thread.body.substring(0, 200)}...`);
+
+    // Analyze the comment
+    const analysis = analyzeComment(thread);
+
+    switch (analysis.type) {
+      case 'code_fix_required':
+        // Valid issue - fix it
+        console.log(`Action: Fixing code issue`);
+        await implementFix(thread);
+        break;
+
+      case 'style_suggestion':
+        // Style/nit - fix it anyway (shows quality)
+        console.log(`Action: Applying style fix`);
+        await implementFix(thread);
+        break;
+
+      case 'question':
+        // Question - answer it
+        console.log(`Action: Answering question`);
+        await replyToComment(thread.id, generateAnswer(thread));
+        await resolveThread(thread.id);
+        break;
+
+      case 'false_positive':
+        // Not a real issue - explain and resolve
+        console.log(`Action: Explaining why this is not an issue`);
+        await replyToComment(thread.id,
+          `This appears to be a false positive because: ${analysis.reason}\n\n` +
+          `[Specific explanation of why the current code is correct]\n\n` +
+          `Resolving this thread. Please reopen if you disagree.`
+        );
+        await resolveThread(thread.id);
+        break;
+
+      case 'not_relevant':
+        // Out of scope - explain and resolve
+        console.log(`Action: Explaining why this is out of scope`);
+        await replyToComment(thread.id,
+          `This suggestion is outside the scope of this PR because: ${analysis.reason}\n\n` +
+          `[If valid, mention: "I've created issue #X to track this separately."]\n\n` +
+          `Resolving this thread. Please reopen if you feel it should be addressed here.`
+        );
+        await resolveThread(thread.id);
+        break;
+
+      case 'already_addressed':
+        // Already fixed - confirm and resolve
+        console.log(`Action: Confirming already addressed`);
+        await replyToComment(thread.id,
+          `This has been addressed in commit ${getLatestCommit()}. ` +
+          `[Brief explanation of the fix]`
+        );
+        await resolveThread(thread.id);
+        break;
+    }
+  }
+
+  // Also check for "changes requested" reviews
+  const changesRequestedReviews = await getChangesRequestedReviews(prNumber);
+
+  if (changesRequestedReviews.length > 0) {
+    console.log(`\n${changesRequestedReviews.length} reviewers requested changes.`);
+    console.log(`All their comments have been addressed above.`);
+    console.log(`Requesting re-review...`);
+
+    // Request re-review from those who requested changes
+    for (const review of changesRequestedReviews) {
+      await requestReReview(prNumber, review.author);
+    }
+  }
+}
+```
+
+### Comment Analysis Logic
+
+```javascript
+function analyzeComment(thread) {
+  const body = thread.body.toLowerCase();
+  const path = thread.path;
+  const diffHunk = thread.diffHunk;
+
+  // Check for question patterns
+  if (body.includes('?') || body.startsWith('why') || body.startsWith('how') ||
+      body.startsWith('what') || body.startsWith('could you explain')) {
+    return { type: 'question', reason: 'Comment is a question' };
+  }
+
+  // Check for suggestion patterns
+  if (body.includes('nit:') || body.includes('nitpick') || body.includes('minor:') ||
+      body.includes('style:') || body.includes('consider') || body.includes('optional')) {
+    return { type: 'style_suggestion', reason: 'Style or minor suggestion' };
+  }
+
+  // Check if comment refers to code that doesn't exist in diff
+  if (!diffHunk || !isCommentRelevantToChanges(thread)) {
+    return { type: 'not_relevant', reason: 'Comment refers to unchanged code' };
+  }
+
+  // Check for common false positive patterns
+  if (isFalsePositive(thread)) {
+    return { type: 'false_positive', reason: getFalsePositiveReason(thread) };
+  }
+
+  // Default: treat as code fix required
+  return { type: 'code_fix_required', reason: 'Valid code feedback' };
+}
+```
+
+### Implementing Fixes
+
+Use the ci-fixer agent for code changes:
+
+```javascript
+// For each code fix needed
+Task({
+  subagent_type: "next-task:ci-fixer",
+  prompt: `Fix the following review comment:
+
+**File**: ${thread.path}
+**Line**: ${thread.line}
+**Comment**: ${thread.body}
+**Code Context**:
+\`\`\`
+${thread.diffHunk}
+\`\`\`
+
+Requirements:
+1. Make the minimal change to address the feedback
+2. Do NOT over-engineer or add unrelated changes
+3. Ensure tests still pass after the fix
+4. If the fix requires a test update, include it
+
+After fixing, the code should satisfy the reviewer's concern.`
+});
+```
+
+### Resolving Threads
+
+```bash
+resolve_thread() {
+  local thread_id=$1
+
+  # GraphQL mutation to resolve a review thread
+  gh api graphql -f query='
+    mutation($threadId: ID!) {
+      resolveReviewThread(input: {threadId: $threadId}) {
+        thread {
+          isResolved
+        }
+      }
+    }
+  ' -f threadId="$thread_id"
+}
+
+reply_to_comment() {
+  local comment_id=$1
+  local body=$2
+
+  gh api repos/{owner}/{repo}/pulls/$PR_NUMBER/comments \
+    -f body="$body" \
+    -f in_reply_to=$comment_id
+}
+```
+
+### Step 4: Commit and Push
+
+```bash
+commit_and_push_fixes() {
+  local message=$1
+
+  # Check if there are changes to commit
+  if [ -n "$(git status --porcelain)" ]; then
+    git add -A
+    git commit -m "$message"
+    git push origin $CURRENT_BRANCH
+    echo "✓ Pushed fixes"
+    return 0
+  else
+    echo "No code changes to commit (only comment replies)"
+    return 1
+  fi
+}
+```
+
+### The Complete Loop
+
+```bash
+#!/bin/bash
+# Phase 4: CI & Review Monitor Loop
+
+MAX_ITERATIONS=10
+iteration=0
+
+while [ $iteration -lt $MAX_ITERATIONS ]; do
+  iteration=$((iteration + 1))
+  echo ""
+  echo "========================================"
+  echo "CI & Review Monitor - Iteration $iteration"
+  echo "========================================"
+
+  # Step 1: Wait for CI
+  if ! wait_for_ci; then
+    echo "CI failed - launching ci-fixer agent..."
+    # Use ci-fixer agent to fix CI failures
+    # Then continue loop (push triggers new CI)
+    continue
+  fi
+
+  # Step 2: Check for unresolved feedback
+  FEEDBACK=$(check_pr_feedback $PR_NUMBER)
+  UNRESOLVED=$(echo "$FEEDBACK" | jq -r '.unresolvedThreads')
+  CHANGES_REQ=$(echo "$FEEDBACK" | jq -r '.changesRequested')
+
+  if [ "$UNRESOLVED" -eq 0 ] && [ "$CHANGES_REQ" -eq 0 ]; then
+    echo ""
+    echo "╔══════════════════════════════════════╗"
+    echo "║  ✓ ALL CHECKS PASSED                 ║"
+    echo "║  ✓ ALL COMMENTS RESOLVED             ║"
+    echo "║  ✓ NO CHANGES REQUESTED              ║"
+    echo "║                                      ║"
+    echo "║  Ready to merge!                     ║"
+    echo "╚══════════════════════════════════════╝"
+    break
+  fi
+
+  # Step 3: Address all feedback
+  echo ""
+  echo "Addressing $UNRESOLVED unresolved threads..."
+
+  # Launch agent to address feedback
+  # This agent will:
+  # - Read each comment
+  # - Fix code issues OR reply explaining why not applicable
+  # - Resolve threads
+  # - Request re-review if needed
+
+  # Step 4: Commit and push (if code changes made)
+  commit_and_push_fixes "fix: address review feedback (iteration $iteration)"
+
+  # Step 5: Wait before next iteration
+  echo ""
+  echo "Waiting 30s for CI to start and potential new feedback..."
+  sleep 30
+done
+
+if [ $iteration -ge $MAX_ITERATIONS ]; then
+  echo ""
+  echo "✗ Max iterations ($MAX_ITERATIONS) reached"
+  echo "Manual intervention required"
+  echo "PR: $PR_URL"
+  exit 1
 fi
 ```
 
-### No CI Platform
+### Summary Output
 
-```bash
-if [ "$CI_PLATFORM" = "null" ] || [ -z "$CI_PLATFORM" ]; then
-  echo "No CI platform detected"
+After each iteration:
 
-  if [ "$SKIP_TESTS" != "true" ]; then
-    echo "Running tests locally..."
+```markdown
+## Iteration ${iteration} Summary
 
-    if [ "$PROJECT_TYPE" = "nodejs" ]; then
-      $PACKAGE_MGR test
-    elif [ "$PROJECT_TYPE" = "python" ]; then
-      pytest
-    elif [ "$PROJECT_TYPE" = "rust" ]; then
-      cargo test
-    elif [ "$PROJECT_TYPE" = "go" ]; then
-      go test ./...
-    fi
+**CI Status**: ✓ Passed
+**Comments Addressed**: ${addressedCount}
+  - Code fixes: ${codeFixCount}
+  - Answered questions: ${questionCount}
+  - Resolved as not applicable: ${notApplicableCount}
+**Remaining Unresolved**: ${remainingCount}
+**Changes Requested**: ${changesRequested ? 'Yes (re-review requested)' : 'No'}
 
-    if [ $? -eq 0 ]; then
-      echo "✓ Tests passed locally"
-    else
-      echo "✗ Tests failed"
-      exit 1
-    fi
-  else
-    echo "⚠ Skipping tests (--skip-tests provided)"
-  fi
-fi
+${remainingCount > 0 ? 'Continuing to next iteration...' : 'Ready to proceed to merge!'}
 ```
 
 ## Phase 5: Review Loop (Subagent Quality Gates)
