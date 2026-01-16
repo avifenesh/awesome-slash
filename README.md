@@ -5,16 +5,16 @@
 A cross-platform plugin providing powerful, zero-configuration slash commands for development workflows. Works with **Claude Code**, **Codex CLI**, and **OpenCode**.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.2.1-blue)](https://github.com/avifenesh/awsome-slash/releases)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue)](https://github.com/avifenesh/awsome-slash/releases)
 [![GitHub stars](https://img.shields.io/github/stars/avifenesh/awsome-slash?style=flat&color=yellow)](https://github.com/avifenesh/awsome-slash/stargazers)
 [![Claude Code](https://img.shields.io/badge/Claude-Code%20Plugin-blue)](https://code.claude.com/)
 [![Codex CLI](https://img.shields.io/badge/Codex-CLI%20Compatible-green)](https://developers.openai.com/codex/cli)
 [![OpenCode](https://img.shields.io/badge/OpenCode-Compatible-orange)](https://opencode.ai)
 
-## What's New in v2.2.1
+## What's New in v2.3.0
 
-- **Version Sync Fix** - All package manifests now correctly report version 2.2.1
-- **Resume by ID/Branch/Path** - `/next-task --resume 123` or `--resume feature/my-task`
+- **CI & Review Monitor Loop** - Auto-addresses ALL PR comments before merge
+- **Progressive Disclosure** - Reduced context consumption by 70-80%
 - **14 Specialist Agents** - Optimized with sonnet→haiku delegation pattern
 
 ---
@@ -83,7 +83,7 @@ Complete task-to-production automation with state management and resume capabili
 **Features:**
 - **Fully autonomous** after plan approval - no human in the loop
 - Resume capability with `.claude/.workflow-state.json`
-- 12 specialist agents with model optimization (opus/sonnet)
+- 14 specialist agents with model optimization (opus/sonnet)
 - Quality gates: deslop-work, test-coverage-checker, delivery-validator, docs-updater
 - SubagentStop hooks for automatic workflow transitions
 - Policy-based stopping points (pr-created, merged, deployed, production)
@@ -262,7 +262,7 @@ awsome-slash/
 ├── plugins/
 │   ├── next-task/           # Master workflow orchestrator
 │   │   ├── commands/        # next-task, update-docs-around, delivery-approval
-│   │   ├── agents/          # 12 specialist agents
+│   │   ├── agents/          # 14 specialist agents
 │   │   └── hooks/           # SubagentStop hooks for workflow automation
 │   ├── ship/                # PR workflow
 │   ├── deslop-around/       # AI slop cleanup
