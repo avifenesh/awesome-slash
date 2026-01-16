@@ -185,6 +185,10 @@ function writeState(state, baseDir = process.cwd()) {
 function updateState(updates, baseDir = process.cwd()) {
   let state = readState(baseDir);
 
+  if (state instanceof Error) {
+    console.error(`Cannot update state: ${state.message}`);
+    return null;
+  }
   if (!state) {
     console.error('No existing state to update');
     return null;
@@ -233,6 +237,10 @@ function startPhase(phaseName, baseDir = process.cwd()) {
   }
 
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot start phase: ${state.message}`);
+    return null;
+  }
   if (!state) {
     console.error('No workflow state exists. Create a workflow first.');
     return null;
@@ -286,6 +294,10 @@ function finalizePhaseEntry(state, status, result) {
  */
 function completePhase(result = {}, baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot complete phase: ${state.message}`);
+    return null;
+  }
   if (!state) return null;
 
   const history = finalizePhaseEntry(state, 'completed', result);
@@ -307,6 +319,10 @@ function completePhase(result = {}, baseDir = process.cwd()) {
  */
 function failPhase(reason, context = {}, baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot fail phase: ${state.message}`);
+    return null;
+  }
   if (!state) return null;
 
   const history = finalizePhaseEntry(state, 'failed', { error: reason });
@@ -336,6 +352,10 @@ function skipToPhase(phaseName, reason = 'manual skip', baseDir = process.cwd())
   }
 
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot skip to phase: ${state.message}`);
+    return null;
+  }
   if (!state) return null;
 
   const currentIndex = PHASES.indexOf(state.phases.current);
@@ -375,6 +395,10 @@ function skipToPhase(phaseName, reason = 'manual skip', baseDir = process.cwd())
  */
 function completeWorkflow(result = {}, baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot complete workflow: ${state.message}`);
+    return null;
+  }
   if (!state) return null;
 
   const now = new Date().toISOString();
@@ -446,6 +470,7 @@ function deleteState(baseDir = process.cwd()) {
  */
 function hasActiveWorkflow(baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) return false;
   if (!state) return false;
 
   return ['pending', 'in_progress', 'paused'].includes(state.workflow.status);
@@ -458,6 +483,9 @@ function hasActiveWorkflow(baseDir = process.cwd()) {
  */
 function getWorkflowSummary(baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    return { error: state.message, code: state.code };
+  }
   if (!state) return null;
 
   const completedPhases = state.phases.history?.filter(p => p.status === 'completed').length || 0;
@@ -496,6 +524,10 @@ function getWorkflowSummary(baseDir = process.cwd()) {
  */
 function updateAgentResult(agentName, result, baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot update agent result: ${state.message}`);
+    return null;
+  }
   if (!state) return null;
 
   const agents = state.agents || {
@@ -519,6 +551,10 @@ function updateAgentResult(agentName, result, baseDir = process.cwd()) {
  */
 function incrementIteration(result = {}, baseDir = process.cwd()) {
   const state = readState(baseDir);
+  if (state instanceof Error) {
+    console.error(`Cannot increment iteration: ${state.message}`);
+    return null;
+  }
   if (!state) return null;
 
   const agents = state.agents || {
