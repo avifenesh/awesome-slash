@@ -455,8 +455,7 @@ describe('workflow-state', () => {
       }, testDir);
 
       // Should merge deeply: c updated, d preserved
-      expect(updated.config.a.b.c).toBe(99);
-      expect(updated.config.a.b.d).toBe(2);
+      expect(updated.config.a.b).toEqual({ c: 99, d: 2 });
     });
   });
 });
