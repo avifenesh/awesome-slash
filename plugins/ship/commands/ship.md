@@ -433,15 +433,58 @@ check_pr_feedback() {
   # Return structured data
   echo "{\"unresolvedThreads\": $UNRESOLVED_THREADS, \"changesRequested\": $CHANGES_REQUESTED}"
 }
+
+# Get full thread details for addressing feedback
+# (separate function to avoid fetching unnecessary data when just checking counts)
+get_unresolved_threads() {
+  local pr_number=$1
+
+  # Extract owner and repo
+  REPO_INFO=$(gh repo view --json owner,name --jq '"\(.owner.login)/\(.name)"')
+  OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
+  REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
+
+  # NOTE: Fetches first 100 threads. For PRs with >100 threads, implement pagination.
+  gh api graphql -f query='
+    query($owner: String!, $repo: String!, $pr: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr) {
+          reviewThreads(first: 100) {
+            nodes {
+              id
+              isResolved
+              path
+              line
+              diffHunk
+              comments(first: 1) {
+                nodes {
+                  id
+                  body
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ' -f owner="$OWNER" -f repo="$REPO" -F pr=$pr_number \
+    --jq '.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)'
+}
 ```
 
 ### Step 3: Address ALL Feedback
 
 **This is where EVERY comment gets addressed - no exceptions.**
 
+> **Note:** The JavaScript below is **conceptual pseudocode** showing the algorithm flow.
+> The assistant should implement this logic using available tools (Read, Edit, gh CLI, etc.)
+> rather than executing this code directly. Helper functions represent actions to take.
+
 ```javascript
+// PSEUDOCODE - Shows the conceptual flow for addressing feedback
+// Implement using: gh api, Read, Edit, Task (ci-fixer), etc.
 async function addressAllFeedback(prNumber) {
-  // Get all unresolved review threads with full context
+  // Get threads via: gh api graphql (see get_unresolved_threads bash function)
   const threads = await getUnresolvedThreads(prNumber);
 
   console.log(`\nAddressing ${threads.length} unresolved threads...`);
@@ -455,15 +498,15 @@ async function addressAllFeedback(prNumber) {
 
     switch (analysis.type) {
       case 'code_fix_required':
-        // Valid issue - fix it
+        // Valid issue - fix it using ci-fixer agent or direct edits
         console.log(`Action: Fixing code issue`);
-        await implementFix(thread);
+        await implementFix(thread);  // Use Task(ci-fixer) or Edit tool
         break;
 
       case 'style_suggestion':
         // Style/nit - fix it anyway (shows quality)
         console.log(`Action: Applying style fix`);
-        await implementFix(thread);
+        await implementFix(thread);  // Use Task(ci-fixer) or Edit tool
         break;
 
       case 'question':
@@ -476,33 +519,36 @@ async function addressAllFeedback(prNumber) {
       case 'false_positive':
         // Not a real issue - explain and resolve
         console.log(`Action: Explaining why this is not an issue`);
-        await replyToComment(thread.id,
+        // Use reply_to_comment bash function
+        await replyToComment(prNumber, thread.commentId,
           `This appears to be a false positive because: ${analysis.reason}\n\n` +
-          `[Specific explanation of why the current code is correct]\n\n` +
+          `<Provide specific explanation of why the current code is correct>\n\n` +
           `Resolving this thread. Please reopen if you disagree.`
         );
-        await resolveThread(thread.id);
+        await resolveThread(thread.id);  // Use resolve_thread bash function
         break;
 
       case 'not_relevant':
         // Out of scope - explain and resolve
         console.log(`Action: Explaining why this is out of scope`);
-        await replyToComment(thread.id,
+        // Use reply_to_comment bash function
+        await replyToComment(prNumber, thread.commentId,
           `This suggestion is outside the scope of this PR because: ${analysis.reason}\n\n` +
-          `[If valid, mention: "I've created issue #X to track this separately."]\n\n` +
+          `<If valid improvement, consider creating a follow-up issue>\n\n` +
           `Resolving this thread. Please reopen if you feel it should be addressed here.`
         );
-        await resolveThread(thread.id);
+        await resolveThread(thread.id);  // Use resolve_thread bash function
         break;
 
       case 'already_addressed':
         // Already fixed - confirm and resolve
         console.log(`Action: Confirming already addressed`);
-        await replyToComment(thread.id,
-          `This has been addressed in commit ${getLatestCommit()}. ` +
-          `[Brief explanation of the fix]`
+        // Use reply_to_comment bash function; get commit via: git rev-parse HEAD
+        await replyToComment(prNumber, thread.commentId,
+          `This has been addressed in commit ${gitRevParseHead}. ` +
+          `<Brief explanation of the fix>`
         );
-        await resolveThread(thread.id);
+        await resolveThread(thread.id);  // Use resolve_thread bash function
         break;
     }
   }
@@ -525,7 +571,11 @@ async function addressAllFeedback(prNumber) {
 
 ### Comment Analysis Logic
 
+> **Note:** This is **conceptual pseudocode** showing classification heuristics.
+> The assistant should apply this logic when reading comments to determine appropriate action.
+
 ```javascript
+// PSEUDOCODE - Classification heuristics for comment handling
 function analyzeComment(thread) {
   const body = thread.body.toLowerCase();
   const path = thread.path;
@@ -544,13 +594,15 @@ function analyzeComment(thread) {
   }
 
   // Check if comment refers to code that doesn't exist in diff
-  if (!diffHunk || !isCommentRelevantToChanges(thread)) {
+  // (assistant should check if the file/line was actually modified)
+  if (!diffHunk || commentRefersToUnchangedCode(thread)) {
     return { type: 'not_relevant', reason: 'Comment refers to unchanged code' };
   }
 
   // Check for common false positive patterns
-  if (isFalsePositive(thread)) {
-    return { type: 'false_positive', reason: getFalsePositiveReason(thread) };
+  // (assistant should use judgment based on context)
+  if (commentIsFalsePositive(thread)) {
+    return { type: 'false_positive', reason: determineFalsePositiveReason(thread) };
   }
 
   // Default: treat as code fix required
@@ -614,9 +666,9 @@ reply_to_comment() {
   OWNER=$(echo "$REPO_INFO" | cut -d'/' -f1)
   REPO=$(echo "$REPO_INFO" | cut -d'/' -f2)
 
-  gh api "repos/$OWNER/$REPO/pulls/$pr_number/comments" \
+  gh api -X POST "repos/$OWNER/$REPO/pulls/$pr_number/comments" \
     -f body="$body" \
-    -f in_reply_to="$comment_id"
+    -F in_reply_to="$comment_id"
 }
 ```
 
@@ -625,12 +677,13 @@ reply_to_comment() {
 ```bash
 commit_and_push_fixes() {
   local message=$1
+  local branch=${2:-$(git branch --show-current)}
 
   # Check if there are changes to commit
   if [ -n "$(git status --porcelain)" ]; then
     git add -A
     git commit -m "$message"
-    git push origin $CURRENT_BRANCH
+    git push origin "$branch"
     echo "✓ Pushed fixes"
     return 0
   else
@@ -647,7 +700,10 @@ commit_and_push_fixes() {
 # Phase 4: CI & Review Monitor Loop
 
 MAX_ITERATIONS=10
-INITIAL_WAIT=180  # 3 minutes - wait for auto-reviews (Gemini, CodeRabbit, etc.)
+# Initial wait for auto-reviews (configurable via env var)
+# - Set SHIP_INITIAL_WAIT=0 to skip waiting (projects without review bots)
+# - Default: 180s (3 min) - enough time for Gemini, CodeRabbit, etc.
+INITIAL_WAIT=${SHIP_INITIAL_WAIT:-180}
 ITERATION_WAIT=30  # 30 seconds between iterations
 iteration=0
 
@@ -667,10 +723,11 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   fi
 
   # Step 1.5: On first iteration, wait for auto-reviews to arrive
-  if [ $iteration -eq 1 ]; then
+  if [ $iteration -eq 1 ] && [ "$INITIAL_WAIT" -gt 0 ]; then
     echo ""
     echo "First iteration - waiting ${INITIAL_WAIT}s for auto-reviews to arrive..."
     echo "(Bots like Gemini Code Assist, CodeRabbit need time to analyze)"
+    echo "(Set SHIP_INITIAL_WAIT=0 to skip this wait)"
     sleep $INITIAL_WAIT
   fi
 
