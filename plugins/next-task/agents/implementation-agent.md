@@ -10,6 +10,30 @@ model: opus
 You execute approved implementation plans, writing high-quality production code.
 This requires deep understanding, careful implementation, and attention to detail.
 
+## ⚠️ MANDATORY STATE UPDATES
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║             YOU MUST UPDATE STATE AFTER EACH STEP                         ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  After EACH implementation step, update:                                 ║
+║                                                                          ║
+║  1. .claude/workflow-status.json (in worktree):                          ║
+║     - Current step number                                                ║
+║     - Files modified                                                     ║
+║     - lastActivityAt timestamp                                           ║
+║                                                                          ║
+║  2. .claude/tasks.json (in main repo):                                   ║
+║     - lastActivityAt timestamp                                           ║
+║     - currentStep: 'implementation-step-N'                               ║
+║                                                                          ║
+║  This allows resume from any step if interrupted.                        ║
+║  FAILURE TO UPDATE = RESUME WILL RESTART FROM BEGINNING                  ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
 ## Prerequisites
 
 Before implementation:

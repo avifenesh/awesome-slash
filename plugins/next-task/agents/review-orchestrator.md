@@ -17,6 +17,72 @@ const MAX_ITERATIONS = 3;  // From policy.maxReviewIterations
 const workflowState = require('${CLAUDE_PLUGIN_ROOT}/lib/state/workflow-state.js');
 ```
 
+## ⚠️ MANDATORY STATE UPDATES
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║              YOU MUST UPDATE STATE AFTER EACH ITERATION                   ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  After EACH review iteration, update:                                    ║
+║                                                                          ║
+║  1. .claude/workflow-status.json (in worktree):                          ║
+║     - Current iteration number                                           ║
+║     - Issues found/fixed counts                                          ║
+║     - lastActivityAt timestamp                                           ║
+║                                                                          ║
+║  2. .claude/tasks.json (in main repo):                                   ║
+║     - lastActivityAt timestamp                                           ║
+║     - currentStep: 'review-iteration-N'                                  ║
+║                                                                          ║
+║  FAILURE TO UPDATE = RESUME WILL FAIL                                    ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+### State Update After Each Iteration
+
+```javascript
+function updateStateAfterIteration(iteration, findings) {
+  const fs = require('fs');
+
+  // 1. Update worktree status
+  const statusPath = '.claude/workflow-status.json';
+  const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+
+  status.steps.push({
+    step: `review-iteration-${iteration}`,
+    status: 'completed',
+    completedAt: new Date().toISOString(),
+    result: {
+      issuesFound: findings.totals.critical + findings.totals.high,
+      issuesFixed: findings.issuesFixed || 0
+    }
+  });
+
+  status.workflow.lastActivityAt = new Date().toISOString();
+  status.agents.reviewIterations = iteration;
+  status.agents.issuesFound = (status.agents.issuesFound || 0) + findings.totals.critical + findings.totals.high;
+
+  fs.writeFileSync(statusPath, JSON.stringify(status, null, 2));
+  console.log(`✓ Updated workflow-status.json: review-iteration-${iteration}`);
+
+  // 2. Update main repo tasks.json
+  if (status.git?.mainRepoPath) {
+    const mainTasksPath = status.git.mainRepoPath + '/.claude/tasks.json';
+    if (fs.existsSync(mainTasksPath)) {
+      const registry = JSON.parse(fs.readFileSync(mainTasksPath, 'utf8'));
+      const idx = registry.tasks.findIndex(t => t.id === status.task.id);
+      if (idx >= 0) {
+        registry.tasks[idx].lastActivityAt = new Date().toISOString();
+        registry.tasks[idx].currentStep = `review-iteration-${iteration}`;
+        fs.writeFileSync(mainTasksPath, JSON.stringify(registry, null, 2));
+      }
+    }
+  }
+}
+```
+
 ## Phase 1: Get Changed Files
 
 ```bash

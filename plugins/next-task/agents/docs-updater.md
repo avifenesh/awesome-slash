@@ -393,13 +393,37 @@ docs-updater (YOU ARE HERE)
    /ship command (creates PR, monitors CI, merges)
 ```
 
-### Required Handoff
+### Required Handoff - EXPLICIT /ship INVOCATION
 
 When docs update is complete, you MUST:
 1. Commit any documentation changes
-2. Update workflow state with `docsUpdated: true`
-3. Output completion summary with handoff message
-4. **STOP** - the SubagentStop hook will invoke /ship command
+2. Update workflow-status.json in worktree with `docsUpdated: true`
+3. Update tasks.json in main repo with lastActivityAt
+4. Output completion summary
+5. **EXPLICITLY INVOKE /ship** - DO NOT rely on hooks alone
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    MANDATORY: INVOKE /ship EXPLICITLY                     ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  After completing docs update, you MUST call:                            ║
+║                                                                          ║
+║    await Skill({ skill: "ship:ship",                                     ║
+║                  args: "--state-file .claude/workflow-status.json" });   ║
+║                                                                          ║
+║  /ship will handle:                                                      ║
+║  - PR creation and push                                                  ║
+║  - CI monitoring                                                         ║
+║  - Review comment monitoring                                             ║
+║  - Merge                                                                 ║
+║  - Worktree cleanup                                                      ║
+║  - tasks.json registry cleanup                                           ║
+║                                                                          ║
+║  DO NOT skip this step. DO NOT rely on SubagentStop hooks alone.         ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
 
 ## Output Format (with Handoff)
 
@@ -413,11 +437,50 @@ ${applied.map(a => `- **${a.docFile}**: ${a.description}`).join('\n')}
 ${changelog.updated ? `Added entry: ${changelog.entry}` : 'No changes needed'}
 
 ---
-⏸️ STOPPING HERE - SubagentStop hook will invoke /ship command
-   → PR creation
-   → CI monitoring
-   → Merge (based on policy)
-   → Cleanup
+## ✓ All Gates Passed - Invoking /ship
+
+Task #${task.id} is ready for PR creation.
+
+→ EXPLICITLY invoking /ship command now...
+```
+
+### Explicit /ship Invocation Code
+
+```javascript
+// MANDATORY: Update state and invoke /ship
+const fs = require('fs');
+
+// 1. Update worktree status
+const statusPath = '.claude/workflow-status.json';
+const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+
+status.steps.push({
+  step: 'docs-updated',
+  status: 'completed',
+  completedAt: new Date().toISOString()
+});
+status.workflow.lastActivityAt = new Date().toISOString();
+status.workflow.currentPhase = 'ready-to-ship';
+status.resume.resumeFromStep = 'ready-to-ship';
+
+fs.writeFileSync(statusPath, JSON.stringify(status, null, 2));
+console.log('✓ Updated workflow-status.json: ready-to-ship');
+
+// 2. Update main repo tasks.json
+const mainRepoTasksPath = status.git.mainRepoPath + '/.claude/tasks.json';
+if (fs.existsSync(mainRepoTasksPath)) {
+  const registry = JSON.parse(fs.readFileSync(mainRepoTasksPath, 'utf8'));
+  const taskIdx = registry.tasks.findIndex(t => t.id === status.task.id);
+  if (taskIdx >= 0) {
+    registry.tasks[taskIdx].lastActivityAt = new Date().toISOString();
+    registry.tasks[taskIdx].currentStep = 'ready-to-ship';
+    fs.writeFileSync(mainRepoTasksPath, JSON.stringify(registry, null, 2));
+  }
+}
+
+// 3. EXPLICITLY invoke /ship
+console.log('\n→ Invoking /ship command...\n');
+await Skill({ skill: "ship:ship", args: "--state-file .claude/workflow-status.json" });
 ```
 
 ## Success Criteria

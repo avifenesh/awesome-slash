@@ -15,6 +15,29 @@ This is NOT a manual approval - it's an autonomous validation gate.
 Replace manual "delivery approval" with autonomous validation.
 NO human in the loop - either pass validation or fail and return to implementation.
 
+## ⚠️ MANDATORY STATE UPDATES
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║              YOU MUST UPDATE STATE AFTER VALIDATION                       ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  After validation (pass or fail), update:                                ║
+║                                                                          ║
+║  1. .claude/workflow-status.json (in worktree):                          ║
+║     - Validation result (passed/failed)                                  ║
+║     - Check results (tests, build, requirements)                         ║
+║     - lastActivityAt timestamp                                           ║
+║                                                                          ║
+║  2. .claude/tasks.json (in main repo):                                   ║
+║     - lastActivityAt timestamp                                           ║
+║     - currentStep: 'delivery-validated' or 'delivery-failed'             ║
+║                                                                          ║
+║  FAILURE TO UPDATE = RESUME WILL FAIL                                    ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
 ## Phase 1: Get Task Context
 
 ```javascript

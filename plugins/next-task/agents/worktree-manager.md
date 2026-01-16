@@ -306,26 +306,73 @@ All subsequent operations will occur in isolated environment.
 Proceeding to exploration phase...
 ```
 
-## Cleanup Function
+## ⚠️ WORKTREE CLEANUP RESPONSIBILITIES
 
-For workflow completion or abort, clean up the worktree:
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    WORKTREE CLEANUP - WHO DOES WHAT                       ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  THIS AGENT (worktree-manager):                                          ║
+║  ✓ Creates worktrees                                                     ║
+║  ✓ Claims tasks in tasks.json registry                                   ║
+║  ✓ Creates workflow-status.json in worktree                              ║
+║  ✗ Does NOT clean up worktrees after completion                          ║
+║                                                                          ║
+║  /ship COMMAND:                                                          ║
+║  ✓ Cleans up worktree after successful merge                             ║
+║  ✓ Removes task from tasks.json registry                                 ║
+║  ✓ Prunes worktree references                                            ║
+║                                                                          ║
+║  --abort FLAG:                                                           ║
+║  ✓ Cleans up worktree on workflow abort                                  ║
+║  ✓ Removes task from tasks.json registry                                 ║
+║                                                                          ║
+║  AGENTS MUST NOT:                                                        ║
+║  ⛔ Clean up worktrees themselves                                        ║
+║  ⛔ Remove tasks from registry                                           ║
+║  ⛔ Delete branches                                                      ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+## Cleanup Function (Used by /ship and --abort ONLY)
+
+This function is for reference - it is called by /ship after merge or by --abort:
 
 ```bash
+# ONLY called by /ship or --abort, NOT by agents
 cleanup_worktree() {
   local WORKTREE_PATH="$1"
   local BRANCH_NAME="$2"
   local ORIGINAL_DIR="$3"
+  local TASK_ID="$4"
 
   # Return to original directory first
   cd "$ORIGINAL_DIR"
 
-  # Remove worktree
+  # 1. Remove worktree
   git worktree remove "$WORKTREE_PATH" --force 2>/dev/null
+  echo "✓ Removed worktree at $WORKTREE_PATH"
 
-  # Optionally delete branch (only if not merged)
+  # 2. Prune worktree references
+  git worktree prune
+  echo "✓ Pruned worktree references"
+
+  # 3. Remove task from registry (CRITICAL)
+  if [ -f ".claude/tasks.json" ]; then
+    # Use node to safely modify JSON
+    node -e "
+      const fs = require('fs');
+      const registry = JSON.parse(fs.readFileSync('.claude/tasks.json', 'utf8'));
+      registry.tasks = registry.tasks.filter(t => t.id !== '$TASK_ID');
+      fs.writeFileSync('.claude/tasks.json', JSON.stringify(registry, null, 2));
+    "
+    echo "✓ Removed task #$TASK_ID from tasks.json registry"
+  fi
+
+  # 4. Optionally delete branch (only if not merged and user requested)
   # git branch -d "$BRANCH_NAME" 2>/dev/null
-
-  echo "✓ Cleaned up worktree at $WORKTREE_PATH"
 }
 ```
 

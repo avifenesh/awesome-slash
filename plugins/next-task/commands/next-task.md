@@ -47,8 +47,8 @@ Implementation → Pre-Review Gates → Review Loop → Delivery Validation
 ║  4. delivery-validator (MUST approve - tests pass, build passes)         ║
 ║           ↓ MUST trigger (only if approved)                              ║
 ║  5. docs-updater                                                         ║
-║           ↓ MUST trigger                                                 ║
-║  6. /ship command (creates PR, monitors CI, merges)                      ║
+║           ↓ MUST EXPLICITLY invoke /ship (NOT rely on hooks alone)       ║
+║  6. /ship command (creates PR, monitors CI, merges, CLEANS UP)           ║
 ║                                                                          ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║                                                                          ║
@@ -57,8 +57,80 @@ Implementation → Pre-Review Gates → Review Loop → Delivery Validation
 ║  ⛔ NO AGENT may skip the review-orchestrator                            ║
 ║  ⛔ NO AGENT may skip the delivery-validator                             ║
 ║  ⛔ NO AGENT may skip the docs-updater                                   ║
+║  ⛔ NO AGENT may skip workflow-status.json updates after each phase      ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+## ⚠️ MANDATORY STATE UPDATES - EVERY AGENT
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                    EVERY AGENT MUST UPDATE STATE                          ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  After EACH phase completion, agents MUST:                               ║
+║                                                                          ║
+║  1. Update .claude/workflow-status.json in the WORKTREE with:            ║
+║     - Current step name and status                                       ║
+║     - Timestamp of completion                                            ║
+║     - Any relevant result data                                           ║
+║                                                                          ║
+║  2. Update .claude/tasks.json in the MAIN REPO with:                     ║
+║     - lastActivityAt timestamp                                           ║
+║     - Current status                                                     ║
+║                                                                          ║
+║  FAILURE TO UPDATE STATE = WORKFLOW CANNOT RESUME                        ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+### State Update Code (Use in EVERY agent)
+
+```javascript
+// MANDATORY: Call this at the END of every agent's work
+function recordStepCompletion(stepName, result = {}) {
+  const fs = require('fs');
+  const path = require('path');
+
+  // 1. Update worktree's workflow-status.json
+  const worktreeStatusPath = '.claude/workflow-status.json';
+  if (fs.existsSync(worktreeStatusPath)) {
+    const status = JSON.parse(fs.readFileSync(worktreeStatusPath, 'utf8'));
+
+    status.steps.push({
+      step: stepName,
+      status: 'completed',
+      startedAt: status.workflow.lastActivityAt,
+      completedAt: new Date().toISOString(),
+      result: result
+    });
+
+    status.workflow.lastActivityAt = new Date().toISOString();
+    status.workflow.currentPhase = stepName;
+    status.resume.resumeFromStep = stepName;
+
+    fs.writeFileSync(worktreeStatusPath, JSON.stringify(status, null, 2));
+    console.log(`✓ Updated workflow-status.json: ${stepName}`);
+  }
+
+  // 2. Update main repo's tasks.json (if accessible)
+  const mainRepoTasksPath = status?.git?.mainRepoPath
+    ? path.join(status.git.mainRepoPath, '.claude', 'tasks.json')
+    : null;
+
+  if (mainRepoTasksPath && fs.existsSync(mainRepoTasksPath)) {
+    const registry = JSON.parse(fs.readFileSync(mainRepoTasksPath, 'utf8'));
+    const taskIdx = registry.tasks.findIndex(t => t.id === status.task.id);
+
+    if (taskIdx >= 0) {
+      registry.tasks[taskIdx].lastActivityAt = new Date().toISOString();
+      registry.tasks[taskIdx].currentStep = stepName;
+      fs.writeFileSync(mainRepoTasksPath, JSON.stringify(registry, null, 2));
+      console.log(`✓ Updated tasks.json registry: ${stepName}`);
+    }
+  }
+}
 ```
 
 ### SubagentStop Hook Enforcement
@@ -83,6 +155,39 @@ Parse from $ARGUMENTS:
 /next-task --resume 123                 # Resume by task ID
 /next-task --resume feature/my-task-123 # Resume by branch name
 /next-task --resume ../worktrees/my-task-123  # Resume by worktree path
+```
+
+### ⚠️ EXISTING SESSION vs STALE SESSION - IMPORTANT
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║              UNDERSTANDING "EXISTING SESSION" SEMANTICS                   ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  "Existing session" means AN ACTIVE AGENT IS CURRENTLY RUNNING:          ║
+║                                                                          ║
+║  ✓ An agent is in the middle of processing                               ║
+║  ✓ The workflow was interrupted (context limit, crash, user cancel)      ║
+║  ✓ workflow-status.json shows recent lastActivityAt (< 1 hour)           ║
+║                                                                          ║
+║  This is DIFFERENT from a "stale session":                               ║
+║                                                                          ║
+║  ✗ Worktree exists but no agent is running                               ║
+║  ✗ lastActivityAt is old (> 24 hours)                                    ║
+║  ✗ User abandoned the task without cleanup                               ║
+║                                                                          ║
+║  BEHAVIOR:                                                               ║
+║  - Existing session: --resume continues from last checkpoint             ║
+║  - Stale session: Ask user - resume or abort/cleanup?                    ║
+║  - No session: Start fresh workflow                                      ║
+║                                                                          ║
+║  CHECK BEFORE STARTING NEW WORKFLOW:                                     ║
+║  1. Read .claude/tasks.json in main repo                                 ║
+║  2. If tasks exist, check lastActivityAt for each                        ║
+║  3. Recent activity (< 1 hour) = active session, DO NOT start new        ║
+║  4. Old activity (> 24 hours) = stale, ask user                          ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
 ```
 
 ## Pre-flight: Handle Arguments
@@ -361,26 +466,88 @@ await Task({
 workflowState.completePhase({ docsUpdated: true });
 ```
 
-## Handoff to /ship
+## ⚠️ EXPLICIT HANDOFF TO /ship - CRITICAL
 
-After docs update completes, pass to /ship command for:
-- PR creation
-- CI monitoring
-- Merge (based on policy)
-- Deploy (if policy allows)
-- Cleanup
+After docs-updater completes, you MUST EXPLICITLY invoke /ship.
+**DO NOT rely on SubagentStop hooks alone** - explicitly call the ship skill.
+
+```
+╔══════════════════════════════════════════════════════════════════════════╗
+║                      /ship RESPONSIBILITIES                               ║
+╠══════════════════════════════════════════════════════════════════════════╣
+║                                                                          ║
+║  /ship handles ALL of the following (agents must NOT do these):          ║
+║                                                                          ║
+║  1. CREATE PR - Push branch, create pull request                         ║
+║  2. MONITOR CI - Wait for checks to pass                                 ║
+║  3. MONITOR COMMENTS - Wait for reviews, address all comments            ║
+║  4. MERGE PR - Squash/merge based on policy                              ║
+║  5. CLEANUP WORKTREE - Remove worktree after merge                       ║
+║  6. UPDATE tasks.json - Remove task from registry after completion       ║
+║                                                                          ║
+║  AGENTS MUST NOT:                                                        ║
+║  - Create PRs                                                            ║
+║  - Push to remote                                                        ║
+║  - Clean up worktrees                                                    ║
+║  - Remove tasks from registry                                            ║
+║                                                                          ║
+╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+### Required Handoff Code
 
 ```javascript
+// AFTER docs-updater completes, EXPLICITLY invoke /ship
 console.log(`
 ## ✓ Implementation Complete - Ready to Ship
 
 Task #${state.task.id} passed all validation checks.
+- ✓ Review approved (all critical/high resolved)
+- ✓ Delivery validated (tests pass, build passes)
+- ✓ Documentation updated
 
-→ Passing to /ship for PR creation and merge workflow.
+→ EXPLICITLY invoking /ship for PR creation and merge workflow.
 `);
 
-// Invoke ship command
-await Skill({ skill: "ship:ship" });
+// Update state BEFORE invoking ship
+recordStepCompletion('ready-to-ship', {
+  readyAt: new Date().toISOString(),
+  taskId: state.task.id
+});
+
+// EXPLICIT invocation - DO NOT skip this
+await Skill({ skill: "ship:ship", args: "--state-file .claude/workflow-status.json" });
+```
+
+### /ship Cleanup Responsibilities
+
+When /ship completes successfully, it MUST:
+
+```javascript
+// /ship cleanup (happens inside ship command)
+function cleanupAfterShip(state) {
+  const fs = require('fs');
+  const path = require('path');
+
+  // 1. Remove task from main repo's tasks.json
+  const mainRepoTasksPath = path.join(state.git.mainRepoPath, '.claude', 'tasks.json');
+  if (fs.existsSync(mainRepoTasksPath)) {
+    const registry = JSON.parse(fs.readFileSync(mainRepoTasksPath, 'utf8'));
+    registry.tasks = registry.tasks.filter(t => t.id !== state.task.id);
+    fs.writeFileSync(mainRepoTasksPath, JSON.stringify(registry, null, 2));
+    console.log(`✓ Removed task #${state.task.id} from tasks.json registry`);
+  }
+
+  // 2. Return to main repo directory
+  process.chdir(state.git.mainRepoPath);
+
+  // 3. Remove worktree
+  exec(`git worktree remove "${state.git.worktreePath}" --force`);
+  console.log(`✓ Removed worktree at ${state.git.worktreePath}`);
+
+  // 4. Prune worktree references
+  exec('git worktree prune');
+}
 ```
 
 ## Error Handling
