@@ -4,7 +4,7 @@ Last updated: 2026-01-18
 
 ## Summary
 **Total Issues**: 69 | Critical: 7 | High: 21 | Medium: 32 | Low: 9
-**Fixed This Review**: 32 issues across security, testing, performance, and architecture
+**Fixed This Review**: 33 issues across security, testing, performance, and architecture
 
 ## Critical Issues
 
@@ -68,8 +68,9 @@ Last updated: 2026-01-18
 
 ### PERFORMANCE
 
-- [ ] **lib/platform/detect-platform.js:281-285** - Synchronous execSync blocks event loop
-  - **Fix**: Deprecate sync version, use detectAsync() in production
+- [x] **lib/platform/detect-platform.js:281-285** - Synchronous execSync blocks event loop **FIXED 2026-01-18**
+  - **Fix**: Added deprecation warnings to all sync functions pointing to async alternatives
+  - **Note**: Full removal planned for v3.0.0. All 9 sync functions now warn once per function.
   - **Effort**: medium
 
 - [x] **lib/patterns/slop-patterns.js:61-433** - Regex patterns not pre-compiled **VERIFIED ALREADY FIXED**
@@ -242,7 +243,8 @@ Last updated: 2026-01-18
 |------|---------|
 | `lib/utils/context-optimizer.js` | Added 3 validation functions, secured 8 command-building functions, exported internals for testing |
 | `lib/state/workflow-state.js` | Added path validation, deepMerge depth limit, state caching, PHASE_INDEX Map for O(1) lookups |
-| `lib/platform/detect-platform.js` | Added timeout wrapper, O(1) cache eviction, per-file size limit (64KB) |
+| `lib/platform/detect-platform.js` | Added timeout wrapper, O(1) cache eviction, per-file size limit (64KB), deprecation warnings for 7 sync functions |
+| `lib/platform/verify-tools.js` | Added deprecation warnings for 2 sync functions (checkTool, verifyTools) |
 | `lib/patterns/slop-patterns.js` | Added glob-to-regex ReDoS protection (MAX_GLOB_WILDCARDS limit of 10 wildcards) |
 | `lib/index.js` | **NEW** - Unified library entry point |
 | `__tests__/context-optimizer.test.js` | **NEW** - 98 comprehensive security-focused tests |
