@@ -9,19 +9,16 @@ echo
 
 # Configuration
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+# Use $HOME which works correctly on all platforms including Git Bash on Windows
+# (Git Bash sets HOME to Unix-style path like /c/Users/username)
 OPENCODE_CONFIG_DIR="${HOME}/.opencode"
 OPENCODE_COMMANDS_DIR="${OPENCODE_CONFIG_DIR}/commands/awesome-slash"
 LIB_DIR="${OPENCODE_COMMANDS_DIR}/lib"
 
-# Detect OS and normalize paths
-if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+# Detect OS for platform-specific notes
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
   IS_WINDOWS=true
-  # Convert Windows path to Unix-style for bash compatibility
-  OPENCODE_CONFIG_DIR="${USERPROFILE}/.opencode"
-  # Replace backslashes with forward slashes
-  OPENCODE_CONFIG_DIR="${OPENCODE_CONFIG_DIR//\\//}"
-  OPENCODE_COMMANDS_DIR="${OPENCODE_CONFIG_DIR}/commands/awesome-slash"
-  LIB_DIR="${OPENCODE_COMMANDS_DIR}/lib"
 else
   IS_WINDOWS=false
 fi
@@ -96,10 +93,10 @@ for cmd in "${COMMANDS[@]}"; do
   TARGET_FILE="$OPENCODE_COMMANDS_DIR/$cmd.md"
 
   if [ -f "$SOURCE_FILE" ]; then
-    # Replace Claude-specific path variables with OpenCode paths
-    # Escape sed special characters in path to prevent injection
-    SAFE_COMMANDS_DIR=$(echo "${OPENCODE_COMMANDS_DIR}" | sed 's/[&/\]/\\&/g')
-    sed "s|\${CLAUDE_PLUGIN_ROOT}|${SAFE_COMMANDS_DIR}|g" "$SOURCE_FILE" > "$TARGET_FILE"
+    # Copy command file - OpenCode will resolve paths at runtime
+    # Note: ${CLAUDE_PLUGIN_ROOT} references are kept as-is since OpenCode
+    # uses different path resolution mechanisms
+    cp "$SOURCE_FILE" "$TARGET_FILE"
     echo "  ✓ Installed /$cmd"
   else
     echo "  ⚠️  Skipped /$cmd (source not found)"
