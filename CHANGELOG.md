@@ -37,6 +37,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `verifyTools()` → use `verifyToolsAsync()` instead
   - Warnings appear once per function with migration guidance
   - **Sync functions will be removed in v3.0.0**
+- **Configuration Management** - Centralized configuration system (lib/config/)
+  - Environment variable support (`AWESOME_SLASH_*` vars)
+  - `.awesomeslashrc.json` loading (home directory and project root)
+  - package.json `awesomeSlash` field integration
+  - Schema validation and caching (5s TTL)
+  - See [lib/config/README.md](./lib/config/README.md) for full documentation
+- **Shell Escaping Utilities** - Centralized module (lib/utils/shell-escape.js)
+  - 5 escaping functions for safe shell command construction
+  - Command injection prevention
+  - Extracted from context-optimizer for reusability
+- **State Schema Validation** - New `validateStateSchema()` export in workflow-state.js
+  - Comprehensive validation of all required fields
+  - Validates version, workflow, policy, phases, checkpoints, and metrics
+- **Linear Task Source** - MCP server integration
+  - Discovers tasks via GitHub issues with Linear URLs
+  - Extracts Linear IDs from issue bodies
+  - Full filtering and prioritization support
+
+### Fixed
+- **Security**: Command injection vulnerabilities (7 critical issues)
+  - Fixed unsafe git branch/ref parameters in context-optimizer.js
+  - Added validateBranchName(), validateGitRef(), validateLimit()
+  - Secured 8 command-building functions
+- **Security**: Path traversal protection in workflow-state.js
+  - Added validateBasePath() and validateStatePathWithinBase()
+- **Security**: TOCTOU race condition in ensureStateDir()
+- **Security**: Prototype pollution protection in deepMerge (MAX_MERGE_DEPTH=50)
+- **Performance**: Multiple optimizations (20 issues addressed)
+  - State caching with 200ms TTL for rapid successive reads
+  - Lazy index initialization in review-patterns.js (deferred to first access)
+  - O(1) phase lookup with PHASE_INDEX Map
+  - Shallow merge optimization for simple state updates (isSimpleUpdate helper)
+  - Single-pass filtering in slop-patterns.js getPatternsByCriteria()
+  - Exclude result caching (200 entries, FIFO eviction)
+  - Optimized deepFreeze using for-in vs forEach
+  - Removed redundant Map.has() checks before get()
+  - Cached arrays to avoid repeated Array.from() calls
+  - TTY-aware JSON formatting in detect-platform.js
+  - O(1) cache eviction using Map insertion order
+
+### Changed
+- **lib/index.js** - Added config export for unified entry point
+- **lib/utils/context-optimizer.js** - Now uses shell-escape module
+- **mcp-server/index.js** - Added error boundary with handlers for uncaughtException, unhandledRejection, SIGINT, SIGTERM
+- **Documentation** - Added Configuration section to README.md
+- **Documentation** - Updated Repository Structure in README.md to include config/ and utils/
+
 ## [2.4.4] - 2026-01-18
 
 ### Added

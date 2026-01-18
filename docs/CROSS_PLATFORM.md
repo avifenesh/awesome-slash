@@ -167,15 +167,21 @@ All integrations use the same core libraries:
 
 ```
 lib/
+├── config/
+│   ├── index.js               # Configuration management
+│   └── README.md              # Configuration documentation
 ├── state/
 │   ├── workflow-state.js      # State management
 │   └── workflow-state.schema.json
 ├── platform/
 │   ├── detect-platform.js     # Auto-detect project type
 │   └── verify-tools.js        # Check required tools
-└── patterns/
-    ├── review-patterns.js     # Code review patterns
-    └── slop-patterns.js       # AI slop detection
+├── patterns/
+│   ├── review-patterns.js     # Code review patterns
+│   └── slop-patterns.js       # AI slop detection
+└── utils/
+    ├── shell-escape.js        # Safe shell command construction
+    └── context-optimizer.js   # Git command optimization
 ```
 
 ## Platform-Specific Considerations

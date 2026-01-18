@@ -258,6 +258,54 @@ See [docs/CROSS_PLATFORM.md](./docs/CROSS_PLATFORM.md) for details.
 
 ---
 
+## Configuration
+
+Awesome-slash supports flexible configuration via environment variables, configuration files, and package.json.
+
+### Quick Start
+
+Create `.awesomeslashrc.json` in your home directory or project root:
+
+```json
+{
+  "logging": {
+    "level": "debug"
+  },
+  "tasks": {
+    "defaultSource": "linear",
+    "defaultStoppingPoint": "pr-created"
+  },
+  "performance": {
+    "cacheSize": 200,
+    "cacheTTL": 500
+  }
+}
+```
+
+### Environment Variables
+
+Override any setting with `AWESOME_SLASH_*` environment variables:
+
+```bash
+export AWESOME_SLASH_LOG_LEVEL=debug
+export AWESOME_SLASH_TASK_SOURCE=linear
+export AWESOME_SLASH_CACHE_SIZE=200
+```
+
+### Configuration Sources
+
+Configuration is loaded with priority (highest to lowest):
+
+1. Environment variables (`AWESOME_SLASH_*`)
+2. `.awesomeslashrc.json` in current directory
+3. `.awesomeslashrc.json` in home directory
+4. `package.json` "awesomeSlash" field
+5. Built-in defaults
+
+See [lib/config/README.md](./lib/config/README.md) for complete documentation and all available options.
+
+---
+
 ## Architecture
 
 ### State Management
@@ -326,9 +374,11 @@ awesome-slash/
 │   ├── project-review/      # Multi-agent review
 │   └── reality-check/       # Plan drift detection
 ├── lib/
+│   ├── config/              # Configuration management
 │   ├── state/               # Workflow state management
 │   ├── platform/            # Auto-detection
-│   └── patterns/            # Code analysis patterns
+│   ├── patterns/            # Code analysis patterns
+│   └── utils/               # Shell escaping and context optimization
 ├── mcp-server/              # Cross-platform MCP server
 ├── scripts/install/         # Platform installers
 └── docs/
