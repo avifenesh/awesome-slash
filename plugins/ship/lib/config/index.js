@@ -97,17 +97,62 @@ let _cacheTime = 0;
 const CACHE_TTL = 5000; // 5 seconds
 
 /**
+ * Deep merge two objects (prototype-pollution safe)
+ * @param {Object} target - Target object
+ * @param {Object} source - Source object
+ * @returns {Object} Merged object
+ */
+function deepMerge(target, source) {
+  const dangerousProps = ['__proto__', 'constructor', 'prototype'];
+
+  for (const key of Object.keys(source)) {
+    // Guard against prototype pollution
+    if (dangerousProps.includes(key)) {
+      continue;
+    }
+
+    const sourceValue = source[key];
+    const targetValue = target[key];
+
+    if (sourceValue && typeof sourceValue === 'object' && !Array.isArray(sourceValue)) {
+      // Recursively merge objects
+      if (targetValue && typeof targetValue === 'object' && !Array.isArray(targetValue)) {
+        deepMerge(targetValue, sourceValue);
+      } else {
+        target[key] = sourceValue;
+      }
+    } else {
+      // Directly assign primitives and arrays
+      target[key] = sourceValue;
+    }
+  }
+
+  return target;
+}
+
+/**
  * Set a nested property using dot notation
  * @param {Object} obj - Object to modify
  * @param {string} path - Dot-separated path (e.g., 'performance.cacheSize')
  * @param {*} value - Value to set
+ * @throws {Error} If path contains dangerous property names
  */
 function setNestedProperty(obj, path, value) {
   const parts = path.split('.');
+
+  // Guard against prototype pollution
+  const dangerousProps = ['__proto__', 'constructor', 'prototype'];
+  for (const part of parts) {
+    if (dangerousProps.includes(part)) {
+      throw new Error(`Invalid property name: ${part}`);
+    }
+  }
+
   let current = obj;
 
   for (let i = 0; i < parts.length - 1; i++) {
-    if (!(parts[i] in current)) {
+    // Use hasOwn to avoid prototype chain traversal
+    if (!Object.prototype.hasOwnProperty.call(current, parts[i])) {
       current[parts[i]] = {};
     }
     current = current[parts[i]];
@@ -127,7 +172,8 @@ function getNestedProperty(obj, path) {
   let current = obj;
 
   for (const part of parts) {
-    if (current == null || !(part in current)) {
+    // Use hasOwn to avoid prototype chain traversal
+    if (current == null || !Object.prototype.hasOwnProperty.call(current, part)) {
       return undefined;
     }
     current = current[part];
@@ -205,21 +251,21 @@ function loadConfig(options = {}) {
   const packageJsonPath = path.join(process.cwd(), 'package.json');
   const packageJson = loadFromFile(packageJsonPath);
   if (packageJson && packageJson.awesomeSlash) {
-    Object.assign(config, packageJson.awesomeSlash);
+    deepMerge(config, packageJson.awesomeSlash);
   }
 
   // 2. Check for .awesomeslashrc.json in home directory
   const homeRcPath = path.join(os.homedir(), '.awesomeslashrc.json');
   const homeRc = loadFromFile(homeRcPath);
   if (homeRc) {
-    Object.assign(config, homeRc);
+    deepMerge(config, homeRc);
   }
 
   // 3. Check for .awesomeslashrc.json in current directory
   const cwdRcPath = path.join(process.cwd(), '.awesomeslashrc.json');
   const cwdRc = loadFromFile(cwdRcPath);
   if (cwdRc) {
-    Object.assign(config, cwdRc);
+    deepMerge(config, cwdRc);
   }
 
   // 4. Load from environment variables (highest priority)
@@ -322,6 +368,7 @@ module.exports = {
 
   // For testing
   _internal: {
+    deepMerge,
     setNestedProperty,
     getNestedProperty,
     loadFromEnvironment,
