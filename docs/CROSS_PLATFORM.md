@@ -7,8 +7,8 @@ This document describes how to use awesome-slash-commands with different AI codi
 | Platform | Integration Method | Status |
 |----------|-------------------|--------|
 | Claude Code | Native plugins | ✅ Full support |
-| OpenCode | MCP + Agent configs | 🔄 In development |
-| Codex CLI | MCP + Skills | 🔄 In development |
+| OpenCode | MCP + Agent configs | ✅ Supported |
+| Codex CLI | MCP + Skills | ✅ Supported |
 
 ## Common Architecture
 
