@@ -17,7 +17,8 @@ const {
   checkToolAsync,
   verifyTools,
   verifyToolsAsync,
-  TOOL_DEFINITIONS
+  TOOL_DEFINITIONS,
+  _resetDeprecationWarnings
 } = require('../lib/platform/verify-tools');
 
 describe('verify-tools', () => {
@@ -534,6 +535,70 @@ describe('verify-tools', () => {
         expect(execFileSync).not.toHaveBeenCalled();
         expect(spawnSync).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('deprecation warnings', () => {
+    const isWindows = process.platform === 'win32';
+    let warnSpy;
+
+    beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      _resetDeprecationWarnings();
+      // Set up basic mocks
+      if (isWindows) {
+        spawnSync.mockReturnValue({ stdout: 'version 1.0', status: 0 });
+      } else {
+        execFileSync.mockReturnValue('version 1.0');
+      }
+    });
+
+    afterEach(() => {
+      warnSpy.mockRestore();
+    });
+
+    it('checkTool() warns about deprecation on first call', () => {
+      checkTool('git');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('DEPRECATED: checkTool()')
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Use checkToolAsync() instead')
+      );
+    });
+
+    it('verifyTools() warns about deprecation on first call', () => {
+      verifyTools();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('DEPRECATED: verifyTools()')
+      );
+    });
+
+    it('checkTool() warns only once across multiple calls', () => {
+      checkTool('git');
+      checkTool('node');
+      checkTool('npm');
+      const warnings = warnSpy.mock.calls.filter(
+        call => call[0].includes('DEPRECATED: checkTool()')
+      );
+      expect(warnings.length).toBe(1);
+    });
+
+    it('async functions do not emit deprecation warnings', async () => {
+      // Create mock for async
+      const mockChild = new EventEmitter();
+      mockChild.stdout = new EventEmitter();
+      mockChild.kill = jest.fn();
+      spawn.mockReturnValue(mockChild);
+
+      const promise = checkToolAsync('git');
+      mockChild.stdout.emit('data', 'version 1.0');
+      mockChild.emit('close', 0);
+
+      await promise;
+      expect(warnSpy).not.toHaveBeenCalledWith(
+        expect.stringContaining('DEPRECATED: checkToolAsync()')
+      );
     });
   });
 });

@@ -41,7 +41,8 @@ const {
   detectBranchStrategy,
   detectBranchStrategyAsync,
   detectMainBranch,
-  detectMainBranchAsync
+  detectMainBranchAsync,
+  _resetDeprecationWarnings
 } = require('../lib/platform/detect-platform');
 
 describe('detect-platform', () => {
@@ -689,6 +690,145 @@ describe('detect-platform', () => {
 
         const result = await detectBranchStrategyAsync();
         expect(result).toBe('single-branch');
+      });
+    });
+  });
+
+  describe('deprecation warnings', () => {
+    let warnSpy;
+
+    beforeEach(() => {
+      // Mock console.warn to capture deprecation warnings
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      // Reset deprecation state between tests
+      _resetDeprecationWarnings();
+      // Clear caches
+      invalidateCache();
+      // Set up basic mocks to prevent errors
+      fs.existsSync.mockReturnValue(false);
+      fs.promises.access.mockRejectedValue(new Error('ENOENT'));
+      execSync.mockImplementation(() => { throw new Error('no git'); });
+      exec.mockImplementation((cmd, opts, cb) => {
+        if (typeof opts === 'function') cb = opts;
+        cb(new Error('no git'), { stdout: '', stderr: '' });
+      });
+    });
+
+    afterEach(() => {
+      warnSpy.mockRestore();
+    });
+
+    describe('sync functions emit deprecation warnings', () => {
+      it('detect() warns about deprecation on first call', () => {
+        detect();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detect()')
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Use detectAsync() instead')
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Will be removed in v3.0.0')
+        );
+      });
+
+      it('detectCI() warns about deprecation on first call', () => {
+        detectCI();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectCI()')
+        );
+      });
+
+      it('detectDeployment() warns about deprecation on first call', () => {
+        detectDeployment();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectDeployment()')
+        );
+      });
+
+      it('detectProjectType() warns about deprecation on first call', () => {
+        detectProjectType();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectProjectType()')
+        );
+      });
+
+      it('detectPackageManager() warns about deprecation on first call', () => {
+        detectPackageManager();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectPackageManager()')
+        );
+      });
+
+      it('detectBranchStrategy() warns about deprecation on first call', () => {
+        detectBranchStrategy();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectBranchStrategy()')
+        );
+      });
+
+      it('detectMainBranch() warns about deprecation on first call', () => {
+        detectMainBranch();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectMainBranch()')
+        );
+      });
+    });
+
+    describe('warnings only fire once per function', () => {
+      it('detect() warns only once across multiple calls', () => {
+        detect();
+        detect();
+        detect();
+        // Count how many times warnSpy was called with 'detect()'
+        const detectWarnings = warnSpy.mock.calls.filter(
+          call => call[0].includes('DEPRECATED: detect()')
+        );
+        expect(detectWarnings.length).toBe(1);
+      });
+
+      it('detectCI() warns only once across multiple calls', () => {
+        detectCI();
+        detectCI();
+        const ciWarnings = warnSpy.mock.calls.filter(
+          call => call[0].includes('DEPRECATED: detectCI()')
+        );
+        expect(ciWarnings.length).toBe(1);
+      });
+    });
+
+    describe('async functions do NOT emit deprecation warnings', () => {
+      it('detectAsync() does not warn', async () => {
+        await detectAsync();
+        expect(warnSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectAsync()')
+        );
+      });
+
+      it('detectCIAsync() does not warn', async () => {
+        await detectCIAsync();
+        expect(warnSpy).not.toHaveBeenCalledWith(
+          expect.stringContaining('DEPRECATED: detectCIAsync()')
+        );
+      });
+    });
+
+    describe('_resetDeprecationWarnings allows warnings to fire again', () => {
+      it('warnings fire again after reset', () => {
+        detectCI();
+        const firstWarnings = warnSpy.mock.calls.filter(
+          call => call[0].includes('DEPRECATED: detectCI()')
+        );
+        expect(firstWarnings.length).toBe(1);
+
+        _resetDeprecationWarnings();
+        warnSpy.mockClear();
+
+        detectCI();
+        const secondWarnings = warnSpy.mock.calls.filter(
+          call => call[0].includes('DEPRECATED: detectCI()')
+        );
+        expect(secondWarnings.length).toBe(1);
       });
     });
   });
