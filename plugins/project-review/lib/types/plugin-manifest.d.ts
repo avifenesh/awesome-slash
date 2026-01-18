@@ -73,7 +73,7 @@ export function isPluginManifest(obj: unknown): obj is PluginManifest {
     typeof manifest.name === 'string' &&
     /^[a-z0-9-]+$/.test(manifest.name) &&
     typeof manifest.version === 'string' &&
-    /^\d+\.\d+\.\d+/.test(manifest.version) &&
+    /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/.test(manifest.version) &&
     typeof manifest.description === 'string' &&
     typeof manifest.author === 'object' &&
     manifest.author !== null &&

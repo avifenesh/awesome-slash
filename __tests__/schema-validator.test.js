@@ -233,9 +233,14 @@ describe('SchemaValidator', () => {
     });
 
     it('should return error for invalid JSON', () => {
-      // Create a temporary invalid JSON file would require fs.writeFileSync
-      // For this test, we can mock or skip it
-      // Alternatively, test with a known bad path that would fail JSON.parse
+      const fs = require('fs');
+      fs.readFileSync.mockReturnValue('{"name": "test",}'); // Invalid JSON with trailing comma
+
+      const result = validateManifestFile('invalid.json');
+
+      expect(result.valid).toBe(false);
+      expect(result.errors.length).toBeGreaterThan(0);
+      expect(result.errors[0]).toContain('Failed to load manifest');
     });
   });
 

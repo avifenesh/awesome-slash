@@ -24,10 +24,7 @@ const { CacheManager } = require('../utils/cache-manager');
 const {
   CI_CONFIGS,
   DEPLOYMENT_CONFIGS,
-  PROJECT_TYPE_CONFIGS,
-  PACKAGE_MANAGER_CONFIGS,
-  BRANCH_STRATEGIES,
-  MAIN_BRANCH_CANDIDATES
+  PACKAGE_MANAGER_CONFIGS
 } = require('./detection-configs');
 
 /**

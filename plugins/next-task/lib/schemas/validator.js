@@ -34,10 +34,13 @@ class SchemaValidator {
   static validate(data, schema) {
     const errors = [];
 
-    // Check type
-    if (schema.type && typeof data !== schema.type) {
-      errors.push(`Expected type ${schema.type}, got ${typeof data}`);
-      return { valid: false, errors };
+    // Check type (handle arrays correctly)
+    if (schema.type) {
+      const actualType = Array.isArray(data) ? 'array' : typeof data;
+      if (actualType !== schema.type) {
+        errors.push(`Expected type ${schema.type}, got ${actualType}`);
+        return { valid: false, errors };
+      }
     }
 
     // Check required properties
@@ -49,8 +52,8 @@ class SchemaValidator {
       }
     }
 
-    // Check properties
-    if (schema.properties && typeof data === 'object') {
+    // Check properties (guard against null)
+    if (schema.properties && typeof data === 'object' && data !== null) {
       for (const [key, propSchema] of Object.entries(schema.properties)) {
         if (key in data) {
           const propResult = this.validateProperty(data[key], propSchema, key);
@@ -59,11 +62,17 @@ class SchemaValidator {
       }
     }
 
-    // Check additional properties
-    if (schema.additionalProperties === false && typeof data === 'object') {
+    // Check additional properties (guard against null, honor patternProperties)
+    if (schema.additionalProperties === false && typeof data === 'object' && data !== null) {
       const allowedKeys = new Set(Object.keys(schema.properties || {}));
+
+      // Honor patternProperties - don't reject keys that match patterns
+      const patternProps = schema.patternProperties || {};
+      const patternRegexes = Object.keys(patternProps).map(p => new RegExp(p));
+
       for (const key of Object.keys(data)) {
-        if (!allowedKeys.has(key)) {
+        const matchesPattern = patternRegexes.some(regex => regex.test(key));
+        if (!allowedKeys.has(key) && !matchesPattern) {
           errors.push(`Unexpected property: ${key}`);
         }
       }
