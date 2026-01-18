@@ -18,6 +18,10 @@ const {
 } = require('@modelcontextprotocol/sdk/types.js');
 
 const path = require('path');
+const fs = require('fs').promises;
+const { promisify } = require('util');
+const { exec } = require('child_process');
+const execAsync = promisify(exec);
 const workflowState = require('../lib/state/workflow-state.js');
 
 // Plugin root for relative paths
@@ -232,23 +236,299 @@ const toolHandlers = {
   },
 
   async task_discover({ source, filter, limit }) {
-    // This would integrate with gh/linear/etc
-    // For now, return placeholder
-    return {
-      content: [{
-        type: 'text',
-        text: `Task discovery would search ${source || 'gh-issues'} with filter "${filter || 'all'}" (limit: ${limit || 10})`
-      }]
-    };
+    const taskSource = source || 'gh-issues';
+    const maxTasks = limit || 10;
+
+    try {
+      let tasks = [];
+
+      if (taskSource === 'gh-issues') {
+        // Check if gh is available
+        try {
+          await execAsync('gh --version');
+        } catch (error) {
+          return {
+            content: [{
+              type: 'text',
+              text: 'Error: GitHub CLI (gh) is not installed or not configured. Please install gh and authenticate.'
+            }],
+            isError: true
+          };
+        }
+
+        // Fetch issues from GitHub
+        const { stdout } = await execAsync(
+          `gh issue list --state open --json number,title,labels,createdAt --limit ${maxTasks}`
+        );
+
+        const issues = JSON.parse(stdout || '[]');
+
+        // Apply filter if provided
+        let filtered = issues;
+        if (filter && filter !== 'all') {
+          filtered = issues.filter(issue => {
+            const labelNames = issue.labels.map(l => l.name.toLowerCase());
+            const filterLower = filter.toLowerCase();
+
+            // Check if any label matches the filter
+            return labelNames.some(label =>
+              label.includes(filterLower) ||
+              filterLower.includes(label)
+            );
+          });
+        }
+
+        // Transform to task format
+        tasks = filtered.map(issue => ({
+          id: `#${issue.number}`,
+          title: issue.title,
+          type: issue.labels.find(l => ['bug', 'feature', 'security'].includes(l.name.toLowerCase()))?.name || 'task',
+          labels: issue.labels.map(l => l.name),
+          createdAt: issue.createdAt,
+          source: 'github'
+        }));
+
+      } else if (taskSource === 'tasks-md') {
+        // Read from TASKS.md or PLAN.md
+        const possibleFiles = ['TASKS.md', 'PLAN.md', 'TODO.md'];
+        let content = null;
+        let foundFile = null;
+
+        for (const file of possibleFiles) {
+          try {
+            content = await fs.readFile(file, 'utf-8');
+            foundFile = file;
+            break;
+          } catch (e) {
+            // File doesn't exist, try next
+          }
+        }
+
+        if (content) {
+          // Parse markdown for task items (lines starting with - [ ] or - [x])
+          const lines = content.split('\n');
+          const taskLines = lines.filter(line => /^[-*]\s+\[\s*\]\s+/.test(line));
+
+          tasks = taskLines.slice(0, maxTasks).map((line, index) => {
+            const text = line.replace(/^[-*]\s+\[\s*\]\s+/, '').trim();
+            const isBug = /\b(bug|fix|error|issue)\b/i.test(text);
+            const isFeature = /\b(feature|add|implement|create)\b/i.test(text);
+
+            return {
+              id: `task-${index + 1}`,
+              title: text,
+              type: isBug ? 'bug' : isFeature ? 'feature' : 'task',
+              labels: [],
+              source: foundFile
+            };
+          });
+
+          // Apply filter if provided
+          if (filter && filter !== 'all') {
+            tasks = tasks.filter(task => task.type === filter.toLowerCase());
+          }
+        } else {
+          return {
+            content: [{
+              type: 'text',
+              text: 'No task files found (looked for TASKS.md, PLAN.md, TODO.md)'
+            }]
+          };
+        }
+      } else {
+        return {
+          content: [{
+            type: 'text',
+            text: `Task source "${taskSource}" not yet implemented`
+          }]
+        };
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            source: taskSource,
+            filter: filter || 'all',
+            count: tasks.length,
+            tasks: tasks
+          }, null, 2)
+        }]
+      };
+
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Error discovering tasks: ${error.message}`
+        }],
+        isError: true
+      };
+    }
   },
 
   async review_code({ files, maxIterations }) {
-    return {
-      content: [{
-        type: 'text',
-        text: `Code review would analyze ${files?.length || 'changed'} files with max ${maxIterations || 3} iterations.`
-      }]
-    };
+    try {
+      let filesToReview = files || [];
+
+      // If no files specified, get changed files from git
+      if (!filesToReview.length) {
+        try {
+          const { stdout } = await execAsync('git diff --name-only HEAD');
+          filesToReview = stdout.trim().split('\n').filter(f => f);
+
+          if (!filesToReview.length) {
+            // No unstaged changes, check staged
+            const { stdout: stagedOut } = await execAsync('git diff --cached --name-only');
+            filesToReview = stagedOut.trim().split('\n').filter(f => f);
+          }
+
+          if (!filesToReview.length) {
+            // No changes at all, check last commit
+            const { stdout: lastCommit } = await execAsync('git diff --name-only HEAD~1');
+            filesToReview = lastCommit.trim().split('\n').filter(f => f);
+          }
+
+        } catch (error) {
+          return {
+            content: [{
+              type: 'text',
+              text: `Error getting changed files: ${error.message}. Please specify files explicitly.`
+            }],
+            isError: true
+          };
+        }
+      }
+
+      if (!filesToReview.length) {
+        return {
+          content: [{
+            type: 'text',
+            text: 'No files to review. No changes detected in working directory or last commit.'
+          }]
+        };
+      }
+
+      const findings = [];
+      const patterns = {
+        console_log: {
+          pattern: /console\.(log|debug|info|warn|error)\(/g,
+          severity: 'warning',
+          message: 'Debug console statement found'
+        },
+        todo_fixme: {
+          pattern: /\/\/\s*(TODO|FIXME|HACK|XXX|NOTE):/gi,
+          severity: 'info',
+          message: 'Comment marker found'
+        },
+        commented_code: {
+          pattern: /^\s*\/\/.*[{};].*$/gm,
+          severity: 'info',
+          message: 'Possible commented-out code'
+        },
+        debugger: {
+          pattern: /\bdebugger\b/g,
+          severity: 'error',
+          message: 'Debugger statement found'
+        },
+        empty_catch: {
+          pattern: /catch\s*\([^)]*\)\s*{\s*}/g,
+          severity: 'warning',
+          message: 'Empty catch block - silent error swallowing'
+        },
+        any_type: {
+          pattern: /:\s*any\b/g,
+          severity: 'warning',
+          message: 'TypeScript "any" type used'
+        },
+        hardcoded_secret: {
+          pattern: /(api[_-]?key|secret|password|token)\s*[:=]\s*["'][^"']+["']/gi,
+          severity: 'error',
+          message: 'Possible hardcoded secret'
+        }
+      };
+
+      // Review each file
+      for (const file of filesToReview) {
+        try {
+          const content = await fs.readFile(file, 'utf-8');
+          const lines = content.split('\n');
+          const fileFindings = [];
+
+          // Check each pattern
+          for (const [name, check] of Object.entries(patterns)) {
+            const matches = [...content.matchAll(check.pattern)];
+
+            for (const match of matches) {
+              // Find line number
+              const position = match.index;
+              let lineNum = 1;
+              let charCount = 0;
+
+              for (let i = 0; i < lines.length; i++) {
+                charCount += lines[i].length + 1; // +1 for newline
+                if (charCount > position) {
+                  lineNum = i + 1;
+                  break;
+                }
+              }
+
+              fileFindings.push({
+                type: name,
+                line: lineNum,
+                column: match.index - content.lastIndexOf('\n', match.index),
+                severity: check.severity,
+                message: check.message,
+                match: match[0].substring(0, 100) // Truncate long matches
+              });
+            }
+          }
+
+          if (fileFindings.length > 0) {
+            findings.push({
+              file: file,
+              issues: fileFindings
+            });
+          }
+
+        } catch (error) {
+          // File might not exist or be readable
+          findings.push({
+            file: file,
+            error: `Could not read file: ${error.message}`
+          });
+        }
+      }
+
+      // Prepare summary
+      const totalIssues = findings.reduce((sum, f) => sum + (f.issues?.length || 0), 0);
+      const bySecvity = {
+        error: findings.flatMap(f => f.issues || []).filter(i => i.severity === 'error').length,
+        warning: findings.flatMap(f => f.issues || []).filter(i => i.severity === 'warning').length,
+        info: findings.flatMap(f => f.issues || []).filter(i => i.severity === 'info').length
+      };
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            filesReviewed: filesToReview.length,
+            totalIssues: totalIssues,
+            bySeverity: bySecvity,
+            findings: findings
+          }, null, 2)
+        }]
+      };
+
+    } catch (error) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Error during code review: ${error.message}`
+        }],
+        isError: true
+      };
+    }
   }
 };
 
