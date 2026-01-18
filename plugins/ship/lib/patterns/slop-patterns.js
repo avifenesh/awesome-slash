@@ -8,34 +8,102 @@
 
 /**
  * Deep freeze an object for V8 optimization and immutability
+ * Optimized: uses for-of instead of forEach to avoid function call overhead
  * @param {Object} obj - Object to freeze
  * @returns {Object} Frozen object
  */
 function deepFreeze(obj) {
-  Object.keys(obj).forEach(key => {
-    if (typeof obj[key] === 'object' && obj[key] !== null && !(obj[key] instanceof RegExp)) {
-      deepFreeze(obj[key]);
+  // Freeze the object first (fast path)
+  Object.freeze(obj);
+
+  // Then recursively freeze nested objects (only if needed)
+  // Use Object.keys() for cleaner iteration over own properties
+  for (const key of Object.keys(obj)) {
+    const value = obj[key];
+    if (value && typeof value === 'object' && !(value instanceof RegExp)) {
+      deepFreeze(value);
     }
-  });
-  return Object.freeze(obj);
+  }
+
+  return obj;
 }
 
-// Pre-compiled regex cache for performance
+// Pre-compiled regex cache for performance (limited to prevent memory growth)
+const MAX_PATTERN_CACHE_SIZE = 50;
 const _compiledExcludePatterns = new Map();
+
+// Exclude result cache for directory-level caching (limited to prevent memory growth)
+const MAX_EXCLUDE_RESULT_CACHE_SIZE = 200;
+const _excludeResultCache = new Map();
+
+/**
+ * Maximum allowed wildcards in a glob pattern to prevent ReDoS
+ */
+const MAX_GLOB_WILDCARDS = 10;
 
 /**
  * Get a compiled regex for an exclude pattern (cached)
+ * Uses safe regex construction to prevent catastrophic backtracking
+ * Optimized: uses Map.get() instead of has() + get() (eliminates redundant lookup)
  * @param {string} pattern - Glob pattern to compile
  * @returns {RegExp} Compiled regex
  */
 function getCompiledPattern(pattern) {
-  if (!_compiledExcludePatterns.has(pattern)) {
-    // Escape all regex metacharacters except *, then replace * with .*
-    const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-    const regexStr = '^' + escaped.replace(/\*/g, '.*') + '$';
-    _compiledExcludePatterns.set(pattern, new RegExp(regexStr));
+  // Try to get cached pattern (O(1) lookup)
+  let cached = _compiledExcludePatterns.get(pattern);
+  if (cached) {
+    return cached;
   }
-  return _compiledExcludePatterns.get(pattern);
+
+  // Enforce cache size limit using FIFO eviction
+  if (_compiledExcludePatterns.size >= MAX_PATTERN_CACHE_SIZE) {
+    const firstKey = _compiledExcludePatterns.keys().next().value;
+    _compiledExcludePatterns.delete(firstKey);
+  }
+
+  // Count wildcards to prevent overly complex patterns
+  const wildcardCount = (pattern.match(/\*/g) || []).length;
+  if (wildcardCount > MAX_GLOB_WILDCARDS) {
+    // Too many wildcards - use a safe fallback that matches nothing dangerous
+    const safeRegex = /^$/;
+    _compiledExcludePatterns.set(pattern, safeRegex);
+    return safeRegex;
+  }
+
+  // Escape all regex metacharacters except *
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+  // Convert glob patterns to regex:
+  // - Both * and ** use .* for backward compatibility (patterns match anywhere in path)
+  // - ReDoS protection is provided by MAX_GLOB_WILDCARDS limit above
+  let regexStr = escaped
+    .replace(/\*\*/g, '\0GLOBSTAR\0')  // Temporarily mark globstar
+    .replace(/\*/g, '.*')              // Single star: match anything (backward compatible)
+    .replace(/\0GLOBSTAR\0/g, '.*');   // Globstar: match anything
+
+  regexStr = '^' + regexStr + '$';
+  const compiledRegex = new RegExp(regexStr);
+  _compiledExcludePatterns.set(pattern, compiledRegex);
+  return compiledRegex;
+}
+
+/**
+ * Helper to create secret detection pattern with common metadata
+ * Reduces duplication across similar secret patterns (all have same severity/autoFix/language)
+ * @param {RegExp} pattern - Detection regex pattern
+ * @param {string} description - Human-readable description
+ * @param {Array<string>} [additionalExcludes=[]] - Extra files to exclude beyond standard test files
+ * @returns {Object} Complete pattern object
+ */
+function createSecretPattern(pattern, description, additionalExcludes = []) {
+  return {
+    pattern,
+    exclude: ['*.test.*', '*.spec.*', '*.example.*', ...additionalExcludes],
+    severity: 'critical',
+    autoFix: 'flag',
+    language: null,
+    description
+  };
 }
 
 /**
@@ -234,9 +302,12 @@ const slopPatterns = {
 
   /**
    * Hardcoded credentials patterns (expanded for comprehensive detection)
+   * Excludes common false positives:
+   * - Template placeholders: ${VAR}, {{VAR}}, <VAR>
+   * - Masked/example values: xxxxxxxx, ********
    */
   hardcoded_secrets: {
-    pattern: /(password|secret|api[_-]?key|token|credential|auth)[_-]?(key|token|secret|pass)?\s*[:=]\s*["'`][^"'`\s]{8,}["'`]/i,
+    pattern: /(password|secret|api[_-]?key|token|credential|auth)[_-]?(key|token|secret|pass)?\s*[:=]\s*["'`](?!\$\{)(?!\{\{)(?!<[A-Z_])(?![x*#]{8,})(?![X*#]{8,})[^"'`\s]{8,}["'`]/i,
     exclude: ['*.test.*', '*.spec.*', '*.example.*', '*.sample.*', 'README.*', '*.md'],
     severity: 'critical',
     autoFix: 'flag',
@@ -247,146 +318,99 @@ const slopPatterns = {
   /**
    * JWT tokens (eyJ prefix indicates base64 JSON header)
    */
-  jwt_tokens: {
-    pattern: /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded JWT token'
-  },
+  jwt_tokens: createSecretPattern(
+    /eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/,
+    'Hardcoded JWT token'
+  ),
 
   /**
    * OpenAI API keys (sk-... format)
    */
-  openai_api_key: {
-    pattern: /sk-[a-zA-Z0-9]{32,}/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded OpenAI API key'
-  },
+  openai_api_key: createSecretPattern(
+    /sk-[a-zA-Z0-9]{32,}/,
+    'Hardcoded OpenAI API key'
+  ),
 
   /**
    * GitHub tokens (personal access tokens, fine-grained tokens, OAuth)
    */
-  github_token: {
-    pattern: /(ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|ghu_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59})/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded GitHub token'
-  },
+  github_token: createSecretPattern(
+    /(ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|ghu_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59})/,
+    'Hardcoded GitHub token'
+  ),
 
   /**
    * AWS credentials (access key IDs and secret keys)
    */
-  aws_credentials: {
-    pattern: /(AKIA[0-9A-Z]{16}|aws_secret_access_key\s*[:=]\s*["'`][A-Za-z0-9/+=]{40}["'`])/i,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded AWS credentials'
-  },
+  aws_credentials: createSecretPattern(
+    /(AKIA[0-9A-Z]{16}|aws_secret_access_key\s*[:=]\s*["'`][A-Za-z0-9/+=]{40}["'`])/i,
+    'Hardcoded AWS credentials'
+  ),
 
   /**
    * Google Cloud / Firebase API keys and service accounts
    */
-  google_api_key: {
-    pattern: /(AIza[0-9A-Za-z_-]{35}|[0-9]+-[a-z0-9_]{32}\.apps\.googleusercontent\.com)/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded Google/Firebase API key'
-  },
+  google_api_key: createSecretPattern(
+    /(AIza[0-9A-Za-z_-]{35}|[0-9]+-[a-z0-9_]{32}\.apps\.googleusercontent\.com)/,
+    'Hardcoded Google/Firebase API key'
+  ),
 
   /**
    * Stripe API keys (live and test)
    */
-  stripe_api_key: {
-    pattern: /(sk_live_[a-zA-Z0-9]{24,}|sk_test_[a-zA-Z0-9]{24,}|rk_live_[a-zA-Z0-9]{24,}|rk_test_[a-zA-Z0-9]{24,})/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded Stripe API key'
-  },
+  stripe_api_key: createSecretPattern(
+    /(sk_live_[a-zA-Z0-9]{24,}|sk_test_[a-zA-Z0-9]{24,}|rk_live_[a-zA-Z0-9]{24,}|rk_test_[a-zA-Z0-9]{24,})/,
+    'Hardcoded Stripe API key'
+  ),
 
   /**
    * Slack tokens (bot, user, webhook)
    */
-  slack_token: {
-    pattern: /(xoxb-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}|xoxp-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}|xoxa-[0-9]{10,}-[a-zA-Z0-9]{24}|https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]{8}\/B[A-Z0-9]{8,}\/[a-zA-Z0-9]{24})/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded Slack token or webhook URL'
-  },
+  slack_token: createSecretPattern(
+    /(xoxb-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}|xoxp-[0-9]{10,}-[0-9]{10,}-[a-zA-Z0-9]{24}|xoxa-[0-9]{10,}-[a-zA-Z0-9]{24}|https:\/\/hooks\.slack\.com\/services\/T[A-Z0-9]{8}\/B[A-Z0-9]{8,}\/[a-zA-Z0-9]{24})/,
+    'Hardcoded Slack token or webhook URL'
+  ),
 
   /**
    * Discord tokens and webhook URLs
    */
-  discord_token: {
-    pattern: /(discord.*["'`][A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}["'`]|https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+)/i,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded Discord token or webhook'
-  },
+  discord_token: createSecretPattern(
+    /(discord.*["'`][A-Za-z0-9_-]{24}\.[A-Za-z0-9_-]{6}\.[A-Za-z0-9_-]{27}["'`]|https:\/\/discord(?:app)?\.com\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+)/i,
+    'Hardcoded Discord token or webhook'
+  ),
 
   /**
    * SendGrid API key
    */
-  sendgrid_api_key: {
-    pattern: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded SendGrid API key'
-  },
+  sendgrid_api_key: createSecretPattern(
+    /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/,
+    'Hardcoded SendGrid API key'
+  ),
 
   /**
    * Twilio credentials
    */
-  twilio_credentials: {
-    pattern: /(AC[a-f0-9]{32}|SK[a-f0-9]{32})/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded Twilio credentials'
-  },
+  twilio_credentials: createSecretPattern(
+    /(AC[a-f0-9]{32}|SK[a-f0-9]{32})/,
+    'Hardcoded Twilio credentials'
+  ),
 
   /**
    * NPM tokens
    */
-  npm_token: {
-    pattern: /npm_[a-zA-Z0-9]{36}/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Hardcoded NPM token'
-  },
+  npm_token: createSecretPattern(
+    /npm_[a-zA-Z0-9]{36}/,
+    'Hardcoded NPM token'
+  ),
 
   /**
    * Private keys (RSA, DSA, EC, PGP)
    */
-  private_key: {
-    pattern: /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/,
-    exclude: ['*.test.*', '*.spec.*', '*.example.*', '*.pem.example'],
-    severity: 'critical',
-    autoFix: 'flag',
-    language: null,
-    description: 'Private key in source code'
-  },
+  private_key: createSecretPattern(
+    /-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----/,
+    'Private key in source code',
+    ['*.pem.example'] // Additional excludes beyond standard test files
+  ),
 
   /**
    * Generic high-entropy strings (potential secrets)
@@ -549,6 +573,7 @@ function getPatternsByAutoFix(autoFix) {
 
 /**
  * Get patterns matching multiple criteria (language AND severity)
+ * Optimized: single-pass filtering instead of chained Object.entries
  * @param {Object} criteria - Filter criteria
  * @param {string} [criteria.language] - Language filter
  * @param {string} [criteria.severity] - Severity filter
@@ -556,27 +581,25 @@ function getPatternsByAutoFix(autoFix) {
  * @returns {Object} Patterns matching all criteria
  */
 function getPatternsByCriteria(criteria = {}) {
-  let result = { ...slopPatterns };
-
-  if (criteria.language) {
-    const langPatterns = getPatternsForLanguage(criteria.language);
-    result = Object.fromEntries(
-      Object.entries(result).filter(([name]) => name in langPatterns)
-    );
+  // Fast path: no criteria means return all patterns
+  if (!criteria.language && !criteria.severity && !criteria.autoFix) {
+    return { ...slopPatterns };
   }
 
-  if (criteria.severity) {
-    const severityPatterns = getPatternsBySeverity(criteria.severity);
-    result = Object.fromEntries(
-      Object.entries(result).filter(([name]) => name in severityPatterns)
-    );
-  }
+  // Pre-fetch filter sets (O(1) Map lookups)
+  const langPatterns = criteria.language ? getPatternsForLanguage(criteria.language) : null;
+  const severityPatterns = criteria.severity ? getPatternsBySeverity(criteria.severity) : null;
+  const autoFixPatterns = criteria.autoFix ? getPatternsByAutoFix(criteria.autoFix) : null;
 
-  if (criteria.autoFix) {
-    const autoFixPatterns = getPatternsByAutoFix(criteria.autoFix);
-    result = Object.fromEntries(
-      Object.entries(result).filter(([name]) => name in autoFixPatterns)
-    );
+  // Single-pass filter: check all criteria at once
+  const result = {};
+  for (const [name, pattern] of Object.entries(slopPatterns)) {
+    // Check all criteria in one pass (short-circuit on first failure)
+    if (langPatterns && !(name in langPatterns)) continue;
+    if (severityPatterns && !(name in severityPatterns)) continue;
+    if (autoFixPatterns && !(name in autoFixPatterns)) continue;
+
+    result[name] = pattern;
   }
 
   return result;
@@ -609,7 +632,7 @@ function hasLanguage(language) {
 
 /**
  * Check if a file should be excluded based on pattern rules
- * Uses pre-compiled regex cache for performance
+ * Uses pre-compiled regex cache and result cache for performance
  * @param {string} filePath - File path to check
  * @param {Array<string>} excludePatterns - Exclude patterns
  * @returns {boolean} True if file should be excluded
@@ -617,10 +640,28 @@ function hasLanguage(language) {
 function isFileExcluded(filePath, excludePatterns) {
   if (!excludePatterns || excludePatterns.length === 0) return false;
 
-  return excludePatterns.some(pattern => {
+  // Create cache key using JSON.stringify for collision-resistant format
+  const cacheKey = JSON.stringify([filePath, excludePatterns]);
+
+  // Check cache first (O(1) lookup)
+  if (_excludeResultCache.has(cacheKey)) {
+    return _excludeResultCache.get(cacheKey);
+  }
+
+  // Compute result
+  const result = excludePatterns.some(pattern => {
     const regex = getCompiledPattern(pattern);
     return regex.test(filePath);
   });
+
+  // Store in cache with FIFO eviction
+  if (_excludeResultCache.size >= MAX_EXCLUDE_RESULT_CACHE_SIZE) {
+    const firstKey = _excludeResultCache.keys().next().value;
+    _excludeResultCache.delete(firstKey);
+  }
+  _excludeResultCache.set(cacheKey, result);
+
+  return result;
 }
 
 module.exports = {

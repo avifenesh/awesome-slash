@@ -318,8 +318,8 @@ const toolHandlers = {
         const { stdout } = await execAsync(`gh ${ghArgs.join(' ')}`);
         const issues = JSON.parse(stdout || '[]');
 
-        // Extract Linear URLs from issue bodies
-        const linearUrlPattern = /https:\/\/linear\.app\/[^\s)]+/g;
+        // Extract Linear URLs from issue bodies (length-limited to prevent ReDoS)
+        const linearUrlPattern = /https:\/\/linear\.app\/[^\s)]{1,200}/g;
         const linearIssues = issues
           .map(issue => {
             const linearMatches = issue.body ? issue.body.match(linearUrlPattern) : null;
@@ -327,7 +327,8 @@ const toolHandlers = {
 
             // Extract Linear ID from URL (e.g., ENG-123 from https://linear.app/company/issue/ENG-123/...)
             const linearUrl = linearMatches[0];
-            const linearIdMatch = linearUrl.match(/\/([A-Z]+-\d+)/);
+            // Match /issue/ID pattern specifically to avoid false matches
+            const linearIdMatch = linearUrl.match(/\/issue\/([A-Z]+-\d+)/);
             const linearId = linearIdMatch ? linearIdMatch[1] : null;
 
             return {
@@ -665,18 +666,55 @@ if (typeof module !== 'undefined' && module.exports) {
  * Prevents server crashes and provides meaningful error messages
  */
 function setupErrorBoundary() {
+  let errorCount = 0;
+  const MAX_ERRORS = 10;
+  const ERROR_WINDOW = 60000; // 1 minute
+  let firstErrorTime = null;
+
   // Handle uncaught exceptions
   process.on('uncaughtException', (error) => {
     console.error('Uncaught Exception:', error);
     console.error('Stack:', error.stack);
-    // Don't exit - MCP servers should stay running
+
+    // Track error rate for graceful shutdown decision
+    const now = Date.now();
+    if (!firstErrorTime || (now - firstErrorTime) > ERROR_WINDOW) {
+      errorCount = 1;
+      firstErrorTime = now;
+    } else {
+      errorCount++;
+    }
+
+    // If too many errors in short time, exit gracefully
+    if (errorCount >= MAX_ERRORS) {
+      console.error(`${MAX_ERRORS} uncaught exceptions in ${ERROR_WINDOW}ms - exiting to prevent corrupted state`);
+      process.exit(1);
+    }
+
+    console.error(`Error count: ${errorCount}/${MAX_ERRORS} in current window`);
   });
 
   // Handle unhandled promise rejections
   process.on('unhandledRejection', (reason, promise) => {
     console.error('Unhandled Rejection at:', promise);
     console.error('Reason:', reason);
-    // Don't exit - MCP servers should stay running
+
+    // Track error rate
+    const now = Date.now();
+    if (!firstErrorTime || (now - firstErrorTime) > ERROR_WINDOW) {
+      errorCount = 1;
+      firstErrorTime = now;
+    } else {
+      errorCount++;
+    }
+
+    // If too many errors in short time, exit gracefully
+    if (errorCount >= MAX_ERRORS) {
+      console.error(`${MAX_ERRORS} unhandled rejections in ${ERROR_WINDOW}ms - exiting to prevent corrupted state`);
+      process.exit(1);
+    }
+
+    console.error(`Error count: ${errorCount}/${MAX_ERRORS} in current window`);
   });
 
   // Handle SIGINT gracefully
