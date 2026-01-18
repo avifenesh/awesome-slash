@@ -8,11 +8,55 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 // File paths
 const CLAUDE_DIR = '.claude';
 const TASKS_FILE = 'tasks.json';
 const FLOW_FILE = 'flow.json';
+
+/**
+ * Validate and resolve path to prevent path traversal attacks
+ * @param {string} basePath - Base directory path
+ * @returns {string} Validated absolute path
+ * @throws {Error} If path is invalid
+ */
+function validatePath(basePath) {
+  if (typeof basePath !== 'string' || basePath.length === 0) {
+    throw new Error('Path must be a non-empty string');
+  }
+  const resolved = path.resolve(basePath);
+  if (resolved.includes('\0')) {
+    throw new Error('Path contains invalid null byte');
+  }
+  return resolved;
+}
+
+/**
+ * Validate that target path is within base directory
+ * @param {string} targetPath - Target file path
+ * @param {string} basePath - Base directory
+ * @throws {Error} If path traversal detected
+ */
+function validatePathWithinBase(targetPath, basePath) {
+  const resolvedTarget = path.resolve(targetPath);
+  const resolvedBase = path.resolve(basePath);
+  if (!resolvedTarget.startsWith(resolvedBase + path.sep) && resolvedTarget !== resolvedBase) {
+    throw new Error('Path traversal detected');
+  }
+}
+
+/**
+ * Generate a unique workflow ID
+ * @returns {string} Workflow ID
+ */
+function generateWorkflowId() {
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10).replace(/-/g, '');
+  const time = now.toISOString().slice(11, 19).replace(/:/g, '');
+  const random = crypto.randomBytes(4).toString('hex');
+  return `workflow-${date}-${time}-${random}`;
+}
 
 // Valid phases for the workflow
 const PHASES = [
@@ -45,14 +89,19 @@ function ensureClaudeDir(basePath) {
 // =============================================================================
 
 /**
- * Get path to tasks.json
+ * Get path to tasks.json with validation
  */
 function getTasksPath(projectPath = process.cwd()) {
-  return path.join(projectPath, CLAUDE_DIR, TASKS_FILE);
+  const validatedBase = validatePath(projectPath);
+  const tasksPath = path.join(validatedBase, CLAUDE_DIR, TASKS_FILE);
+  validatePathWithinBase(tasksPath, validatedBase);
+  return tasksPath;
 }
 
 /**
  * Read tasks.json from main project
+ * Returns { active: null } if file doesn't exist or is corrupted
+ * Logs critical error on corruption to prevent silent data loss
  */
 function readTasks(projectPath = process.cwd()) {
   const tasksPath = getTasksPath(projectPath);
@@ -60,8 +109,14 @@ function readTasks(projectPath = process.cwd()) {
     return { active: null };
   }
   try {
-    return JSON.parse(fs.readFileSync(tasksPath, 'utf8'));
-  } catch {
+    const data = JSON.parse(fs.readFileSync(tasksPath, 'utf8'));
+    // Normalize legacy format that may not have 'active' field
+    if (!Object.prototype.hasOwnProperty.call(data, 'active')) {
+      return { active: null };
+    }
+    return data;
+  } catch (e) {
+    console.error(`[CRITICAL] Corrupted tasks.json at ${tasksPath}: ${e.message}`);
     return { active: null };
   }
 }
@@ -99,10 +154,11 @@ function clearActiveTask(projectPath = process.cwd()) {
 
 /**
  * Check if there's an active task
+ * Uses != null to catch both null and undefined (legacy format safety)
  */
 function hasActiveTask(projectPath = process.cwd()) {
   const tasks = readTasks(projectPath);
-  return tasks.active !== null;
+  return tasks.active != null;
 }
 
 // =============================================================================
@@ -110,14 +166,19 @@ function hasActiveTask(projectPath = process.cwd()) {
 // =============================================================================
 
 /**
- * Get path to flow.json
+ * Get path to flow.json with validation
  */
 function getFlowPath(worktreePath = process.cwd()) {
-  return path.join(worktreePath, CLAUDE_DIR, FLOW_FILE);
+  const validatedBase = validatePath(worktreePath);
+  const flowPath = path.join(validatedBase, CLAUDE_DIR, FLOW_FILE);
+  validatePathWithinBase(flowPath, validatedBase);
+  return flowPath;
 }
 
 /**
  * Read flow.json from worktree
+ * Returns null if file doesn't exist or is corrupted
+ * Logs critical error on corruption to prevent silent data loss
  */
 function readFlow(worktreePath = process.cwd()) {
   const flowPath = getFlowPath(worktreePath);
@@ -126,33 +187,48 @@ function readFlow(worktreePath = process.cwd()) {
   }
   try {
     return JSON.parse(fs.readFileSync(flowPath, 'utf8'));
-  } catch {
+  } catch (e) {
+    console.error(`[CRITICAL] Corrupted flow.json at ${flowPath}: ${e.message}`);
     return null;
   }
 }
 
 /**
  * Write flow.json to worktree
+ * Creates a copy to avoid mutating the original object
  */
 function writeFlow(flow, worktreePath = process.cwd()) {
   ensureClaudeDir(worktreePath);
-  flow.lastUpdate = new Date().toISOString();
+  // Clone to avoid mutating the original object
+  const flowCopy = JSON.parse(JSON.stringify(flow));
+  flowCopy.lastUpdate = new Date().toISOString();
   const flowPath = getFlowPath(worktreePath);
-  fs.writeFileSync(flowPath, JSON.stringify(flow, null, 2), 'utf8');
+  fs.writeFileSync(flowPath, JSON.stringify(flowCopy, null, 2), 'utf8');
   return true;
 }
 
 /**
  * Update flow.json with partial updates
+ * Handles null values correctly (null overwrites existing values)
+ * Deep merges nested objects when both exist
  */
 function updateFlow(updates, worktreePath = process.cwd()) {
   const flow = readFlow(worktreePath) || {};
 
-  // Shallow merge for top-level, deep merge for nested objects
   for (const [key, value] of Object.entries(updates)) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && flow[key]) {
+    // Null explicitly overwrites
+    if (value === null) {
+      flow[key] = null;
+    }
+    // Deep merge if both source and target are non-null objects
+    else if (
+      value && typeof value === 'object' && !Array.isArray(value) &&
+      flow[key] && typeof flow[key] === 'object' && !Array.isArray(flow[key])
+    ) {
       flow[key] = { ...flow[key], ...value };
-    } else {
+    }
+    // Otherwise direct assignment
+    else {
       flow[key] = value;
     }
   }
@@ -225,7 +301,43 @@ function setPhase(phase, worktreePath = process.cwd()) {
 }
 
 /**
+ * Start a phase (alias for setPhase, for backwards compatibility)
+ */
+function startPhase(phase, worktreePath = process.cwd()) {
+  return setPhase(phase, worktreePath);
+}
+
+/**
+ * Fail the current phase
+ */
+function failPhase(reason, context = {}, worktreePath = process.cwd()) {
+  const flow = readFlow(worktreePath);
+  if (!flow) return null;
+
+  return updateFlow({
+    status: 'failed',
+    error: reason,
+    failContext: context
+  }, worktreePath);
+}
+
+/**
+ * Skip to a specific phase
+ */
+function skipToPhase(phase, reason = 'manual skip', worktreePath = process.cwd()) {
+  if (!isValidPhase(phase)) {
+    throw new Error(`Invalid phase: ${phase}`);
+  }
+  return updateFlow({
+    phase,
+    status: 'in_progress',
+    skipReason: reason
+  }, worktreePath);
+}
+
+/**
  * Complete current phase and move to next
+ * Uses updateFlow pattern to avoid direct mutation issues
  */
 function completePhase(result = null, worktreePath = process.cwd()) {
   const flow = readFlow(worktreePath);
@@ -234,19 +346,22 @@ function completePhase(result = null, worktreePath = process.cwd()) {
   const currentIndex = PHASES.indexOf(flow.phase);
   const nextPhase = PHASES[currentIndex + 1] || 'complete';
 
+  // Build updates object
+  const updates = {
+    phase: nextPhase,
+    status: nextPhase === 'complete' ? 'completed' : 'in_progress'
+  };
+
   // Store result in appropriate field
   if (result) {
     const resultField = getResultField(flow.phase);
     if (resultField) {
-      flow[resultField] = result;
+      updates[resultField] = result;
     }
   }
 
-  flow.phase = nextPhase;
-  flow.status = nextPhase === 'complete' ? 'completed' : 'in_progress';
-
-  writeFlow(flow, worktreePath);
-  return flow;
+  updateFlow(updates, worktreePath);
+  return readFlow(worktreePath);
 }
 
 /**
@@ -273,11 +388,20 @@ function failWorkflow(error, worktreePath = process.cwd()) {
 
 /**
  * Mark workflow as complete
+ * Also clears the active task from tasks.json in the main project
+ * @param {string} worktreePath - Path to worktree
+ * @param {string} projectPath - Path to main project (for clearing active task)
  */
-function completeWorkflow(worktreePath = process.cwd()) {
+function completeWorkflow(worktreePath = process.cwd(), projectPath = null) {
+  // If projectPath provided, clear the active task
+  if (projectPath) {
+    clearActiveTask(projectPath);
+  }
+
   return updateFlow({
     phase: 'complete',
-    status: 'completed'
+    status: 'completed',
+    completedAt: new Date().toISOString()
   }, worktreePath);
 }
 
@@ -357,7 +481,10 @@ module.exports = {
   // Phase management
   isValidPhase,
   setPhase,
+  startPhase,
   completePhase,
+  failPhase,
+  skipToPhase,
   failWorkflow,
   completeWorkflow,
   abortWorkflow,
@@ -365,6 +492,7 @@ module.exports = {
   // Convenience
   getFlowSummary,
   canResume,
+  generateWorkflowId,
 
   // Backwards compatibility
   readState,
