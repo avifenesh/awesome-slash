@@ -6,17 +6,18 @@ A cross-platform plugin providing powerful, zero-configuration slash commands fo
 
 [![npm](https://img.shields.io/npm/v/awesome-slash?color=red)](https://www.npmjs.com/package/awesome-slash)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-2.4.4-blue)](https://github.com/avifenesh/awesome-slash/releases)
+[![Version](https://img.shields.io/badge/version-2.4.5-blue)](https://github.com/avifenesh/awesome-slash/releases)
 [![GitHub stars](https://img.shields.io/github/stars/avifenesh/awesome-slash?style=flat&color=yellow)](https://github.com/avifenesh/awesome-slash/stargazers)
 [![Claude Code](https://img.shields.io/badge/Claude-Code%20Plugin-blue)](https://docs.anthropic.com/en/docs/claude-code)
 [![Codex CLI](https://img.shields.io/badge/Codex-CLI%20Compatible-green)](https://developers.openai.com/codex/cli)
 [![OpenCode](https://img.shields.io/badge/OpenCode-Compatible-orange)](https://opencode.ai)
 
-## What's New in v2.4.4
+## What's New in v2.4.5
 
-- **PR Auto-Review Process** - Added mandatory workflow for 4 auto-reviewers (Copilot, Claude, Gemini, Codex)
-- **Agent Responsibilities** - Documented required tools and MUST-CALL agents for /next-task and /ship
-- **CLAUDE.md Enhancement** - Comprehensive agent workflow documentation
+- **Agent Tool Enforcement** - Fixed critical issues with checkbox agents and plan mode
+- **Schema Validator** - Fixed validation bugs for strings, arrays, and null handling
+- **Cache Management** - Migrated to CacheManager abstraction with size limits and TTL
+- **Documentation** - Simplified and clarified user-facing documentation
 
 ---
 
