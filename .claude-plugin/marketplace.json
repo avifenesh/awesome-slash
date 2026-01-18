@@ -1,7 +1,7 @@
 {
   "name": "awesome-slash",
   "description": "Professional-grade slash commands for Claude Code with cross-platform support (OpenCode, Codex CLI)",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "owner": {
     "name": "Avi Fenesh",
     "url": "https://github.com/avifenesh"
