@@ -15,13 +15,18 @@ const STATE_DIR = '.claude';
 const STATE_FILE = 'workflow-state.json';
 
 /**
- * State cache configuration using CacheManager
- * Limits cache to 50 base directories (worktrees) with 200ms TTL
+ * State cache configuration
+ */
+const STATE_CACHE_TTL_MS = 200; // Cache TTL for rapid successive reads
+
+/**
+ * State cache using CacheManager
+ * Limits cache to 50 base directories (worktrees) with TTL
  * Prevents unbounded memory growth in long-running sessions
  */
 const _stateCache = new CacheManager({
   maxSize: 50,      // Max 50 worktrees cached
-  ttl: 200          // 200ms TTL for rapid successive reads
+  ttl: STATE_CACHE_TTL_MS
 });
 
 /**
