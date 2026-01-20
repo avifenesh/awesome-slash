@@ -156,11 +156,15 @@ function installForClaude(installDir) {
 function installForOpenCode(installDir) {
   console.log('\n📦 Installing for OpenCode...\n');
 
+  const home = process.env.HOME || process.env.USERPROFILE;
   const configPath = getConfigPath('opencode');
   const configDir = path.dirname(configPath);
+  const commandsDir = path.join(home, '.config', 'opencode', 'commands');
 
   fs.mkdirSync(configDir, { recursive: true });
+  fs.mkdirSync(commandsDir, { recursive: true });
 
+  // Update MCP config
   let config = {};
   if (fs.existsSync(configPath)) {
     try {
@@ -183,8 +187,26 @@ function installForOpenCode(installDir) {
 
   fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
+  // Sync command files
+  const commandMappings = [
+    ['next-task.md', 'next-task', 'next-task.md'],
+    ['ship.md', 'ship', 'ship.md'],
+    ['deslop.md', 'deslop-around', 'deslop-around.md'],
+    ['review.md', 'project-review', 'project-review.md'],
+    ['reality-check.md', 'reality-check', 'scan.md']
+  ];
+
+  for (const [target, plugin, source] of commandMappings) {
+    const srcPath = path.join(installDir, 'plugins', plugin, 'commands', source);
+    const destPath = path.join(commandsDir, target);
+    if (fs.existsSync(srcPath)) {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+
   console.log('✅ OpenCode installation complete!');
   console.log(`   Config: ${configPath}`);
+  console.log(`   Commands: ${commandsDir}`);
   console.log('   MCP tools: workflow_start, workflow_status, workflow_resume, task_discover, review_code\n');
   return true;
 }
@@ -195,9 +217,12 @@ function installForCodex(installDir) {
   const home = process.env.HOME || process.env.USERPROFILE;
   const configDir = path.join(home, '.codex');
   const configPath = path.join(configDir, 'config.toml');
+  const skillsDir = path.join(home, '.codex', 'skills');
 
   fs.mkdirSync(configDir, { recursive: true });
+  fs.mkdirSync(skillsDir, { recursive: true });
 
+  // Update MCP config
   const mcpPath = path.join(installDir, 'mcp-server', 'index.js').replace(/\\/g, '\\\\');
   const pluginRoot = installDir.replace(/\\/g, '\\\\');
 
@@ -228,8 +253,28 @@ enabled = true
 
   fs.writeFileSync(configPath, configContent);
 
+  // Sync skill files
+  const skillMappings = [
+    ['next-task', 'next-task', 'next-task.md'],
+    ['ship', 'ship', 'ship.md'],
+    ['deslop', 'deslop-around', 'deslop-around.md'],
+    ['review', 'project-review', 'project-review.md'],
+    ['reality-check', 'reality-check', 'scan.md']
+  ];
+
+  for (const [skillName, plugin, source] of skillMappings) {
+    const srcPath = path.join(installDir, 'plugins', plugin, 'commands', source);
+    const skillDir = path.join(skillsDir, skillName);
+    const destPath = path.join(skillDir, 'SKILL.md');
+    if (fs.existsSync(srcPath)) {
+      fs.mkdirSync(skillDir, { recursive: true });
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+
   console.log('✅ Codex CLI installation complete!');
   console.log(`   Config: ${configPath}`);
+  console.log(`   Skills: ${skillsDir}`);
   console.log('   MCP tools: workflow_start, workflow_status, workflow_resume, task_discover, review_code\n');
   return true;
 }
