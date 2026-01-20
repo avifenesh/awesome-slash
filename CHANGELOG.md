@@ -12,10 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **CLI Installer** - `npm install -g awesome-slash@latest && awesome-slash`
   - Multi-select: choose one or more platforms (Claude Code, OpenCode, Codex)
-  - Configures MCP servers and plugins automatically
+  - Uses npm package files directly (no git clone)
+  - Claude Code: Uses GitHub marketplace for plugin installation
+  - OpenCode: Copies commands to `~/.opencode/commands/awesome-slash/`
+  - Codex: Copies prompts to `~/.codex/prompts/` (uses prompts system, not skills)
+  - Configures MCP servers automatically for OpenCode and Codex
   - Update: `npm update -g awesome-slash`
-  - Remove: `npm uninstall -g awesome-slash`
+  - Remove: `npm uninstall -g awesome-slash && awesome-slash --remove`
 - **Automated Release Workflow** - GitHub Actions workflow for npm publish with provenance
+
+### Fixed
+- **CLI Installer** - Multiple fixes for cross-platform installation
+  - Fixed OpenCode command path to match `adapters/opencode/install.sh`
+  - Fixed Codex to use `prompts/` instead of `skills/` system
+  - Fixed MCP server dependency installation
+  - Cleans up deprecated files and old wrong locations on install/update
+  - Added all 7 commands: next-task, ship, deslop-around, project-review, reality-check-scan, delivery-approval, update-docs-around
 
 ### Changed
 - **Reality Check Architectural Refactor** - Replaced 4 LLM agents with JS collectors + single Opus call (#97)
@@ -25,16 +37,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced `plan-synthesizer.md` to receive raw data and perform deep semantic analysis
   - ~77% token reduction for reality-check scans
   - Command flags replace interactive settings: `--sources`, `--depth`, `--output`, `--file`
+- **Package Size** - Reduced npm package size by excluding adapters and dev scripts
 
 ### Breaking Changes
 - `.claude/reality-check.local.md` settings file is no longer used
 - Use command flags instead: `/reality-check:scan --sources github,docs --depth quick`
+- `/reality-check:set` command removed (use flags instead)
 
 ### Removed
 - `plugins/reality-check/agents/issue-scanner.md`
 - `plugins/reality-check/agents/doc-analyzer.md`
 - `plugins/reality-check/agents/code-explorer.md`
 - `plugins/reality-check/lib/state/reality-check-state.js`
+- `plugins/reality-check/commands/set.md` (use command flags instead)
+- `adapters/` and `scripts/install/` from npm package (CLI handles installation)
 
 ## [2.5.1] - 2026-01-19
 
