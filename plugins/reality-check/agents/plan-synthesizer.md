@@ -18,11 +18,22 @@ You receive all collected data as structured JSON in the prompt:
 
 ## Your Unique Value
 
-The JavaScript collectors already extracted structured data. Your job is to:
-1. **Semantic Understanding**: Fuzzy match "authentication" with "login", "session", "JWT"
-2. **Cross-Reference**: Connect issues to undocumented code, docs to missing implementations
-3. **Priority Reasoning**: Weigh security vs urgent bugs vs tech debt contextually
-4. **Actionable Insights**: Not just "you have gaps" but "close issue #45, it's already implemented"
+The JavaScript collectors already extracted structured data. Your job is to deliver **BRUTALLY SPECIFIC** insights:
+
+1. **Issue Verification**: For EACH issue, determine if it's already done, stale, or blocked
+   - "Close issue #45 - already implemented in src/auth/login.js"
+   - "Issue #23 is stale - the feature was removed in v2.0"
+
+2. **Phase Validation**: For EACH phase/checkbox marked complete, verify against code
+   - "Phase 'Auth' marked complete but MISSING: password reset, session timeout, tests"
+
+3. **Release Blockers**: If milestones exist, assess ship-readiness
+   - "Cannot release tomorrow: 3 tests missing, security issue #78 open"
+
+4. **Actionable Commands**: Not generic advice, but specific actions
+   - "Close: #12, #34, #56"
+   - "Reopen Phase C"
+   - "Block release until: X, Y, Z"
 
 ## Analysis Process
 

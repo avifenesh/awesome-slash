@@ -117,37 +117,75 @@ ${JSON.stringify(collectedData.code, null, 2)}
 
 ## Your Task
 
-Perform deep semantic analysis to:
+Be BRUTALLY SPECIFIC. The user wants concrete, actionable insights - not generic observations.
 
-1. **Identify Drift**: Where do documented plans diverge from actual implementation?
-   - Features documented but not implemented
-   - Features implemented but not documented
-   - Milestones/phases marked complete but actually incomplete
-   - Stale issues that should be closed or updated
+### 1. Issue-by-Issue Verification
 
-2. **Find Critical Gaps**: What's missing that blocks progress?
-   - Missing tests for implemented features
-   - Missing documentation for public APIs
-   - Incomplete implementations
-   - Blocking issues
+For EACH open issue, determine:
+- Is this already implemented? → "Close issue #X - implemented in src/auth/login.js"
+- Is this stale/irrelevant? → "Close issue #X - no longer applicable after Y refactor"
+- Is this blocked? → "Issue #X blocked by: missing Z dependency"
 
-3. **Cross-Reference**: Connect related items across sources
-   - Issues that relate to undocumented features
-   - Code patterns that indicate incomplete work
-   - Documentation that contradicts code behavior
+### 2. Phase/Checkbox Validation
 
-4. **Prioritize**: Create an actionable reconstruction plan
-   - Critical: Blocks other work, security issues
-   - High: Missing functionality, broken features
-   - Medium: Documentation gaps, tech debt
-   - Low: Nice-to-haves, polish
+For EACH phase or checkbox marked "complete" in docs:
+- Verify against actual code: Does the feature exist?
+- Check for missing pieces: "Phase 'Authentication' marked complete but MISSING:
+  - Password reset functionality (no code in auth/)
+  - Session timeout handling (not implemented)
+  - Tests for login flow (0 test files)"
 
-Output a detailed markdown report with:
-- Executive Summary
-- Drift Analysis (with specific examples)
-- Gap Analysis (with severity ratings)
-- Cross-Reference Findings
-- Prioritized Reconstruction Plan
+### 3. Release Readiness Assessment
+
+If there are milestones or planned releases, assess:
+- "Your plan to release tomorrow is UNREALISTIC because:
+  - 3 critical tests missing for payment module
+  - No QA coverage on authentication flows
+  - Issue #45 (security) still open
+  - Phase B only 40% complete despite being marked done"
+
+### 4. Specific Recommendations
+
+Output SPECIFIC actions, not generic advice:
+- "Close issues: #12, #34, #56 (already implemented)"
+- "Reopen: Phase C (missing: X, Y, Z)"
+- "Block release until: tests added for auth/, issue #78 fixed"
+- "Update PLAN.md: Phase B is NOT complete - missing items listed above"
+
+## Output Format
+
+```markdown
+# Reality Check Report
+
+## Executive Summary
+[2-3 sentences: Overall project health and biggest concerns]
+
+## Issues to Close (Already Done)
+- #XX: [title] - Implemented in [file/location]
+- #YY: [title] - No longer relevant because [reason]
+
+## Phases Marked Complete But NOT Actually Done
+### [Phase Name]
+**Status in docs**: Complete ✓
+**Actual status**: INCOMPLETE
+**Missing**:
+- [ ] [Specific missing item 1]
+- [ ] [Specific missing item 2]
+
+## Release Blockers
+If you're planning to ship soon, these MUST be addressed:
+1. [Specific blocker with file/issue reference]
+2. [Specific blocker with file/issue reference]
+
+## Issues That Need Attention
+- #XX: [why it's stale/blocked/misprioritized]
+
+## Quick Wins
+Things you can do right now:
+1. Close issue #XX (already done)
+2. Update Phase Y status (not complete)
+3. Add test for [specific untested code]
+```
 `;
 
 await Task({
