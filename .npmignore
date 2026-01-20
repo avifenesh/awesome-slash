@@ -31,9 +31,21 @@ npm-debug.log*
 Thumbs.db
 
 # Documentation (keep essential only)
+docs/
+agent-docs/
 ADAPTER_DESIGN.md
 CONTRIBUTING.md
 MANUAL_TESTING.md
+
+# Legacy adapters (CLI handles installation now)
+adapters/
+
+# Dev scripts (keep only setup-hooks.js)
+scripts/convert-agents.js
+scripts/mcp-smoke-test.js
+scripts/validate-plugins.js
+scripts/sync-lib.sh
+scripts/install/
 
 # Misc
 *.tgz
