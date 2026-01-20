@@ -217,15 +217,16 @@ Validate task completion and approve for shipping (standalone or part of workflo
 Deep repository analysis to identify where documented plans diverge from actual code reality.
 
 ```bash
-/reality-check:scan           # Full reality check scan
-/reality-check:set            # Configure scan settings
+/reality-check:scan                        # Full scan (default)
+/reality-check:scan --sources github,docs  # Specific sources
+/reality-check:scan --depth quick          # Quick scan
+/reality-check:set                         # Show available flags
 ```
 
-**Multi-agent parallel scan:**
-1. Issue scanner - analyzes GitHub issues, PRs, milestones
-2. Doc analyzer - examines README, PLAN.md, CLAUDE.md, docs/
-3. Code explorer - deep codebase structure and feature analysis
-4. Plan synthesizer - combines findings into prioritized plan
+**Architecture:**
+- **JavaScript collectors** - Pure JS data collection (no LLM overhead)
+- **Single Opus call** - Deep semantic analysis with full context
+- **~77% token reduction** - Efficient compared to multi-agent approach
 
 ---
 
@@ -295,7 +296,7 @@ Override with `AI_STATE_DIR` environment variable.
 }
 ```
 
-### Specialist Agents (17 Total)
+### Specialist Agents (14 Total)
 
 **Core Workflow (Opus - Complex Tasks):**
 | Agent | Purpose |
@@ -322,13 +323,12 @@ Override with `AI_STATE_DIR` environment variable.
 | ci-fixer | Fix CI failures and review comments |
 | simple-fixer | Execute predefined code fixes |
 
-**Reality Check (Sonnet + Opus - Plan Drift Detection):**
+**Reality Check (Opus - Plan Drift Detection):**
 | Agent | Purpose |
 |-------|---------|
-| issue-scanner | Analyze GitHub issues, PRs, milestones |
-| doc-analyzer | Examine documentation for plans and roadmaps |
-| code-explorer | Deep codebase structure analysis |
-| plan-synthesizer | Combine findings into prioritized plan (opus) |
+| plan-synthesizer | Deep semantic analysis with full context (opus) |
+
+*Data collection handled by JavaScript collectors (lib/reality-check/collectors.js)*
 
 ---
 

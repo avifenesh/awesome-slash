@@ -1,12 +1,29 @@
 ---
 name: Reality Analysis
 description: This skill should be used when the user asks about "plan drift", "reality check", "comparing docs to code", "project state analysis", "roadmap alignment", "implementation gaps", or needs guidance on identifying discrepancies between documented plans and actual implementation state.
-version: 1.0.0
+version: 2.0.0
 ---
 
 # Reality Analysis
 
 Knowledge and patterns for analyzing project state, detecting plan drift, and creating prioritized reconstruction plans.
+
+## Architecture Overview
+
+```
+/reality-check:scan
+        │
+        ├─→ collectors.js (pure JavaScript)
+        │   ├─ scanGitHubState()
+        │   ├─ analyzeDocumentation()
+        │   └─ scanCodebase()
+        │
+        └─→ plan-synthesizer (Opus)
+            └─ Deep semantic analysis with full context
+```
+
+**Data collection**: Pure JavaScript (no LLM overhead)
+**Semantic analysis**: Single Opus call with complete context
 
 ## Drift Detection Patterns
 
@@ -231,87 +248,77 @@ function featureMatch(docFeature, codeFeature) {
    - All security first, but don't ignore everything else
    - Mix quick wins with important work
 
-## Integration Points
+## Data Collection (JavaScript)
 
-### With Issue Scanner
+The collectors.js module extracts data without LLM overhead:
 
-Issue scanner provides:
-- Open issue counts and categories
-- Stale issue identification
-- Milestone status
-- Theme analysis
+### GitHub Data
+- Open issues categorized by labels
+- Open PRs with draft status
+- Milestones with due dates
+- Stale items (> 90 days inactive)
+- Theme analysis from titles
 
-Use this data to:
-- Cross-reference with documented plans
-- Identify priority neglect
-- Detect scope creep
+### Documentation Data
+- Parsed README, PLAN.md, CLAUDE.md, CHANGELOG.md
+- Checkbox completion counts
+- Section analysis
+- Feature lists
 
-### With Doc Analyzer
+### Code Data
+- Directory structure
+- Framework detection
+- Test framework presence
+- Health indicators (CI, linting, tests)
 
-Doc analyzer provides:
-- Documented features list
-- Plan completion status
-- Documentation freshness
-- Mentioned files/commands
+## Semantic Analysis (Opus)
 
-Use this data to:
-- Compare against implemented features
-- Measure plan progress
-- Identify documentation gaps
+The plan-synthesizer receives all collected data and performs:
 
-### With Code Explorer
+1. **Cross-referencing**: Match documented features to implementation
+2. **Drift identification**: Find divergence patterns
+3. **Gap analysis**: Identify what's missing
+4. **Prioritization**: Context-aware ranking
+5. **Report generation**: Actionable recommendations
 
-Code explorer provides:
-- Implemented features
-- Public API surface
-- Code health metrics
-- Recent activity patterns
+## Example Input/Output
 
-Use this data to:
-- Verify documented features exist
-- Find undocumented implementations
-- Assess project maturity
-
-## Example Analysis
-
-### Input
+### Collected Data (from collectors.js)
 
 ```json
 {
-  "issues": {
-    "openCount": 47,
-    "stalePriorityCount": 8,
-    "overdoeMilestones": 2
+  "github": {
+    "issues": [...],
+    "categorized": { "bugs": [...], "features": [...] },
+    "stale": [...]
   },
   "docs": {
-    "planCompletion": 23,
-    "documentedFeatures": 12,
-    "lastUpdated": "2024-06-15"
+    "files": { "README.md": {...}, "PLAN.md": {...} },
+    "checkboxes": { "total": 15, "checked": 3 }
   },
   "code": {
-    "implementedFeatures": 8,
-    "hasTests": false,
-    "todoCount": 34
+    "frameworks": ["Express"],
+    "health": { "hasTests": true, "hasCi": true }
   }
 }
 ```
 
-### Output Assessment
+### Analysis Output (from plan-synthesizer)
 
-```
-DRIFT SCORE: HIGH
+```markdown
+# Reality Check Report
 
-Primary Drift Areas:
-1. Plan stagnation (23% completion)
-2. Priority neglect (8 stale high-priority issues)
-3. Milestone slippage (2 overdue)
+## Executive Summary
+Project has moderate drift: 8 stale priority issues and 20% plan completion.
+Strong code health (tests + CI) but documentation lags implementation.
 
-Key Gaps:
-1. No automated tests (critical)
-2. 34 TODO comments (medium)
-3. 4 features documented but not implemented
+## Drift Analysis
+### Priority Neglect
+**Severity**: high
+8 high-priority issues inactive for 60+ days...
 
-Recommendation:
-Focus on stabilization before new features.
-Address testing gap and stale priorities first.
+## Prioritized Plan
+### Immediate
+1. Close #45 (already implemented)
+2. Update README API section...
 ```

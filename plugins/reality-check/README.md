@@ -4,16 +4,34 @@ Deep repository analysis to realign project plans with actual code reality.
 
 ## Overview
 
-The reality-check plugin performs comprehensive analysis of your codebase to identify drift between documented plans and actual implementation. It scans GitHub issues, documentation files, and code structure to produce a prioritized reconstruction plan.
+The reality-check plugin performs comprehensive analysis of your codebase to identify drift between documented plans and actual implementation. It uses pure JavaScript for data collection (no LLM overhead) and a single Opus call for deep semantic analysis.
+
+## Architecture
+
+```
+/reality-check:scan
+        │
+        ├─→ collectors.js (pure JavaScript)
+        │   ├─ scanGitHubState()     → issues, PRs, milestones
+        │   ├─ analyzeDocumentation() → docs, plans, checkboxes
+        │   └─ scanCodebase()        → structure, frameworks, health
+        │
+        └─→ plan-synthesizer (Opus)
+            └─ Deep semantic analysis with full context
+```
+
+**Data collection**: No LLM calls - pure JavaScript
+**Semantic analysis**: Single Opus call with complete context
+**Token efficiency**: ~77% reduction vs. previous multi-agent architecture
 
 ## Features
 
-- **Multi-source scanning**: Analyzes GitHub issues, documentation, and codebase in parallel
+- **Efficient data collection**: JavaScript collectors for deterministic extraction
+- **Deep semantic analysis**: Single Opus call for cross-referencing and insights
 - **Drift detection**: Identifies where plans have diverged from reality
 - **Gap analysis**: Finds missing tests, documentation, and implementation
-- **Priority ranking**: Uses configurable weights to prioritize work items
-- **Interactive setup**: First-run wizard with checkbox configuration
-- **Configurable settings**: Persistent settings in `.claude/reality-check.local.md`
+- **Priority ranking**: Context-aware prioritization
+- **Command-line flags**: No persistent settings files needed
 
 ## Commands
 
@@ -22,113 +40,122 @@ The reality-check plugin performs comprehensive analysis of your codebase to ide
 Run a comprehensive reality check scan.
 
 ```
-/reality-check:scan
+/reality-check:scan                              # Full scan (default)
+/reality-check:scan --sources github,docs        # Specific sources
+/reality-check:scan --depth quick                # Quick scan
+/reality-check:scan --output file --file report.md  # Custom output
 ```
 
-On first run, presents interactive checkboxes to configure:
-- Data sources (GitHub issues, docs, Linear, code exploration)
-- Scan depth (quick, medium, thorough)
-- Output format (file, display, both)
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--sources` | github,docs,code | all three | Which sources to scan |
+| `--depth` | quick, thorough | thorough | How deep to analyze |
+| `--output` | file, display, both | both | Where to output results |
+| `--file` | path | reality-check-report.md | Output file path |
 
 ### `/reality-check:set`
 
-Configure or update settings interactively.
+Show available scan flags and examples.
 
 ```
 /reality-check:set
 ```
 
-## Agents
+## Agent
 
 | Agent | Purpose | Model |
 |-------|---------|-------|
-| `issue-scanner` | Scans GitHub issues, PRs, milestones | sonnet |
-| `doc-analyzer` | Analyzes documentation files | sonnet |
-| `code-explorer` | Deep codebase structure analysis | sonnet |
-| `plan-synthesizer` | Combines findings, creates plan | opus |
+| `plan-synthesizer` | Deep semantic analysis, drift detection, prioritization | opus |
 
 ## Workflow
 
 ```
 /reality-check:scan
         │
-        ▼
-┌───────────────────┐
-│  Settings Check   │ ← First-run setup if needed
-└───────────────────┘
+        ├─→ Parse command flags
         │
-        ├──────────────────┬──────────────────┐
-        ▼                  ▼                  ▼
-┌──────────────┐   ┌──────────────┐   ┌──────────────┐
-│ Issue Scanner│   │ Doc Analyzer │   │ Code Explorer│
-└──────────────┘   └──────────────┘   └──────────────┘
-        │                  │                  │
-        └──────────────────┴──────────────────┘
-                           │
-                           ▼
-                ┌──────────────────┐
-                │ Plan Synthesizer │
-                └──────────────────┘
-                           │
-                           ▼
-              Prioritized Reality Report
+        ├─→ JavaScript Data Collection (parallel, no LLM)
+        │   ├─ scanGitHubState()
+        │   ├─ analyzeDocumentation()
+        │   └─ scanCodebase()
+        │
+        └─→ Single Opus Analysis Call
+            ├─ Cross-reference docs vs code
+            ├─ Identify drift patterns
+            ├─ Find gaps
+            └─ Generate prioritized plan
+                    │
+                    ▼
+           Reality Check Report
 ```
 
-## Configuration
+## Data Sources
 
-Settings are stored in `.claude/reality-check.local.md`:
+### GitHub (`--sources github`)
+- Open issues categorized by labels (bug, feature, security)
+- Open pull requests with draft status
+- Milestones with due dates and completion
+- Stale items (> 90 days inactive)
+- Themes extracted from issue titles
 
-```yaml
----
-sources:
-  github_issues: true
-  linear: false
-  docs_paths: ["docs/", "README.md", "CLAUDE.md"]
-  code_exploration: true
-scan_depth: thorough
-output:
-  write_to_file: true
-  file_path: "reality-check-report.md"
-  display_summary: true
-priority_weights:
-  security: 10
-  bugs: 8
-  features: 5
-  docs: 3
-exclusions:
-  paths: ["node_modules/", "dist/"]
-  labels: ["wontfix", "duplicate"]
----
-```
+**Requires**: `gh` CLI installed and authenticated
+
+### Documentation (`--sources docs`)
+- README.md, CONTRIBUTING.md, CHANGELOG.md
+- PLAN.md, CLAUDE.md
+- docs/*.md
+- Checkbox completion rates
+- Feature lists and planned work
+
+### Code (`--sources code`)
+- Directory structure analysis
+- Framework detection (React, Express, Vue, etc.)
+- Test framework detection (Jest, Mocha, Vitest)
+- Health indicators (CI, linting, tests)
+- Implemented features
 
 ## Output
 
 The scan produces:
 
-1. **Drift Analysis**: Where plans diverge from reality
-2. **Gap Analysis**: Missing tests, docs, implementation
-3. **Cross-Reference**: Documented vs. implemented features
-4. **Reconstruction Plan**: Prioritized action items
+1. **Executive Summary**: Overview of project state
+2. **Drift Analysis**: Where plans diverge from reality (with evidence)
+3. **Gap Analysis**: Missing tests, docs, implementation (with severity)
+4. **Cross-Reference**: Documented vs. implemented features
+5. **Reconstruction Plan**: Prioritized action items by timeframe
 
 ### Example Output
 
 ```markdown
-## Reality Check Complete
+# Reality Check Report
 
-### Summary
-- Drift Areas: 4
-- Gaps Found: 7
-- Critical Items: 2
-- Aligned Features: 8
+## Executive Summary
+Project has moderate drift: 8 stale priority issues and 20% plan completion.
+Strong code health (tests + CI) but documentation lags implementation.
 
-### Immediate Actions (This Week)
-1. Address 3 open security vulnerabilities
-2. Fix stale milestone "v2.0" (45 days overdue)
+## Drift Analysis
+
+### Priority Neglect
+**Severity**: high
+8 high-priority issues inactive for 60+ days.
+**Recommendation**: Triage stale issues - close, reassign, or deprioritize.
+
+## Gap Analysis
+
+### No Automated Tests
+**Severity**: critical
+**Impact**: High risk of regressions, difficult to refactor safely.
+**Recommendation**: Add test framework and critical path coverage.
+
+## Prioritized Plan
+
+### Immediate (This Week)
+1. **Close issue #45** - already implemented
+2. **Address security vulnerability** in auth module
 
 ### Short-Term (This Month)
-1. Add test coverage (0% currently)
-2. Update outdated documentation
-3. Close 8 stale priority issues
+1. Add test coverage for API endpoints
+2. Update README to reflect current features
 ```
 
 ## Skills
@@ -136,20 +163,22 @@ The scan produces:
 ### reality-analysis
 
 Provides knowledge for:
-- Drift detection patterns
+- Drift detection patterns and signals
 - Prioritization framework
-- Cross-reference matching
+- Cross-reference matching logic
 - Output templates
 
 ## Requirements
 
-- GitHub CLI (`gh`) for issue scanning
+- GitHub CLI (`gh`) for GitHub scanning
 - Git repository
-- Node.js for state management
+- Node.js
 
-## Installation
+## Breaking Changes from v1
 
-The plugin is part of the awesome-slash marketplace. Enable it in your Claude Code settings.
+- `.claude/reality-check.local.md` settings file no longer used
+- Use command flags instead: `--sources`, `--depth`, `--output`, `--file`
+- Three scanner agents replaced with JavaScript collectors
 
 ## License
 

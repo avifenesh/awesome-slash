@@ -1,203 +1,105 @@
 ---
-description: Configure reality-check settings via interactive checkboxes
+description: Show available reality-check scan flags
 argument-hint: ""
-allowed-tools: Read, Write, AskUserQuestion
+allowed-tools:
 ---
 
-# /reality-check:set - Settings Configuration
+# /reality-check:set - Scan Configuration Help
 
-Configure reality-check plugin settings interactively.
+Display available flags for configuring `/reality-check:scan`.
 
 ## Overview
 
-This command provides an interactive way to configure the reality-check plugin. Settings are stored in `.claude/reality-check.local.md` and persist across sessions.
+The reality-check plugin now uses command-line flags instead of persistent settings files. This command shows available options.
 
-## Phase 1: Load Current Settings
+## Available Flags
 
-```javascript
-const rcState = require('${CLAUDE_PLUGIN_ROOT}/lib/state/reality-check-state.js');
+Use these flags with `/reality-check:scan`:
 
-const currentSettings = rcState.readSettings();
-const hasExisting = rcState.hasSettings();
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--sources` | github,docs,code | all three | Which sources to scan |
+| `--depth` | quick, thorough | thorough | How deep to analyze |
+| `--output` | file, display, both | both | Where to output results |
+| `--file` | path | reality-check-report.md | Output file path |
 
-if (hasExisting) {
-  console.log(`
-## Current Settings
+## Examples
 
-**Sources**:
-- GitHub Issues: ${currentSettings.sources.github_issues ? 'Enabled' : 'Disabled'}
-- Linear: ${currentSettings.sources.linear ? 'Enabled' : 'Disabled'}
-- Doc paths: ${currentSettings.sources.docs_paths.join(', ')}
-- Code exploration: ${currentSettings.sources.code_exploration ? 'Enabled' : 'Disabled'}
-
-**Scan Depth**: ${currentSettings.scan_depth}
-
-**Output**:
-- Write to file: ${currentSettings.output.write_to_file ? 'Yes' : 'No'}
-- File path: ${currentSettings.output.file_path}
-- Display summary: ${currentSettings.output.display_summary ? 'Yes' : 'No'}
-
-**Priority Weights**: Security(${currentSettings.priority_weights.security}), Bugs(${currentSettings.priority_weights.bugs}), Features(${currentSettings.priority_weights.features}), Docs(${currentSettings.priority_weights.docs})
-  `);
-}
+**Full scan (default):**
+```
+/reality-check:scan
 ```
 
-## Phase 2: Present Configuration Options
-
-Use AskUserQuestion to allow users to modify settings:
-
-```javascript
-AskUserQuestion({
-  questions: [
-    {
-      header: "Data Sources",
-      question: "Which sources should be scanned?",
-      options: [
-        {
-          label: "GitHub Issues & PRs",
-          description: currentSettings.sources.github_issues ? "Currently enabled" : "Currently disabled"
-        },
-        {
-          label: "Documentation files",
-          description: `Paths: ${currentSettings.sources.docs_paths.slice(0, 2).join(', ')}...`
-        },
-        {
-          label: "Linear issues",
-          description: currentSettings.sources.linear ? "Currently enabled" : "Currently disabled"
-        },
-        {
-          label: "Deep code exploration",
-          description: currentSettings.sources.code_exploration ? "Currently enabled" : "Currently disabled"
-        }
-      ],
-      multiSelect: true
-    },
-    {
-      header: "Scan Depth",
-      question: "How thorough should the analysis be?",
-      options: [
-        {
-          label: "Thorough",
-          description: currentSettings.scan_depth === 'thorough' ? "Currently selected" : "Deep analysis"
-        },
-        {
-          label: "Medium",
-          description: currentSettings.scan_depth === 'medium' ? "Currently selected" : "Balanced"
-        },
-        {
-          label: "Quick",
-          description: currentSettings.scan_depth === 'quick' ? "Currently selected" : "Fast scan"
-        }
-      ],
-      multiSelect: false
-    },
-    {
-      header: "Output",
-      question: "How should results be delivered?",
-      options: [
-        {
-          label: "Write to file",
-          description: `Save to ${currentSettings.output.file_path}`
-        },
-        {
-          label: "Display only",
-          description: "Show in conversation without saving"
-        },
-        {
-          label: "Both",
-          description: "Save file and show summary"
-        }
-      ],
-      multiSelect: false
-    }
-  ]
-});
+**Quick GitHub-only scan:**
+```
+/reality-check:scan --sources github --depth quick
 ```
 
-## Phase 3: Process Responses
-
-Map user selections to settings:
-
-```javascript
-function mapResponsesToSettings(responses, currentSettings) {
-  const sources = responses['Data Sources'] || [];
-  const depth = responses['Scan Depth'];
-  const output = responses['Output'];
-
-  return {
-    sources: {
-      github_issues: sources.includes('GitHub Issues & PRs'),
-      linear: sources.includes('Linear issues'),
-      docs_paths: sources.includes('Documentation files')
-        ? currentSettings.sources.docs_paths
-        : [],
-      code_exploration: sources.includes('Deep code exploration')
-    },
-    scan_depth: depth?.toLowerCase() || currentSettings.scan_depth,
-    output: {
-      write_to_file: output === 'Write to file' || output === 'Both',
-      file_path: currentSettings.output.file_path,
-      display_summary: output === 'Display only' || output === 'Both'
-    },
-    priority_weights: currentSettings.priority_weights,
-    exclusions: currentSettings.exclusions
-  };
-}
+**Documentation analysis only:**
+```
+/reality-check:scan --sources docs --output display
 ```
 
-## Phase 4: Save Settings
-
-```javascript
-const newSettings = mapResponsesToSettings(responses, currentSettings);
-rcState.writeSettings(newSettings);
-
-console.log(`
-## Settings Updated
-
-**Sources**:
-- GitHub Issues: ${newSettings.sources.github_issues ? 'Enabled' : 'Disabled'}
-- Linear: ${newSettings.sources.linear ? 'Enabled' : 'Disabled'}
-- Code exploration: ${newSettings.sources.code_exploration ? 'Enabled' : 'Disabled'}
-
-**Scan Depth**: ${newSettings.scan_depth}
-
-**Output**: ${newSettings.output.write_to_file ? 'File' : ''} ${newSettings.output.display_summary ? '+ Summary' : ''}
-
-Settings saved to \`.claude/reality-check.local.md\`
-
-Run \`/reality-check:scan\` to start a scan with these settings.
-`);
+**Custom output file:**
+```
+/reality-check:scan --file reports/reality-2024-01.md
 ```
 
-## Advanced Configuration
-
-For advanced settings (priority weights, exclusions, custom doc paths), users can directly edit `.claude/reality-check.local.md`:
-
-```markdown
-## Advanced Settings
-
-To modify priority weights or exclusions, edit the YAML frontmatter in:
-\`.claude/reality-check.local.md\`
-
-Example:
-\`\`\`yaml
-priority_weights:
-  security: 10
-  bugs: 8
-  features: 5
-  docs: 3
-exclusions:
-  paths: ["node_modules/", "dist/", "vendor/"]
-  labels: ["wontfix", "duplicate", "invalid"]
-\`\`\`
+**Thorough code and docs analysis:**
+```
+/reality-check:scan --sources docs,code --depth thorough
 ```
 
-## Success Criteria
+## Source Details
 
-- Current settings displayed if they exist
-- Interactive checkboxes for common settings
-- Settings saved to .local.md file
-- Clear confirmation of changes
-- Guidance for advanced configuration
+### `github`
+Scans using the `gh` CLI:
+- Open issues (categorized by labels)
+- Open pull requests
+- Milestones and their status
+- Stale items (> 90 days inactive)
+- Themes from issue titles
 
-Begin settings configuration now.
+**Requires:** `gh` CLI installed and authenticated (`gh auth login`)
+
+### `docs`
+Analyzes documentation files:
+- README.md, CONTRIBUTING.md, CHANGELOG.md
+- PLAN.md, CLAUDE.md
+- docs/*.md
+- Checkbox completion rates
+- Feature lists and planned work
+
+### `code`
+Scans the codebase:
+- Directory structure
+- Framework detection (React, Express, etc.)
+- Test framework detection
+- Health indicators (tests, linting, CI)
+- Implemented features
+
+## Migration from Settings File
+
+If you have an existing `.claude/reality-check.local.md` settings file, it is no longer used. Convert your preferences to flags:
+
+**Old settings file:**
+```yaml
+sources:
+  github_issues: true
+  docs_paths: [README.md, docs/]
+scan_depth: thorough
+output:
+  write_to_file: true
+```
+
+**New equivalent:**
+```
+/reality-check:scan --sources github,docs --depth thorough --output file
+```
+
+## Run a Scan
+
+Ready to scan? Use:
+```
+/reality-check:scan
+```

@@ -7,7 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No unreleased changes documented.
+### Changed
+- **Reality Check Architectural Refactor** - Replaced 4 LLM agents with JS collectors + single Opus call (#94)
+  - New `lib/reality-check/collectors.js` handles all data collection with pure JavaScript
+  - Deleted `issue-scanner.md`, `doc-analyzer.md`, `code-explorer.md` agents
+  - Deleted `reality-check-state.js` (510 lines of unnecessary state management)
+  - Enhanced `plan-synthesizer.md` to receive raw data and perform deep semantic analysis
+  - Reduced token consumption by ~77%
+  - Command flags replace interactive settings: `--sources`, `--depth`, `--output`, `--file`
+
+### Breaking Changes
+- `.claude/reality-check.local.md` settings file is no longer used
+- Use command flags instead: `/reality-check:scan --sources github,docs --depth quick`
+
+### Removed
+- `plugins/reality-check/agents/issue-scanner.md`
+- `plugins/reality-check/agents/doc-analyzer.md`
+- `plugins/reality-check/agents/code-explorer.md`
+- `plugins/reality-check/lib/state/reality-check-state.js`
 
 ## [2.5.1] - 2026-01-19
 
