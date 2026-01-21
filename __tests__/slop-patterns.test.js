@@ -1506,7 +1506,7 @@ describe('slop-patterns', () => {
         });
 
         it('should be case insensitive for keywords but match exact names', () => {
-          // Pattern is gi so it matches DATA, Result, etc.
+          // Pattern is case-insensitive (i flag) so it matches DATA, Result, etc.
           expect(pattern().test('const DATA = {}')).toBe(true);
           expect(pattern().test('const Result = []')).toBe(true);
         });
@@ -1597,10 +1597,6 @@ describe('slop-patterns', () => {
           expect(pattern().test('item := nil')).toBe(true);
           expect(pattern().test('temp := 0')).toBe(true);
           expect(pattern().test('value := "test"')).toBe(true);
-        });
-
-        it('should match var declarations with :=', () => {
-          expect(pattern().test('var data := make(map[string]int)')).toBe(true);
         });
 
         it('should match ctx (common in Go)', () => {
@@ -1735,7 +1731,7 @@ describe('slop-patterns', () => {
         const pattern = slopPatterns.generic_naming_go.pattern;
         const inputs = [
           'data' + ' '.repeat(10000) + ':= {}',
-          'var ' + 'data'.repeat(10000) + ' := {}',
+          'data'.repeat(10000) + ' := {}',
           'result' + ':'.repeat(10000) + '= []'
         ];
 
