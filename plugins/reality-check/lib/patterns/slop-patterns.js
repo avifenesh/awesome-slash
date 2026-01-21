@@ -668,12 +668,97 @@ const slopPatterns = {
 
   /** Go: Generic variable names */
   generic_naming_go: {
-    pattern: /\b(?:var\s+)?(data|result|item|temp|value|output|response|obj|ret|res|val|buf|ctx|cfg|opts|args)\s*:=/i,
+    pattern: /\b(data|result|item|temp|value|output|response|obj|ret|res|val|buf|ctx|cfg|opts|args)\s*:=/i,
     exclude: ['*_test.go', '**/tests/**', '**/testdata/**'],
     severity: 'low',
     autoFix: 'flag',
     language: 'go',
     description: 'Generic variable name that could be more descriptive'
+  },
+
+  // ============================================================================
+  // Verbosity Detection
+  // Detects AI preambles, marketing buzzwords, hedging language, and excessive comments
+  // ============================================================================
+
+  /**
+   * AI preamble phrases in comments
+   * Detects filler language like "Certainly!", "I'd be happy to help!"
+   */
+  verbosity_preambles: {
+    pattern: /\/\/\s*(?:certainly|i'd\s+be\s+happy|great\s+question|absolutely|of\s+course|happy\s+to\s+help|let\s+me\s+help|i\s+can\s+help)/i,
+    exclude: ['*.test.*', '*.spec.*', '*.md'],
+    severity: 'low',
+    autoFix: 'flag',
+    language: null,
+    description: 'AI preamble phrases in comments - remove filler language'
+  },
+
+  /**
+   * Marketing buzzwords that obscure technical meaning
+   * Focus on flowery language, NOT standard SE terms like "leverage", "utilize", "orchestrate"
+   */
+  verbosity_buzzwords: {
+    pattern: /\b(?:synergize|operationalize|paradigm\s+shift|best-in-class|world-class|cutting-edge|game-changing|holistic|revolutionary|transformative|seamless|next-generation|bleeding-edge|industry-leading)\b/i,
+    exclude: ['*.test.*', '*.spec.*', '*.md', 'CHANGELOG.*', 'README.*'],
+    severity: 'low',
+    autoFix: 'flag',
+    language: null,
+    description: 'Marketing buzzwords that obscure technical meaning'
+  },
+
+  /**
+   * Hedging language in comments
+   * Indicates incomplete thinking - code should be definitive
+   */
+  verbosity_hedging: {
+    pattern: /\/\/.*\b(?:it'?s?\s+worth\s+noting|generally\s+speaking|more\s+or\s+less|arguably|perhaps|possibly|might\s+be|should\s+work|i\s+think|i\s+believe|probably|maybe)\b/i,
+    exclude: ['*.test.*', '*.spec.*'],
+    severity: 'low',
+    autoFix: 'flag',
+    language: null,
+    description: 'Hedging language in comments - be direct'
+  },
+
+  /**
+   * Excessive inline comments (comment-to-code ratio)
+   * Flags when inline comments exceed maxCommentRatio times the code lines
+   * Requires multi-pass analysis for ratio computation
+   */
+  verbosity_ratio: {
+    pattern: null, // Requires multi-pass analysis
+    requiresMultiPass: true,
+    exclude: ['*.test.*', '*.spec.*', '*.md', '*.d.ts'],
+    severity: 'medium',
+    autoFix: 'flag',
+    language: null,
+    description: 'Excessive inline comments (>2:1 comment-to-code ratio within function)',
+    maxCommentRatio: 2.0,
+    minCodeLines: 3
+  },
+
+  // ============================================================================
+  // Over-Engineering Detection
+  // Detects excessive complexity relative to public API surface
+  // ============================================================================
+
+  /**
+   * Over-engineering metrics (project-level analysis)
+   * Detects: file proliferation, code density, directory depth
+   * Requires multi-pass analysis - cannot be done with simple regex
+   */
+  over_engineering_metrics: {
+    pattern: null, // Requires multi-pass analysis
+    exclude: [],  // Analyzes entire project
+    severity: 'high',
+    autoFix: 'flag',  // Cannot auto-fix architectural issues
+    language: null,   // Universal - all languages
+    description: 'Excessive files/lines relative to public API (over-engineering indicator)',
+    requiresMultiPass: true,
+    // Thresholds for violation detection
+    fileRatioThreshold: 20,       // Max 20 files per export
+    linesPerExportThreshold: 500, // Max 500 lines per export
+    depthThreshold: 4             // Max 4 directory levels
   }
 };
 

@@ -1293,8 +1293,8 @@ function withNestedBraces() {
     return nested;
   }
 }`;
-
-        const violations = analyzeVerbosityRatio(code, { maxCommentRatio: 1.5, minCodeLines: 1 });
+        // 5 comment lines, 4 code lines = 1.25 ratio
+        const violations = analyzeVerbosityRatio(code, { maxCommentRatio: 1.0, minCodeLines: 1 });
         expect(violations.length).toBe(1);
       });
     });
