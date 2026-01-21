@@ -24,42 +24,45 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check push count
-        id: check-pushes
+      - name: Check run count
+        id: check-runs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Count how many pushes (synchronize events) have occurred for this PR
+          # Count total workflow runs for this PR (including initial opened event)
+          # This allows exactly 3 runs: opened + first 2 pushes
           WORKFLOW_FILE="claude-code-review.yml"
 
-          # Count completed workflow runs for this PR that were triggered by push (synchronize)
-          PUSH_COUNT=$(gh api \
+          # Count completed workflow runs for this PR
+          RUN_COUNT=$(gh api \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "repos/${{ github.repository }}/actions/workflows/${WORKFLOW_FILE}/runs?head_sha=${{ github.event.pull_request.head.sha }}&status=completed" \
-            --jq '[.workflow_runs[] | select(.event == "pull_request")] | length')
+            --jq '[.workflow_runs[] | select(.event == "pull_request")] | length' || echo "")
 
-          # The current run hasn't completed yet, so check if this is a synchronize event
-          if [ "${{ github.event.action }}" = "synchronize" ]; then
-            PUSH_COUNT=$((PUSH_COUNT + 1))
-            echo "This is push #$PUSH_COUNT"
-          else
-            echo "This is a '${{ github.event.action }}' event (not a push)"
+          # Error handling: default to 0 if API call failed or returned empty
+          RUN_COUNT=${RUN_COUNT:-0}
+          if ! [[ "$RUN_COUNT" =~ ^[0-9]+$ ]]; then
+            echo "⚠️  Warning: invalid RUN_COUNT value ('$RUN_COUNT') from GitHub API. Defaulting to 0."
+            RUN_COUNT=0
           fi
 
-          echo "Total pushes (synchronize events) for this PR: $PUSH_COUNT"
+          # Add 1 for the current run (not yet completed)
+          RUN_COUNT=$((RUN_COUNT + 1))
 
-          # Allow reviews on first 3 pushes only
-          if [ "$PUSH_COUNT" -le 3 ]; then
+          echo "This is run #$RUN_COUNT for this PR (event: ${{ github.event.action }})"
+
+          # Allow reviews on first 3 runs total (opened + first 2 pushes)
+          if [ "$RUN_COUNT" -le 3 ]; then
             echo "should_run=true" >> $GITHUB_OUTPUT
-            echo "✅ Will run Claude review (push $PUSH_COUNT of 3)"
+            echo "✅ Will run Claude review (run $RUN_COUNT of 3)"
           else
             echo "should_run=false" >> $GITHUB_OUTPUT
-            echo "⏭️  Skipping Claude review (already ran on 3 pushes)"
+            echo "⏭️  Skipping Claude review (already ran 3 times)"
           fi
 
       - name: Run Claude Code Review
-        if: steps.check-pushes.outputs.should_run == 'true'
+        if: steps.check-runs.outputs.should_run == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -68,12 +71,8 @@ jobs:
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           use_commit_signing: true
 
-          # Allow Claude to read CI results on PRs
-          additional_permissions: |
-            actions: read
-
       - name: Comment on PR (skipped)
-        if: steps.check-pushes.outputs.should_run == 'false'
+        if: steps.check-runs.outputs.should_run == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
