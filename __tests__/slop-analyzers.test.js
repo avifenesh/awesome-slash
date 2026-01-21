@@ -1987,13 +1987,14 @@ module.exports = { helper };
 
         // Mock file system
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^\.\//, '').replace(/\/$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'app.js', isDirectory: () => false, isFile: () => true },
               { name: 'utils.js', isDirectory: () => false, isFile: () => true }
@@ -2040,13 +2041,14 @@ module.exports = { getData };
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'app.js', isDirectory: () => false, isFile: () => true }
             ];
@@ -2055,7 +2057,7 @@ module.exports = { getData };
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2088,13 +2090,14 @@ module.exports = {};
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'db.js', isDirectory: () => false, isFile: () => true }
             ];
@@ -2103,7 +2106,7 @@ module.exports = {};
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2141,8 +2144,9 @@ if __name__ == '__main__':
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'app.py', isDirectory: () => false, isFile: () => true }
             ];
@@ -2151,7 +2155,7 @@ if __name__ == '__main__':
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2191,8 +2195,9 @@ func main() {
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'main.go', isDirectory: () => false, isFile: () => true }
             ];
@@ -2201,7 +2206,7 @@ func main() {
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2241,8 +2246,9 @@ func main() {
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'main.go', isDirectory: () => false, isFile: () => true }
             ];
@@ -2251,7 +2257,7 @@ func main() {
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2283,13 +2289,14 @@ fn main() {
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'main.rs', isDirectory: () => false, isFile: () => true }
             ];
@@ -2298,7 +2305,7 @@ fn main() {
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2341,13 +2348,14 @@ module.exports = { getUsers };
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'db.js', isDirectory: () => false, isFile: () => true },
               { name: 'queries.js', isDirectory: () => false, isFile: () => true }
@@ -2357,7 +2365,7 @@ module.exports = { getUsers };
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2387,13 +2395,14 @@ export const redisClient = redis.createClient({
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'redis.js', isDirectory: () => false, isFile: () => true }
             ];
@@ -2402,7 +2411,7 @@ export const redisClient = redis.createClient({
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2430,13 +2439,14 @@ module.exports.pool = pool;
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'src', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (normalizedDir === 'src') {
+          if (normalized === 'src') {
             return [
               { name: 'db.js', isDirectory: () => false, isFile: () => true }
             ];
@@ -2445,7 +2455,7 @@ module.exports.pool = pool;
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
@@ -2475,13 +2485,14 @@ describe('Redis tests', () => {
         };
 
         mockFs.readdirSync.mockImplementation((dir) => {
-          const normalizedDir = dir.replace(/^.//, '').replace(//$/, '');
-          if (normalizedDir === '' || normalizedDir === '.') {
+          // Normalize path - handle both '.', 'src', and './src'
+          const normalized = dir.replace(/^\.\//, '').replace(/\/$/, '') || '.';
+          if (normalized === '.') {
             return [
               { name: 'test', isDirectory: () => true, isFile: () => false }
             ];
           }
-          if (dir === 'test') {
+          if (normalized === 'test') {
             return [
               { name: 'redis.test.js', isDirectory: () => false, isFile: () => true }
             ];
@@ -2490,7 +2501,7 @@ describe('Redis tests', () => {
         });
 
         mockFs.readFileSync.mockImplementation((path) => {
-          const file = path.replace(/^.//, '');
+          const file = path.replace(/^\.\//, '');
           if (mockFiles[file]) return mockFiles[file];
           throw new Error(`File not found: ${path}`);
         });
