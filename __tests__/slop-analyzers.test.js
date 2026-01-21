@@ -680,6 +680,30 @@ function func${i}() {
         const content = 'export async function fetch() {}';
         expect(countExportsInContent(content, 'js')).toBe(1);
       });
+
+      it('should count named re-exports', () => {
+        const content = "export { Foo, Bar } from './module';";
+        expect(countExportsInContent(content, 'js')).toBe(1);
+      });
+
+      it('should count star re-exports', () => {
+        const content = "export * from './utils';";
+        expect(countExportsInContent(content, 'js')).toBe(1);
+      });
+
+      it('should count star re-exports with alias', () => {
+        const content = "export * as Utils from './utils';";
+        expect(countExportsInContent(content, 'js')).toBe(1);
+      });
+
+      it('should count multiple re-export patterns', () => {
+        const content = `
+          export { Foo } from './foo';
+          export * from './bar';
+          export { Baz, Qux } from './baz';
+        `;
+        expect(countExportsInContent(content, 'js')).toBe(3);
+      });
     });
 
     describe('Rust', () => {
