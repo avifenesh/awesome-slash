@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Reality Check Output Size** - Condensed collector output to ~700 lines/~4.5k tokens (was thousands of lines)
+  - Issue/PR bodies replaced with 200-char snippets (full context not needed)
+  - Categorized issues store number + title (enough to understand without lookup)
+  - PRs include files changed for scope understanding
+  - Documentation features limited to 20, plans to 15
+  - Code structure replaced with summary stats + top-level dirs only
+  - File stats limited to top 10 extensions
+  - **Added symbol extraction** - function/class/export names per source file (up to 40 files)
+    - Helps agent verify if documented features are actually implemented
+    - Scans lib/, src/, app/, pages/, components/, utils/, services/, api/ dirs
+
 ## [2.6.0] - 2026-01-20
 
 ### Added

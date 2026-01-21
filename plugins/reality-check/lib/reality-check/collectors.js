@@ -91,6 +91,43 @@ function isGhAvailable() {
 }
 
 /**
+ * Summarize an issue for analysis (keep essentials, drop verbose body)
+ * @param {Object} item - Issue object
+ * @returns {Object} Summarized item
+ */
+function summarizeIssue(item) {
+  return {
+    number: item.number,
+    title: item.title,
+    labels: (item.labels || []).map(l => l.name || l),
+    milestone: item.milestone?.title || item.milestone || null,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    // First 200 chars of body for context
+    snippet: item.body ? item.body.slice(0, 200).replace(/\n/g, ' ').trim() + (item.body.length > 200 ? '...' : '') : ''
+  };
+}
+
+/**
+ * Summarize a PR for analysis (include files changed)
+ * @param {Object} item - PR object
+ * @returns {Object} Summarized item
+ */
+function summarizePR(item) {
+  return {
+    number: item.number,
+    title: item.title,
+    labels: (item.labels || []).map(l => l.name || l),
+    isDraft: item.isDraft,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    files: item.files || [],
+    // First 150 chars of body
+    snippet: item.body ? item.body.slice(0, 150).replace(/\n/g, ' ').trim() + (item.body.length > 150 ? '...' : '') : ''
+  };
+}
+
+/**
  * Scan GitHub state: issues, PRs, milestones
  * Replaces issue-scanner.md agent
  *
@@ -102,6 +139,7 @@ function scanGitHubState(options = {}) {
 
   const result = {
     available: false,
+    summary: { issueCount: 0, prCount: 0, milestoneCount: 0 },
     issues: [],
     prs: [],
     milestones: [],
@@ -126,22 +164,26 @@ function scanGitHubState(options = {}) {
   ], opts);
 
   if (issues) {
-    result.issues = issues;
+    // Summarize issues - keep number, title, labels, snippet
+    result.issues = issues.map(summarizeIssue);
+    result.summary.issueCount = issues.length;
     categorizeIssues(result, issues);
     findStaleItems(result, issues, 90);
     extractThemes(result, issues);
   }
 
-  // Fetch open PRs
+  // Fetch open PRs with files changed
   const prs = execGh([
     'pr', 'list',
     '--state', 'open',
-    '--json', 'number,title,labels,isDraft,createdAt,updatedAt,body',
+    '--json', 'number,title,labels,isDraft,createdAt,updatedAt,body,files',
     '--limit', String(opts.prLimit)
   ], opts);
 
   if (prs) {
-    result.prs = prs;
+    // Summarize PRs - keep number, title, files changed
+    result.prs = prs.map(summarizePR);
+    result.summary.prCount = prs.length;
   }
 
   // Fetch milestones
@@ -152,6 +194,7 @@ function scanGitHubState(options = {}) {
 
   if (milestones) {
     result.milestones = Array.isArray(milestones) ? milestones : [milestones];
+    result.summary.milestoneCount = result.milestones.length;
     findOverdueMilestones(result);
   }
 
@@ -163,6 +206,7 @@ function scanGitHubState(options = {}) {
  *
  * Uses regexes that treat non-letter characters (start/end of string, space, hyphen, colon, etc.)
  * as boundaries to avoid common false positives (e.g., "debug" won't match "bug", but "bug-fix" will).
+ * Stores issue number + title (enough to understand without lookup).
  */
 function categorizeIssues(result, issues) {
   const labelMap = {
@@ -185,17 +229,19 @@ function categorizeIssues(result, issues) {
   for (const issue of issues) {
     const labels = (issue.labels || []).map(l => (l.name || l).toLowerCase());
     let categorized = false;
+    // Store number + title for context
+    const ref = { number: issue.number, title: issue.title };
 
     for (const { regex, category } of labelPatterns) {
       if (labels.some(l => regex.test(l))) {
-        result.categorized[category].push(issue);
+        result.categorized[category].push(ref);
         categorized = true;
         break;
       }
     }
 
     if (!categorized) {
-      result.categorized.other.push(issue);
+      result.categorized.other.push(ref);
     }
   }
 }
@@ -259,19 +305,19 @@ function findOverdueMilestones(result) {
  * Replaces doc-analyzer.md agent
  *
  * @param {Object} options - Collection options
- * @returns {Object} Documentation analysis
+ * @returns {Object} Documentation analysis (condensed)
  */
 function analyzeDocumentation(options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const basePath = opts.cwd;
 
   const result = {
+    summary: { fileCount: 0, totalWords: 0 },
     files: {},
     features: [],
     plans: [],
     checkboxes: { total: 0, checked: 0, unchecked: 0 },
-    gaps: [],
-    lastModified: {}
+    gaps: []
   };
 
   // Standard documentation files to analyze
@@ -288,22 +334,16 @@ function analyzeDocumentation(options = {}) {
   for (const file of docFiles) {
     const content = safeReadFile(file, basePath);
     if (content) {
-      result.files[file] = analyzeMarkdownFile(content, file);
+      const analysis = analyzeMarkdownFile(content, file);
+      result.files[file] = analysis;
+      result.summary.totalWords += analysis.wordCount;
       extractCheckboxes(result, content);
       extractFeatures(result, content);
       extractPlans(result, content);
-
-      // Get last modified date
-      try {
-        const stat = fs.statSync(path.join(basePath, file));
-        result.lastModified[file] = stat.mtime.toISOString();
-      } catch {
-        // Ignore stat errors
-      }
     }
   }
 
-  // Find additional markdown files if depth is thorough
+  // Find additional markdown files if depth is thorough (limit to 5)
   if (opts.depth === 'thorough') {
     const docsDir = path.join(basePath, 'docs');
     if (fs.existsSync(docsDir)) {
@@ -311,11 +351,13 @@ function analyzeDocumentation(options = {}) {
         const additionalFiles = fs.readdirSync(docsDir)
           .filter(f => f.endsWith('.md') && !docFiles.includes(`docs/${f}`));
 
-        for (const file of additionalFiles.slice(0, 10)) {
+        for (const file of additionalFiles.slice(0, 5)) {
           const filePath = `docs/${file}`;
           const content = safeReadFile(filePath, basePath);
           if (content) {
-            result.files[filePath] = analyzeMarkdownFile(content, filePath);
+            const analysis = analyzeMarkdownFile(content, filePath);
+            result.files[filePath] = analysis;
+            result.summary.totalWords += analysis.wordCount;
           }
         }
       } catch {
@@ -324,6 +366,8 @@ function analyzeDocumentation(options = {}) {
     }
   }
 
+  result.summary.fileCount = Object.keys(result.files).length;
+
   // Identify documentation gaps
   identifyDocGaps(result);
 
@@ -331,38 +375,27 @@ function analyzeDocumentation(options = {}) {
 }
 
 /**
- * Analyze a single markdown file
+ * Analyze a single markdown file (condensed output)
  */
 function analyzeMarkdownFile(content, filePath) {
-  const analysis = {
-    path: filePath,
-    sections: [],
-    hasInstallation: false,
-    hasUsage: false,
-    hasApi: false,
-    hasTesting: false,
-    codeBlocks: 0,
-    wordCount: 0
-  };
-
-  // Extract sections (## headers)
+  // Extract sections (## headers) - limit to first 10
   const sectionMatches = content.match(/^##\s+(.+)$/gm) || [];
-  analysis.sections = sectionMatches.map(s => s.replace(/^##\s+/, ''));
+  const sections = sectionMatches.slice(0, 10).map(s => s.replace(/^##\s+/, ''));
 
   // Check for common sections
-  const sectionLower = analysis.sections.map(s => s.toLowerCase()).join(' ');
-  analysis.hasInstallation = /install|setup|getting.started/i.test(sectionLower);
-  analysis.hasUsage = /usage|how.to|example/i.test(sectionLower);
-  analysis.hasApi = /api|reference|methods/i.test(sectionLower);
-  analysis.hasTesting = /test|spec|coverage/i.test(sectionLower);
+  const sectionLower = sections.map(s => s.toLowerCase()).join(' ');
 
-  // Count code blocks
-  analysis.codeBlocks = (content.match(/```/g) || []).length / 2;
-
-  // Word count
-  analysis.wordCount = content.split(/\s+/).length;
-
-  return analysis;
+  return {
+    path: filePath,
+    sectionCount: sectionMatches.length,
+    sections: sections, // Top 10 only
+    hasInstallation: /install|setup|getting.started/i.test(sectionLower),
+    hasUsage: /usage|how.to|example/i.test(sectionLower),
+    hasApi: /api|reference|methods/i.test(sectionLower),
+    hasTesting: /test|spec|coverage/i.test(sectionLower),
+    codeBlocks: Math.floor((content.match(/```/g) || []).length / 2),
+    wordCount: content.split(/\s+/).length
+  };
 }
 
 /**
@@ -378,26 +411,26 @@ function extractCheckboxes(result, content) {
 }
 
 /**
- * Extract documented features
+ * Extract documented features (limited to top 20)
  */
 function extractFeatures(result, content) {
   // Look for feature lists
   const featurePattern = /^[-*]\s+\*{0,2}(.+?)\*{0,2}(?:\s*[-–]\s*(.+))?$/gm;
   let match;
 
-  while ((match = featurePattern.exec(content)) !== null) {
+  while ((match = featurePattern.exec(content)) !== null && result.features.length < 20) {
     const feature = match[1].trim();
-    if (feature.length > 5 && feature.length < 100) {
+    if (feature.length > 5 && feature.length < 80) {
       result.features.push(feature);
     }
   }
 
-  // Deduplicate
-  result.features = [...new Set(result.features)];
+  // Deduplicate and limit
+  result.features = [...new Set(result.features)].slice(0, 20);
 }
 
 /**
- * Extract planned items from content
+ * Extract planned items from content (limited to top 15)
  */
 function extractPlans(result, content) {
   // Look for TODO, FIXME, future plans sections
@@ -408,8 +441,9 @@ function extractPlans(result, content) {
 
   for (const pattern of planPatterns) {
     let match;
-    while ((match = pattern.exec(content)) !== null) {
-      result.plans.push(match[1] || match[0]);
+    while ((match = pattern.exec(content)) !== null && result.plans.length < 15) {
+      const plan = (match[1] || match[0]).slice(0, 100); // Truncate long plans
+      result.plans.push(plan);
     }
   }
 }
@@ -441,18 +475,20 @@ function identifyDocGaps(result) {
  * Replaces code-explorer.md agent
  *
  * @param {Object} options - Collection options
- * @returns {Object} Codebase analysis
+ * @returns {Object} Codebase analysis (condensed)
  */
 function scanCodebase(options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const basePath = opts.cwd;
 
   const result = {
-    structure: {},
+    summary: { totalDirs: 0, totalFiles: 0 },
+    topLevelDirs: [],
     frameworks: [],
     testFramework: null,
     hasTypeScript: false,
     implementedFeatures: [],
+    symbols: {}, // Function/class/export names per file
     health: {
       hasTests: false,
       hasLinting: false,
@@ -461,6 +497,9 @@ function scanCodebase(options = {}) {
     },
     fileStats: {}
   };
+
+  // Internal structure for scanning (not exposed in full)
+  const internalStructure = {};
 
   // Detect package.json dependencies
   const pkgContent = safeReadFile('package.json', basePath);
@@ -477,16 +516,34 @@ function scanCodebase(options = {}) {
   // Check for TypeScript
   result.hasTypeScript = fs.existsSync(path.join(basePath, 'tsconfig.json'));
 
-  // Scan directory structure
-  scanDirectory(result, basePath, '', opts.depth === 'thorough' ? 3 : 2);
+  // Scan directory structure (internal)
+  scanDirectory({ structure: internalStructure, fileStats: result.fileStats }, basePath, '', opts.depth === 'thorough' ? 3 : 2);
+
+  // Extract summary from internal structure
+  result.summary.totalDirs = Object.keys(internalStructure).length;
+  result.summary.totalFiles = Object.values(internalStructure).reduce((sum, d) => sum + (d.fileCount || 0), 0);
+
+  // Get top-level directories only
+  const rootEntry = internalStructure['.'];
+  if (rootEntry) {
+    result.topLevelDirs = rootEntry.dirs || [];
+  }
 
   // Detect health indicators
   detectHealth(result, basePath);
 
   // Find implemented features from code
   if (opts.depth === 'thorough') {
-    findImplementedFeatures(result, basePath);
+    findImplementedFeatures({ ...result, structure: internalStructure }, basePath);
+    // Extract symbols from source files
+    result.symbols = scanFileSymbols(basePath, result.topLevelDirs);
   }
+
+  // Limit fileStats to top 10 extensions
+  const sortedStats = Object.entries(result.fileStats)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  result.fileStats = Object.fromEntries(sortedStats);
 
   return result;
 }
@@ -532,6 +589,125 @@ function detectTestFramework(result, pkgJson) {
       break;
     }
   }
+}
+
+/**
+ * Extract symbols (functions, classes, exports) from a JS/TS file
+ * Uses regex patterns - not a full parser, but good enough for analysis
+ * @param {string} content - File content
+ * @returns {Object} Extracted symbols
+ */
+function extractSymbols(content) {
+  const symbols = {
+    functions: [],
+    classes: [],
+    exports: []
+  };
+
+  // Function declarations: function foo() or async function foo()
+  const funcPattern = /(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g;
+  let match;
+  while ((match = funcPattern.exec(content)) !== null) {
+    symbols.functions.push(match[1]);
+  }
+
+  // Arrow functions assigned to const/let: const foo = () => or const foo = async () =>
+  const arrowPattern = /(?:const|let)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*=\s*(?:async\s*)?\([^)]*\)\s*=>/g;
+  while ((match = arrowPattern.exec(content)) !== null) {
+    symbols.functions.push(match[1]);
+  }
+
+  // Class declarations: class Foo
+  const classPattern = /class\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  while ((match = classPattern.exec(content)) !== null) {
+    symbols.classes.push(match[1]);
+  }
+
+  // Named exports: export { foo, bar } or export function foo
+  const namedExportPattern = /export\s+(?:(?:async\s+)?function|class|const|let|var)\s+([a-zA-Z_$][a-zA-Z0-9_$]*)/g;
+  while ((match = namedExportPattern.exec(content)) !== null) {
+    symbols.exports.push(match[1]);
+  }
+
+  // module.exports = { foo, bar } - extract keys
+  const moduleExportsPattern = /module\.exports\s*=\s*\{([^}]+)\}/;
+  const moduleMatch = content.match(moduleExportsPattern);
+  if (moduleMatch) {
+    const keys = moduleMatch[1].split(',').map(k => k.trim().split(':')[0].trim());
+    symbols.exports.push(...keys.filter(k => k && /^[a-zA-Z_$]/.test(k)));
+  }
+
+  // Deduplicate
+  symbols.functions = [...new Set(symbols.functions)];
+  symbols.classes = [...new Set(symbols.classes)];
+  symbols.exports = [...new Set(symbols.exports)];
+
+  return symbols;
+}
+
+/**
+ * Scan key source files for symbols (recursive)
+ * @param {string} basePath - Project root
+ * @param {string[]} topLevelDirs - Top-level directories
+ * @returns {Object} File -> symbols mapping
+ */
+function scanFileSymbols(basePath, topLevelDirs) {
+  const sourceSymbols = {};
+  const sourceDirs = ['lib', 'src', 'app', 'pages', 'components', 'utils', 'services', 'api'];
+  const dirsToScan = topLevelDirs.filter(d => sourceDirs.includes(d));
+
+  let filesScanned = 0;
+  const maxFiles = 40; // Limit to avoid huge output
+
+  function scanDir(dirPath, relativePath, depth = 0) {
+    if (filesScanned >= maxFiles || depth > 2) return;
+    if (!fs.existsSync(dirPath)) return;
+
+    try {
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (filesScanned >= maxFiles) break;
+
+        const fullPath = path.join(dirPath, entry.name);
+        const relPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+
+        if (entry.isDirectory()) {
+          // Skip common non-source dirs
+          if (['node_modules', '__tests__', 'test', 'tests', 'dist', 'build'].includes(entry.name)) continue;
+          scanDir(fullPath, relPath, depth + 1);
+        } else if (entry.isFile()) {
+          if (!/\.(js|ts|jsx|tsx)$/.test(entry.name)) continue;
+          if (entry.name.includes('.test.') || entry.name.includes('.spec.')) continue;
+
+          try {
+            const stat = fs.statSync(fullPath);
+            if (stat.size > 50000) continue; // Skip large files
+
+            const content = fs.readFileSync(fullPath, 'utf8');
+            const symbols = extractSymbols(content);
+
+            // Only include if has meaningful symbols
+            if (symbols.functions.length || symbols.classes.length || symbols.exports.length) {
+              sourceSymbols[relPath] = symbols;
+              filesScanned++;
+            }
+          } catch {
+            // Skip unreadable files
+          }
+        }
+      }
+    } catch {
+      // Skip unreadable dirs
+    }
+  }
+
+  for (const dir of dirsToScan) {
+    if (filesScanned >= maxFiles) break;
+    scanDir(path.join(basePath, dir), dir);
+  }
+
+  return sourceSymbols;
 }
 
 /**

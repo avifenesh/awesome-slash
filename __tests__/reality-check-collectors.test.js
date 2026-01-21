@@ -165,7 +165,8 @@ Just some description without installation or usage.
     test('returns structure for empty directory', () => {
       const result = scanCodebase({ cwd: testDir });
 
-      expect(result.structure).toBeDefined();
+      expect(result.summary).toBeDefined();
+      expect(result.topLevelDirs).toBeDefined();
       expect(result.frameworks).toEqual([]);
       expect(result.testFramework).toBeNull();
       expect(result.hasTypeScript).toBe(false);
@@ -228,10 +229,10 @@ Just some description without installation or usage.
 
       const result = scanCodebase({ cwd: testDir });
 
-      expect(result.structure['.']).toBeDefined();
-      expect(result.structure['.'].dirs).toContain('src');
-      expect(result.structure['.'].dirs).toContain('tests');
+      expect(result.topLevelDirs).toContain('src');
+      expect(result.topLevelDirs).toContain('tests');
       expect(result.fileStats['.js']).toBe(2);
+      expect(result.summary.totalDirs).toBeGreaterThan(0);
     });
 
     test('excludes node_modules from scan', () => {
@@ -240,8 +241,8 @@ Just some description without installation or usage.
 
       const result = scanCodebase({ cwd: testDir });
 
-      // node_modules should not appear in structure
-      expect(result.structure['node_modules']).toBeUndefined();
+      // node_modules should not appear in topLevelDirs
+      expect(result.topLevelDirs).not.toContain('node_modules');
     });
   });
 
