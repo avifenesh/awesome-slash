@@ -1333,4 +1333,614 @@ function acceptable() {
       });
     });
   });
+
+  // ============================================================================
+  // Buzzword Inflation Detection Tests
+  // ============================================================================
+
+  describe('analyzeBuzzwordInflation', () => {
+    const {
+      analyzeBuzzwordInflation,
+      extractClaims,
+      searchEvidence,
+      detectGaps,
+      escapeRegex,
+      BUZZWORD_CATEGORIES,
+      EVIDENCE_PATTERNS
+    } = require('../lib/patterns/slop-analyzers');
+
+    describe('escapeRegex', () => {
+      it('should escape regex special characters', () => {
+        expect(escapeRegex('production-ready')).toBe('production-ready');
+        expect(escapeRegex('foo.bar')).toBe('foo\\.bar');
+        expect(escapeRegex('a*b+c?')).toBe('a\\*b\\+c\\?');
+        expect(escapeRegex('[test]')).toBe('\\[test\\]');
+      });
+    });
+
+    describe('extractClaims', () => {
+      describe('basic functionality', () => {
+        it('should detect "production-ready" in content', () => {
+          const content = 'This is a production-ready solution.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].buzzword).toBe('production-ready');
+          expect(claims[0].category).toBe('production');
+          expect(claims[0].line).toBe(1);
+        });
+
+        it('should detect "secure" in content', () => {
+          const content = '/* This provides secure authentication */';
+          const claims = extractClaims(content, 'auth.js');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].buzzword).toBe('secure');
+          expect(claims[0].category).toBe('security');
+        });
+
+        it('should detect "enterprise-grade" in content', () => {
+          const content = '# Enterprise-Grade API\n\nThis is enterprise-grade software.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(2);
+          expect(claims[0].buzzword).toBe('enterprise-grade');
+          expect(claims[0].category).toBe('enterprise');
+        });
+
+        it('should detect multiple buzzwords in same line', () => {
+          const content = 'This is a secure and scalable solution.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(2);
+          const buzzwords = claims.map(c => c.buzzword);
+          expect(buzzwords).toContain('secure');
+          expect(buzzwords).toContain('scalable');
+        });
+
+        it('should detect buzzwords case-insensitively', () => {
+          const content = 'This is PRODUCTION-READY and Scalable.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(2);
+        });
+      });
+
+      describe('positive claim detection', () => {
+        it('should mark "is production-ready" as positive claim', () => {
+          const content = 'This application is production-ready.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims[0].isPositiveClaim).toBe(true);
+        });
+
+        it('should mark "provides secure" as positive claim', () => {
+          const content = 'This module provides secure authentication.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims[0].isPositiveClaim).toBe(true);
+        });
+
+        it('should mark "fully production-ready" as positive claim', () => {
+          const content = 'This is fully production-ready for deployment.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims[0].isPositiveClaim).toBe(true);
+        });
+
+        it('should mark "with enterprise-grade" as positive claim', () => {
+          const content = 'Built with enterprise-grade security.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims[0].isPositiveClaim).toBe(true);
+        });
+      });
+
+      describe('non-claim detection', () => {
+        it('should NOT mark "TODO: make secure" as positive claim', () => {
+          const content = '// TODO: make this more secure';
+          const claims = extractClaims(content, 'auth.js');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].isPositiveClaim).toBe(false);
+        });
+
+        it('should NOT mark "should be production-ready" as positive claim', () => {
+          const content = 'This should be production-ready before release.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].isPositiveClaim).toBe(false);
+        });
+
+        it('should NOT mark "will be secure" as positive claim', () => {
+          const content = 'The authentication will be secure in v2.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].isPositiveClaim).toBe(false);
+        });
+
+        it('should NOT mark "FIXME: make robust" as positive claim', () => {
+          const content = '// FIXME: make this more robust';
+          const claims = extractClaims(content, 'app.js');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].isPositiveClaim).toBe(false);
+        });
+
+        it('should NOT mark "need to be scalable" as positive claim', () => {
+          const content = 'This needs to be scalable for production.';
+          const claims = extractClaims(content, 'README.md');
+
+          expect(claims.length).toBe(1);
+          expect(claims[0].isPositiveClaim).toBe(false);
+        });
+      });
+
+      describe('edge cases', () => {
+        it('should handle empty content', () => {
+          const claims = extractClaims('', 'README.md');
+          expect(claims.length).toBe(0);
+        });
+
+        it('should handle content with no buzzwords', () => {
+          const claims = extractClaims('Hello world\nThis is a test.', 'README.md');
+          expect(claims.length).toBe(0);
+        });
+
+        it('should handle buzzword as part of larger word (no match)', () => {
+          // "insecure" contains "secure" but should not match due to word boundary
+          const claims = extractClaims('This is insecure code.', 'README.md');
+          expect(claims.length).toBe(0);
+        });
+      });
+    });
+
+    describe('searchEvidence', () => {
+      // Create a mock filesystem helper
+      function createMockFs(files) {
+        return {
+          readdirSync: (dir, opts) => {
+            const entries = files
+              .filter(f => f.path.startsWith(dir.replace(/\\/g, '/')) || dir === '.')
+              .map(f => ({
+                name: f.path.split('/').pop(),
+                isDirectory: () => f.type === 'dir',
+                isFile: () => f.type === 'file'
+              }));
+            return entries;
+          },
+          readFileSync: (filePath) => {
+            const normalizedPath = filePath.replace(/\\/g, '/');
+            const file = files.find(f => normalizedPath.endsWith(f.path) || f.path === normalizedPath);
+            if (!file) throw new Error('ENOENT');
+            return file.content;
+          },
+          statSync: (filePath) => {
+            const normalizedPath = filePath.replace(/\\/g, '/');
+            const file = files.find(f => normalizedPath.endsWith(f.path));
+            if (!file) throw new Error('ENOENT');
+            return {
+              isFile: () => file.type === 'file',
+              isDirectory: () => file.type === 'dir'
+            };
+          }
+        };
+      }
+
+      it('should find test files as production evidence', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'production',
+          EVIDENCE_PATTERNS,
+          ['src/app.js', 'src/app.test.js'],
+          { fs: createMockFs([
+            { path: 'src/app.js', content: 'function main() {}', type: 'file' },
+            { path: 'src/app.test.js', content: 'test("works", () => {})', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.categories.tests).toBeDefined();
+        expect(evidence.total).toBeGreaterThan(0);
+      });
+
+      it('should find error handling as production evidence', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'production',
+          EVIDENCE_PATTERNS,
+          ['src/app.js'],
+          { fs: createMockFs([
+            { path: 'src/app.js', content: 'try { foo() } catch (e) { console.error(e) }', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.categories.errorHandling).toBeDefined();
+      });
+
+      it('should find logging as production evidence', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'production',
+          EVIDENCE_PATTERNS,
+          ['src/app.js'],
+          { fs: createMockFs([
+            { path: 'src/app.js', content: 'logger.info("Starting...")', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.categories.logging).toBeDefined();
+      });
+
+      it('should find auth patterns as security evidence', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'security',
+          EVIDENCE_PATTERNS,
+          ['src/auth.js'],
+          { fs: createMockFs([
+            { path: 'src/auth.js', content: 'const token = jwt.sign(user)', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.categories.auth).toBeDefined();
+      });
+
+      it('should find validation as security evidence', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'security',
+          EVIDENCE_PATTERNS,
+          ['src/input.js'],
+          { fs: createMockFs([
+            { path: 'src/input.js', content: 'function validateInput(data) {}', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.categories.validation).toBeDefined();
+      });
+
+      it('should find async patterns as scale evidence', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'scale',
+          EVIDENCE_PATTERNS,
+          ['src/app.js'],
+          { fs: createMockFs([
+            { path: 'src/app.js', content: 'async function fetchData() { await api.get() }', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.categories.async).toBeDefined();
+      });
+
+      it('should return empty evidence for unknown category', () => {
+        const evidence = searchEvidence(
+          '/repo',
+          'unknown_category',
+          EVIDENCE_PATTERNS,
+          ['src/app.js'],
+          { fs: createMockFs([
+            { path: 'src/app.js', content: 'function main() {}', type: 'file' }
+          ])}
+        );
+
+        expect(evidence.total).toBe(0);
+        expect(evidence.found.length).toBe(0);
+      });
+    });
+
+    describe('detectGaps', () => {
+      it('should flag claim with zero evidence', () => {
+        const claims = [{
+          line: 1,
+          buzzword: 'production-ready',
+          category: 'production',
+          text: 'This is production-ready.',
+          isPositiveClaim: true,
+          filePath: 'README.md'
+        }];
+
+        const mockFs = {
+          readFileSync: () => 'const x = 1;'
+        };
+
+        const violations = detectGaps(
+          claims,
+          '/repo',
+          EVIDENCE_PATTERNS,
+          2,
+          ['src/app.js'],
+          { fs: mockFs }
+        );
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].buzzword).toBe('production-ready');
+        expect(violations[0].severity).toBe('high');
+      });
+
+      it('should flag claim with partial evidence (medium severity)', () => {
+        const claims = [{
+          line: 1,
+          buzzword: 'production-ready',
+          category: 'production',
+          text: 'This is production-ready.',
+          isPositiveClaim: true,
+          filePath: 'README.md'
+        }];
+
+        const mockFs = {
+          readFileSync: () => 'try { foo() } catch (e) { }' // Has error handling only
+        };
+
+        const violations = detectGaps(
+          claims,
+          '/repo',
+          EVIDENCE_PATTERNS,
+          3, // Require 3 evidence matches
+          ['src/app.js'],
+          { fs: mockFs }
+        );
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].severity).toBe('medium');
+        expect(violations[0].evidenceCount).toBe(1);
+      });
+
+      it('should NOT flag non-positive claims', () => {
+        const claims = [{
+          line: 1,
+          buzzword: 'production-ready',
+          category: 'production',
+          text: 'TODO: make production-ready',
+          isPositiveClaim: false,
+          filePath: 'README.md'
+        }];
+
+        const mockFs = {
+          readFileSync: () => 'console.log("hello")'
+        };
+
+        const violations = detectGaps(
+          claims,
+          '/repo',
+          EVIDENCE_PATTERNS,
+          2,
+          ['src/app.js'],
+          { fs: mockFs }
+        );
+
+        expect(violations.length).toBe(0);
+      });
+
+      it('should cache evidence searches per category', () => {
+        const claims = [
+          {
+            line: 1,
+            buzzword: 'production-ready',
+            category: 'production',
+            text: 'This is production-ready.',
+            isPositiveClaim: true,
+            filePath: 'README.md'
+          },
+          {
+            line: 2,
+            buzzword: 'prod-ready',
+            category: 'production',
+            text: 'This is prod-ready.',
+            isPositiveClaim: true,
+            filePath: 'README.md'
+          }
+        ];
+
+        let readCount = 0;
+        const mockFs = {
+          readFileSync: () => {
+            readCount++;
+            return 'console.log("hello")';
+          }
+        };
+
+        detectGaps(
+          claims,
+          '/repo',
+          EVIDENCE_PATTERNS,
+          2,
+          ['src/app.js'],
+          { fs: mockFs }
+        );
+
+        // Should only read files once per category (cached)
+        expect(readCount).toBe(1);
+      });
+    });
+
+    describe('analyzeBuzzwordInflation (integration)', () => {
+      it('should return correct structure', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        // Create temp directory with test files
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buzzword-test-'));
+
+        try {
+          // Create README with claim
+          fs.writeFileSync(
+            path.join(tmpDir, 'README.md'),
+            '# My App\n\nThis is production-ready.'
+          );
+
+          // Create source file without evidence
+          fs.mkdirSync(path.join(tmpDir, 'src'));
+          fs.writeFileSync(
+            path.join(tmpDir, 'src', 'app.js'),
+            'console.log("hello")'
+          );
+
+          const result = analyzeBuzzwordInflation(tmpDir, { minEvidenceMatches: 2 });
+
+          expect(result).toHaveProperty('claimsFound');
+          expect(result).toHaveProperty('positiveClaimsFound');
+          expect(result).toHaveProperty('violations');
+          expect(result).toHaveProperty('verdict');
+        } finally {
+          // Cleanup
+          fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+      });
+
+      it('should detect violations in real test scenario', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buzzword-test-'));
+
+        try {
+          fs.writeFileSync(
+            path.join(tmpDir, 'README.md'),
+            '# My App\n\nThis application is production-ready and provides secure authentication.'
+          );
+
+          fs.mkdirSync(path.join(tmpDir, 'src'));
+          fs.writeFileSync(
+            path.join(tmpDir, 'src', 'app.js'),
+            'const x = 1;' // No evidence
+          );
+
+          const result = analyzeBuzzwordInflation(tmpDir, { minEvidenceMatches: 2 });
+
+          expect(result.claimsFound).toBeGreaterThan(0);
+          expect(result.positiveClaimsFound).toBeGreaterThan(0);
+          expect(result.violations.length).toBeGreaterThan(0);
+          expect(result.verdict).toBe('HIGH');
+        } finally {
+          fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+      });
+
+      it('should NOT flag claims with sufficient evidence', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buzzword-test-'));
+
+        try {
+          fs.writeFileSync(
+            path.join(tmpDir, 'README.md'),
+            '# My App\n\nThis is production-ready.'
+          );
+
+          fs.mkdirSync(path.join(tmpDir, 'src'));
+          fs.writeFileSync(
+            path.join(tmpDir, 'src', 'app.js'),
+            `
+try {
+  doSomething();
+} catch (e) {
+  logger.error(e);
+}
+            `
+          );
+          fs.writeFileSync(
+            path.join(tmpDir, 'src', 'app.test.js'),
+            'test("works", () => { expect(1).toBe(1); })'
+          );
+
+          const result = analyzeBuzzwordInflation(tmpDir, { minEvidenceMatches: 2 });
+
+          expect(result.violations.length).toBe(0);
+          expect(result.verdict).toBe('OK');
+        } finally {
+          fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+      });
+
+      it('should use default options when not provided', () => {
+        const fs = require('fs');
+        const path = require('path');
+        const os = require('os');
+
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buzzword-test-'));
+
+        try {
+          fs.writeFileSync(
+            path.join(tmpDir, 'README.md'),
+            'Hello world'
+          );
+
+          const result = analyzeBuzzwordInflation(tmpDir);
+
+          expect(result).toHaveProperty('claimsFound');
+          expect(result).toHaveProperty('verdict');
+        } finally {
+          fs.rmSync(tmpDir, { recursive: true, force: true });
+        }
+      });
+    });
+
+    describe('ReDoS safety', () => {
+      it('should handle long inputs safely for claim extraction', () => {
+        const content = 'production-ready '.repeat(10000);
+
+        const start = Date.now();
+        extractClaims(content, 'README.md');
+        const elapsed = Date.now() - start;
+
+        expect(elapsed).toBeLessThan(1000);
+      });
+
+      it('should handle pathological inputs safely', () => {
+        // Pathological input that might cause backtracking
+        const content = 'a'.repeat(1000) + 'production-ready' + 'b'.repeat(1000);
+
+        const start = Date.now();
+        extractClaims(content, 'README.md');
+        const elapsed = Date.now() - start;
+
+        expect(elapsed).toBeLessThan(100);
+      });
+    });
+
+    describe('constants', () => {
+      it('should have all buzzword categories defined', () => {
+        expect(BUZZWORD_CATEGORIES).toHaveProperty('production');
+        expect(BUZZWORD_CATEGORIES).toHaveProperty('enterprise');
+        expect(BUZZWORD_CATEGORIES).toHaveProperty('security');
+        expect(BUZZWORD_CATEGORIES).toHaveProperty('scale');
+        expect(BUZZWORD_CATEGORIES).toHaveProperty('reliability');
+        expect(BUZZWORD_CATEGORIES).toHaveProperty('completeness');
+      });
+
+      it('should have evidence patterns for all categories', () => {
+        expect(EVIDENCE_PATTERNS).toHaveProperty('production');
+        expect(EVIDENCE_PATTERNS).toHaveProperty('enterprise');
+        expect(EVIDENCE_PATTERNS).toHaveProperty('security');
+        expect(EVIDENCE_PATTERNS).toHaveProperty('scale');
+        expect(EVIDENCE_PATTERNS).toHaveProperty('reliability');
+        expect(EVIDENCE_PATTERNS).toHaveProperty('completeness');
+      });
+
+      it('should have arrays of buzzwords per category', () => {
+        for (const category of Object.values(BUZZWORD_CATEGORIES)) {
+          expect(Array.isArray(category)).toBe(true);
+          expect(category.length).toBeGreaterThan(0);
+        }
+      });
+
+      it('should have regex patterns in evidence patterns', () => {
+        for (const category of Object.values(EVIDENCE_PATTERNS)) {
+          for (const patterns of Object.values(category)) {
+            expect(Array.isArray(patterns)).toBe(true);
+            for (const pattern of patterns) {
+              expect(pattern).toBeInstanceOf(RegExp);
+            }
+          }
+        }
+      });
+    });
+  });
 });

@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Buzzword Inflation Detection** - New project-level analyzer for `/deslop-around` command (#113)
+  - Detects quality claims in documentation without supporting code evidence
+  - 6 buzzword categories: production, enterprise, security, scale, reliability, completeness
+  - Each category has specific evidence patterns to validate claims:
+    - Production: tests, error handling, logging
+    - Security: auth, validation, encryption
+    - Scale: async patterns, caching, connection pooling
+    - Enterprise: auth, audit logs, rate limiting
+    - Reliability: tests, coverage, error handling
+    - Completeness: edge case handling, documentation
+  - Distinguishes positive claims ("is production-ready") from aspirational ("TODO: make secure")
+  - Claims without sufficient evidence (default: 2 matches) are flagged as violations
+  - Severity `high`, autoFix `flag` (cannot auto-fix documentation claims)
+  - New `analyzeBuzzwordInflation()` function in slop-analyzers.js
+  - Comprehensive test suite with 50+ test cases
+
 - **Verbosity Detection** - New patterns for `/deslop-around` command to detect AI-generated verbose code
   - `verbosity_preambles` - AI preamble phrases in comments (e.g., "Certainly!", "I'd be happy to help")
   - `verbosity_buzzwords` - Marketing buzzwords that obscure meaning (e.g., "synergize", "paradigm shift", "game-changing")
