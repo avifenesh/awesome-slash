@@ -738,14 +738,221 @@ let validated_email = normalize_email(&raw_input);
    - Evidence search in code
    - Gap reporting
 
-### Implementation Approach
+---
 
-Given the project philosophy ("Minimal context/token consumption - Agents should be efficient"), detection should be:
+## Automation Approaches (No Line-by-Line Agent Review)
 
-1. **Configurable** - Enable/disable categories
-2. **Efficient** - Fast static analysis, not AST parsing everything
-3. **Actionable** - Clear fix recommendations
-4. **Non-blocking** - Report mode by default, apply mode optional
+The goal is **fast, automated detection** without expensive LLM calls. Research reveals several proven approaches:
+
+### Approach 1: Metrics-Based Detection
+
+Calculate ratios and thresholds using fast static analysis tools.
+
+| Metric | Tool/Method | Threshold | Detects |
+|--------|-------------|-----------|---------|
+| **LDR (Logic Density Ratio)** | `cloc`/`sloc` | < 0.3 = bloat | Documentation inflation |
+| **Cyclomatic Complexity** | `escomplex` | > 10 per function | Over-engineering |
+| **Halstead Difficulty** | `escomplex` | High difficulty + low volume | Unnecessary complexity |
+| **Maintainability Index** | `escomplex` | < 20 = problematic | Code health |
+| **Lines per Feature** | File count / feature count | > 500:1 | Over-engineering |
+| **File Proliferation** | `find` + count | > 10x features | Over-engineering |
+
+**Tools**:
+- `cloc` / `sloc` / `tokei` - Fast line counting (code vs comments vs blanks)
+- `escomplex` - JS/TS complexity metrics (cyclomatic, Halstead, maintainability)
+- Custom scripts - Ratio calculations
+
+### Approach 2: AST-Based Pattern Detection
+
+Parse code into Abstract Syntax Tree, traverse to find patterns. No LLM needed.
+
+```typescript
+// Using ts-morph for TypeScript
+import { Project } from 'ts-morph';
+
+const project = new Project();
+project.addSourceFilesAtPaths('src/**/*.ts');
+
+for (const file of project.getSourceFiles()) {
+  for (const fn of file.getFunctions()) {
+    // Detect placeholder functions
+    const body = fn.getBody()?.getText() || '';
+    if (body.match(/throw new Error\(['"].*(?:TODO|implement)/i)) {
+      console.log(`Placeholder: ${file.getFilePath()}:${fn.getStartLineNumber()}`);
+    }
+
+    // Detect stub returns
+    const statements = fn.getStatements();
+    if (statements.length === 1) {
+      const text = statements[0].getText();
+      if (text.match(/^return\s+(0|true|false|null|\[\]|\{\})$/)) {
+        console.log(`Stub return: ${file.getFilePath()}:${fn.getStartLineNumber()}`);
+      }
+    }
+  }
+}
+```
+
+**Tools**:
+- `ts-morph` - TypeScript AST manipulation (wraps TS compiler API)
+- `tree-sitter` - Fast incremental parsing, multi-language
+- `@babel/parser` - JavaScript/JSX AST parsing
+
+### Approach 3: Tokenization + Hashing (Duplicate Detection)
+
+**Rabin-Karp algorithm** - Used by `jscpd` for copy-paste detection.
+
+1. Tokenize source code (normalize variable names, whitespace)
+2. Create rolling hash of token sequences
+3. Find matching hashes = duplicate code blocks
+
+```bash
+# Run jscpd to find duplicates
+npx jscpd src/ --min-tokens 50 --reporters json
+```
+
+Detects: AI generating similar boilerplate in multiple places.
+
+### Approach 4: Dependency Graph Analysis
+
+Detect over-engineering through module structure.
+
+```bash
+# Using madge for circular dependency detection
+npx madge --circular src/
+
+# Using dependency-cruiser for rule-based validation
+npx depcruise --validate .dependency-cruiser.js src/
+```
+
+**Detects**:
+- Circular dependencies (architectural smell)
+- Orphaned modules (unused code)
+- Dev dependencies in production code
+- Module depth > threshold (over-abstraction)
+
+**Tools**:
+- `madge` - Dependency graphs, circular detection, visualization
+- `dependency-cruiser` - Rule-based dependency validation
+
+### Approach 5: Regex Pattern Matching (Text Slop)
+
+Fast regex scan for bombastic phrases in comments.
+
+```typescript
+const SLOP_PATTERNS = [
+  /\bcertainly\b/i,
+  /\bI'd be happy to\b/i,
+  /\bgreat question\b/i,
+  /\bit's worth noting\b/i,
+  /\bgenerally speaking\b/i,
+  /\bleverage\b/i,
+  /\bfacilitate\b/i,
+  /\bdelve\b/i,
+  /\bparadigm\b/i,
+  /\bsynergy\b/i,
+];
+
+function scanComments(content: string): SlopMatch[] {
+  const commentPattern = /\/\/.*$|\/\*[\s\S]*?\*\//gm;
+  const matches: SlopMatch[] = [];
+
+  for (const comment of content.matchAll(commentPattern)) {
+    for (const pattern of SLOP_PATTERNS) {
+      if (pattern.test(comment[0])) {
+        matches.push({ line: getLineNumber(content, comment.index), pattern });
+      }
+    }
+  }
+  return matches;
+}
+```
+
+### Approach 6: Cross-Reference Validation
+
+Validate references in comments against actual data.
+
+```typescript
+// Extract issue/PR references from comments
+const refPattern = /#(\d+)/g;
+
+// Validate against GitHub API (batch request)
+async function validateRefs(refs: number[], repo: string): Promise<InvalidRef[]> {
+  const { data: issues } = await octokit.issues.listForRepo({ owner, repo, state: 'all' });
+  const validIds = new Set(issues.map(i => i.number));
+  return refs.filter(r => !validIds.has(r)).map(r => ({ ref: r, exists: false }));
+}
+```
+
+### Approach 7: Generic Naming Detection
+
+AST + word frequency analysis.
+
+```typescript
+const GENERIC_NAMES = new Set(['data', 'result', 'item', 'temp', 'value', 'output', 'response', 'obj']);
+
+function detectGenericNames(file: SourceFile): GenericNameWarning[] {
+  const warnings: GenericNameWarning[] = [];
+
+  for (const decl of file.getVariableDeclarations()) {
+    const name = decl.getName();
+    if (GENERIC_NAMES.has(name.toLowerCase())) {
+      warnings.push({ name, line: decl.getStartLineNumber() });
+    }
+  }
+  return warnings;
+}
+```
+
+### Recommended Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    SLOP DETECTION PIPELINE                  │
+├─────────────────────────────────────────────────────────────┤
+│  FAST LAYER (milliseconds, no LLM)                          │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐            │
+│  │ Line Count  │ │ Complexity  │ │ Dependency  │            │
+│  │ cloc/tokei  │ │ escomplex   │ │ madge       │            │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘            │
+│         │               │               │                    │
+│         └───────────────┼───────────────┘                    │
+│                         ▼                                    │
+│              ┌─────────────────────┐                         │
+│              │   Metrics Report    │                         │
+│              │   (JSON output)     │                         │
+│              └──────────┬──────────┘                         │
+├─────────────────────────┼───────────────────────────────────┤
+│  PATTERN LAYER (fast, no LLM)                               │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐            │
+│  │ AST Scan    │ │ Regex Scan  │ │ Duplicate   │            │
+│  │ ts-morph    │ │ comments    │ │ jscpd       │            │
+│  └──────┬──────┘ └──────┬──────┘ └──────┬──────┘            │
+│         │               │               │                    │
+│         └───────────────┼───────────────┘                    │
+│                         ▼                                    │
+│              ┌─────────────────────┐                         │
+│              │   Pattern Matches   │                         │
+│              │   (file:line:issue) │                         │
+│              └──────────┬──────────┘                         │
+├─────────────────────────┼───────────────────────────────────┤
+│  OPTIONAL: SEMANTIC LAYER (only if needed)                  │
+│                         ▼                                    │
+│              ┌─────────────────────┐                         │
+│              │   LLM Analysis      │   ← Only for complex    │
+│              │   (buzzword claims  │     cases that require  │
+│              │    vs evidence)     │     semantic reasoning  │
+│              └─────────────────────┘                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Key Principle: Layered Detection
+
+1. **Layer 1 (Fast Metrics)**: Run `cloc`, `escomplex`, `madge` - get numbers in milliseconds
+2. **Layer 2 (Pattern Matching)**: AST traversal, regex on comments - still fast
+3. **Layer 3 (Optional LLM)**: Only for complex semantic analysis (e.g., "does this claim match the code?")
+
+**Token cost**: Layer 1-2 = zero tokens. Layer 3 = only when metrics trigger concern.
 
 ---
 
@@ -785,6 +992,36 @@ Given the project philosophy ("Minimal context/token consumption - Agents should
 7. **ai-eng-system clean command**
    - URL: https://github.com/v1truv1us/ai-eng-system
    - Key contribution: Preamble/hedging language patterns
+
+### Automation Tools (Static Analysis)
+
+8. **escomplex**
+   - URL: https://github.com/jared-stilwell/escomplex
+   - Key contribution: Cyclomatic complexity, Halstead metrics, maintainability index for JS/TS
+
+9. **jscpd**
+   - URL: https://github.com/kucherenko/jscpd
+   - Key contribution: Rabin-Karp algorithm for duplicate/copy-paste detection (150+ languages)
+
+10. **madge**
+    - URL: https://github.com/pahen/madge
+    - Key contribution: Dependency graph analysis, circular dependency detection
+
+11. **dependency-cruiser**
+    - URL: https://github.com/sverweij/dependency-cruiser
+    - Key contribution: Rule-based dependency validation, architectural enforcement
+
+12. **ts-morph**
+    - URL: https://github.com/dsherret/ts-morph
+    - Key contribution: TypeScript AST manipulation for pattern detection
+
+13. **tree-sitter**
+    - URL: https://github.com/tree-sitter/tree-sitter
+    - Key contribution: Fast incremental parsing, multi-language AST
+
+14. **cloc / tokei**
+    - URLs: https://github.com/AlDanial/cloc, https://github.com/XAMPPRocky/tokei
+    - Key contribution: Fast line counting (code vs comments vs blanks)
 
 ### Secondary Sources (Blocked/Unavailable)
 
