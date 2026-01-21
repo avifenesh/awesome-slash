@@ -12,17 +12,12 @@ on:
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: read
+      actions: read
       id-token: write
 
     steps:
@@ -31,7 +26,46 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Check push count
+        id: check-pushes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Count how many pushes (synchronize events) have occurred for this PR
+          # We check the workflow runs triggered by 'synchronize' action
+          PR_HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          WORKFLOW_FILE="claude-code-review.yml"
+
+          # Count completed workflow runs for this PR that were triggered by push (synchronize)
+          # We filter by head_sha to ensure we're counting runs for this specific PR
+          PUSH_COUNT=$(gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${{ github.repository }}/actions/workflows/${WORKFLOW_FILE}/runs?head_sha=${{ github.event.pull_request.head.sha }}&status=completed" \
+            --jq '[.workflow_runs[] | select(.event == "pull_request")] | length')
+
+          # The current run hasn't completed yet, so we need to check if this is a synchronize event
+          # and count it if so
+          if [ "${{ github.event.action }}" = "synchronize" ]; then
+            PUSH_COUNT=$((PUSH_COUNT + 1))
+            echo "This is push #$PUSH_COUNT"
+          else
+            echo "This is a '${{ github.event.action }}' event (not a push)"
+          fi
+
+          echo "Total pushes (synchronize events) for this PR: $PUSH_COUNT"
+
+          # Allow reviews on first 3 pushes only
+          if [ "$PUSH_COUNT" -le 3 ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "✅ Will run Claude review (push $PUSH_COUNT of 3)"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "⏭️  Skipping Claude review (already ran on 3 pushes)"
+          fi
+
       - name: Run Claude Code Review
+        if: steps.check-pushes.outputs.should_run == 'true'
         id: claude-review
         uses: anthropics/claude-code-action@v1
         with:
@@ -41,4 +75,11 @@ jobs:
           prompt: '/code-review:code-review ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
           # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
           # or https://code.claude.com/docs/en/cli-reference for available options
+
+      - name: Comment on PR (skipped)
+        if: steps.check-pushes.outputs.should_run == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "ℹ️ Claude Code review was skipped as it has already run 3 times for this PR. The PR can now continue toward merge."
 
