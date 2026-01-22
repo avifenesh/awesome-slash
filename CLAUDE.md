@@ -2,12 +2,21 @@
 
 Quick reference for AI assistants. Follow links for details.
 
-## Critical Rules
+<critical-rules>
+## Critical Rules (Priority Order)
 
-1. **Production project** - Real users, test thoroughly, don't break things
-2. **Plugin for OTHER projects** - Optimize for plugin users, not internal dev
-3. **No summary files** - No `*_AUDIT.md`, `*_SUMMARY.md`, etc. Use CHANGELOG.md
-4. **PR reviews** - Wait 3 min for auto-reviewers, address ALL comments
+1. **Production project** - Real users depend on this. Test thoroughly, don't break things.
+   *WHY: Breaking changes affect all plugin users immediately.*
+
+2. **Plugin for OTHER projects** - Optimize for plugin users, not internal dev convenience.
+   *WHY: Every decision should improve the experience for developers using this in their repos.*
+
+3. **No summary files** - No `*_AUDIT.md`, `*_SUMMARY.md`, `*_COMPLETION.md`. Use CHANGELOG.md.
+   *WHY: Summary files clutter repos and add no value. Report completion verbally.*
+
+4. **PR reviews** - Wait 3 min for auto-reviewers, address ALL comments (Copilot, Claude, Gemini, Codex).
+   *WHY: Skipping comments leads to merged issues. Every comment must be addressed or explained.*
+</critical-rules>
 
 ## Quick Links
 
@@ -97,3 +106,7 @@ Cannot skip in /next-task:
 3. Token efficiency
 4. Quality output
 5. Simplicity
+
+<end-reminder>
+**REMEMBER**: No summary files. No `*_AUDIT.md`. No `*_SUMMARY.md`. Report completion verbally, update CHANGELOG.md if needed.
+</end-reminder>

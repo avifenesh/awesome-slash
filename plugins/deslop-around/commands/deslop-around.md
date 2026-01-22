@@ -7,6 +7,15 @@ argument-hint: "[report|apply] [scope-path] [max-changes]"
 
 You are a senior maintainer doing periodic repo hygiene. Your mission: remove "AI slop" while preserving behavior and minimizing diffs.
 
+## Modes
+
+| Mode | Scope | Use Case |
+|------|-------|----------|
+| **Path-based** | `/deslop-around src/` | Targeted cleanup of specific path |
+| **Codebase** | `/deslop-around` | Full repository hygiene sweep |
+
+**Note**: For diff-based cleanup of new work only (unpushed commits), use the `deslop-work` agent via `/next-task`.
+
 ## Arguments
 
 - **Mode**: `report` (default) or `apply`
@@ -71,41 +80,24 @@ git ls-files | wc -l           # File count
 
 ## AI Slop Definitions
 
-Detect and remove:
+Detect patterns from `${CLAUDE_PLUGIN_ROOT}/lib/patterns/slop-patterns.js`:
 
-- **Console Debugging**: `console.log()`, `print()`, `println!()`, `dbg!()`
-- **Old TODOs**: Comments >90 days old (check line age)
-- **Commented Code**: >5 consecutive commented lines
-- **Placeholder Text**: "lorem ipsum", "test test", "TODO: implement"
-- **Empty Catch**: Empty catch/except blocks without logging
-- **Magic Numbers**: Large hardcoded numbers (>1000)
-- **Disabled Linters**: eslint-disable, pylint: disable, #noqa
-- **Trailing Whitespace**: Whitespace at end of lines
-- **Mixed Indentation**: Tabs and spaces mixed
-- **Unused Imports**: Imports marked as unused
-- **Hardcoded URLs**: URLs that should be config
-- **Debug Imports**: `import pdb`, `import ipdb`
-- **Placeholder Functions**: `return 0`, `todo!()`, `raise NotImplementedError`, `throw Error("TODO")`
-- **Excessive Documentation**: JSDoc >3x function body length
-- **Phantom References**: Issue/PR mentions, file path references in comments
-- **Generic Naming**: Variables named `data`, `result`, `item`, `temp`, `value` (suggests more specific names)
+**Categories:**
+- Console debugging (JS, Python, Rust, Go)
+- Old TODOs and FIXMEs
+- Placeholder functions (`todo!()`, `raise NotImplementedError`, `return 0`)
+- Empty catch/except blocks
+- Excessive documentation (>3x function body)
+- Phantom references (issue/PR mentions, stale file paths)
+- Infrastructure without implementation (unused DB clients, caches, API clients)
+- Code smells (boolean blindness, message chains, mutable globals)
 
-### Code Smell Detection
+**Certainty levels:**
+- **HIGH**: Direct regex match - auto-fixable
+- **MEDIUM**: Multi-pass analysis - verify context
+- **LOW**: Heuristic - use judgment
 
-High-impact code smells that indicate maintainability issues:
-
-- **Boolean Blindness**: Function calls with 3+ consecutive boolean params (e.g., `process(true, false, true)`)
-- **Message Chains**: Long method chains (4+ calls) or deep property access (5+ levels)
-- **Mutable Globals**: Module-level mutable state with UPPERCASE names (`let CONFIG = {}`)
-- **Dead Code**: Unreachable code after `return`, `throw`, `break`, `continue`
-- **Shotgun Surgery**: Files that frequently change together (git history analysis)
-
-Heuristic patterns (may have false positives, use judgment):
-
-- **Feature Envy**: Method accessing another object 3+ times (may belong in that class)
-- **Speculative Generality**: Underscore-prefixed unused params, empty interfaces
-
-Reference patterns from `${CLAUDE_PLUGIN_ROOT}/lib/patterns/slop-patterns.js`
+See pattern library for full regex patterns and language variants.
 
 ## Phase A: Map + Diagnose (Always)
 
