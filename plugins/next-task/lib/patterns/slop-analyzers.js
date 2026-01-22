@@ -1512,8 +1512,17 @@ function analyzeDeadCode(content, options = {}) {
 
     if (!isTermination) continue;
 
+    // Skip if termination is part of a one-line conditional (e.g., "if (x) return;")
+    // These don't make subsequent code unreachable
+    if (/^\s*(if|elif|else\s+if)\s*\(/.test(trimmed) ||
+        /^\s*if\s+.*:/.test(trimmed)) {
+      continue;
+    }
+
     // Look for non-empty code after the termination (within same block)
-    // Track brace depth to know when we exit the current block
+    // Use different scope tracking for Python vs brace-based languages
+    const isPython = lang === 'python';
+    const currentIndent = isPython ? (line.match(/^\s*/)[0].length) : null;
     let braceDepth = 0;
 
     for (let j = i + 1; j < lineCount; j++) {
@@ -1526,17 +1535,30 @@ function analyzeDeadCode(content, options = {}) {
         continue;
       }
 
-      // Track brace depth
-      const openBraces = (nextTrimmed.match(/\{/g) || []).length;
-      const closeBraces = (nextTrimmed.match(/\}/g) || []).length;
-      braceDepth += openBraces - closeBraces;
+      // Python: Check indentation level to detect scope exit
+      if (isPython) {
+        const nextIndent = nextLine.match(/^\s*/)[0].length;
 
-      // If we see a closing brace that takes us out of the current scope, stop
-      if (braceDepth < 0) break;
+        // If dedented to same level or less, we've exited the block
+        if (nextIndent <= currentIndent) {
+          // Exception: allow same-level blank lines, comments, decorators
+          if (!/^(@|\s*#)/.test(nextLine)) {
+            break;
+          }
+        }
+      } else {
+        // Brace-based languages: Track brace depth
+        const openBraces = (nextTrimmed.match(/\{/g) || []).length;
+        const closeBraces = (nextTrimmed.match(/\}/g) || []).length;
+        braceDepth += openBraces - closeBraces;
 
-      // If we see only a closing brace, that's fine (not dead code)
-      if (nextTrimmed === '}' || nextTrimmed === '},' || nextTrimmed === '};') {
-        continue;
+        // If we see a closing brace that takes us out of the current scope, stop
+        if (braceDepth < 0) break;
+
+        // If we see only a closing brace, that's fine (not dead code)
+        if (nextTrimmed === '}' || nextTrimmed === '},' || nextTrimmed === '};') {
+          continue;
+        }
       }
 
       // Skip case/default labels in switch statements
