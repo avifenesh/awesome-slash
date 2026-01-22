@@ -1539,12 +1539,9 @@ function analyzeDeadCode(content, options = {}) {
       if (isPython) {
         const nextIndent = nextLine.match(/^\s*/)[0].length;
 
-        // If dedented to same level or less, we've exited the block
-        if (nextIndent <= currentIndent) {
-          // Exception: allow same-level blank lines, comments, decorators
-          if (!/^(@|\s*#)/.test(nextLine)) {
-            break;
-          }
+        // If dedented to LESS than current level, we've exited the block
+        if (nextIndent < currentIndent) {
+          break;
         }
       } else {
         // Brace-based languages: Track brace depth
