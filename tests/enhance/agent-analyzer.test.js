@@ -264,7 +264,16 @@ code
     });
 
     it('should not flag CoT on complex tasks', () => {
-      const content = 'Think step-by-step: ' + 'Complex analysis. '.repeat(200);
+      // Complex = many words (> 500) AND many sections (>= 4)
+      const content = `## Section 1
+Think step-by-step through this analysis.
+## Section 2
+More detailed content here.
+## Section 3
+Even more complex material.
+## Section 4
+Final section with conclusions.
+` + 'Additional detailed analysis content. '.repeat(50);
       const pattern = agentPatterns.agentPatterns.unnecessary_cot;
       const result = pattern.check(content);
 
@@ -274,18 +283,20 @@ code
 
   describe('missing_cot', () => {
     it('should detect missing CoT on complex tasks', () => {
+      // Missing CoT requires: wordCount > 1000, sectionCount >= 5, hasAnalysis keywords
+      // Must NOT contain: step-by-step, <thinking>, reasoning, think through
       const longContent = `
 ## Section 1
-Analyze
+Analyze this complex topic thoroughly with multiple considerations.
 ## Section 2
-Evaluate
+Evaluate the data in great detail and depth here.
 ## Section 3
-Assess
+Assess all the parameters carefully and methodically.
 ## Section 4
-Review
+Review the findings completely and comprehensively.
 ## Section 5
-Complex
-      ` + 'Word '.repeat(300);
+Complex logical work is absolutely necessary in this section.
+` + 'Detailed analysis content for this complex evaluation task with careful consideration. '.repeat(100);
 
       const pattern = agentPatterns.agentPatterns.missing_cot;
       const result = pattern.check(longContent);
