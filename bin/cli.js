@@ -236,7 +236,7 @@ function installForOpenCode(installDir) {
   console.log('✅ OpenCode installation complete!');
   console.log(`   Config: ${configPath}`);
   console.log(`   Commands: ${commandsDir}`);
-  console.log('   MCP tools: workflow_start, workflow_status, workflow_resume, task_discover, review_code\n');
+  console.log('   MCP tools: workflow_status, workflow_start, workflow_resume, task_discover, review_code, slop_detect\n');
   return true;
 }
 
@@ -368,7 +368,7 @@ AI_STATE_DIR = ".codex"
   console.log(`   Config: ${configPath}`);
   console.log(`   Skills: ${skillsDir}`);
   console.log('   Access via: $next-task, $ship, $deslop-around, etc.');
-  console.log('   MCP tools: workflow_start, workflow_status, workflow_resume, task_discover, review_code\n');
+  console.log('   MCP tools: workflow_status, workflow_start, workflow_resume, task_discover, review_code, slop_detect\n');
   return true;
 }
 
@@ -409,32 +409,43 @@ async function main() {
   // Handle --help
   if (args.includes('--help') || args.includes('-h')) {
     console.log(`
-awesome-slash v${VERSION}
+awesome-slash v${VERSION} - Workflow automation for AI coding assistants
 
-Install:
-  npm install -g awesome-slash@latest
-  awesome-slash
+Usage:
+  awesome-slash              Interactive installer (select platforms)
+  awesome-slash --remove     Remove local installation
+  awesome-slash --version    Show version
+  awesome-slash --help       Show this help
 
-Update:
-  npm update -g awesome-slash
+Supported Platforms:
+  1) Claude Code  - /next-task, /ship, /deslop-around, /project-review
+  2) OpenCode     - Same commands + MCP tools
+  3) Codex CLI    - $next-task, $ship, etc. ($ prefix)
 
-Remove:
-  npm uninstall -g awesome-slash
-  awesome-slash --remove
+Install:  npm install -g awesome-slash && awesome-slash
+Update:   npm update -g awesome-slash && awesome-slash
+Remove:   npm uninstall -g awesome-slash && awesome-slash --remove
 
-For Claude Code (recommended):
-  /plugin marketplace add avifenesh/awesome-slash
-  /plugin install next-task@awesome-slash
+Docs: https://github.com/avifenesh/awesome-slash
 `);
     return;
   }
 
+  const title = `awesome-slash v${VERSION}`;
+  const subtitle = 'Workflow automation for AI assistants';
+  const width = Math.max(title.length, subtitle.length) + 6;
+  const pad = (str) => {
+    const left = Math.floor((width - str.length) / 2);
+    const right = width - str.length - left;
+    return ' '.repeat(left) + str + ' '.repeat(right);
+  };
+
   console.log(`
-┌─────────────────────────────────────────┐
-│     awesome-slash installer v${VERSION}     │
-│                                         │
-│  Workflow automation for AI assistants  │
-└─────────────────────────────────────────┘
+┌${'─'.repeat(width)}┐
+│${pad(title)}│
+│${' '.repeat(width)}│
+│${pad(subtitle)}│
+└${'─'.repeat(width)}┘
 `);
 
   // Multi-select platforms
