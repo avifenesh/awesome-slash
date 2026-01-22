@@ -81,6 +81,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - New `analyzeInfrastructureWithoutImplementation()` function in slop-analyzers.js
   - Focused test suite covering key scenarios and edge cases
 
+- **Code Smell Detection** - High-impact code smell patterns for maintainability (#106)
+  - High-certainty patterns (low false positive rate):
+    - `boolean_blindness`: Function calls with 3+ consecutive boolean params
+    - `message_chains_methods`: Long method chains (4+ calls)
+    - `message_chains_properties`: Deep property access (5+ levels)
+    - `mutable_globals_js`: let/var with UPPERCASE names in JavaScript
+    - `mutable_globals_py`: Mutable global collections in Python
+  - Multi-pass analyzers:
+    - `analyzeDeadCode()`: Unreachable code after return/throw/break/continue (JS, Python, Go, Rust)
+    - `analyzeShotgunSurgery()`: Files frequently changing together (git history analysis)
+  - Heuristic patterns (may have false positives):
+    - `feature_envy`: Method using another object 3+ times
+    - `speculative_generality_unused_params`: Underscore-prefixed params
+    - `speculative_generality_empty_interface`: Empty TypeScript interfaces
+  - All patterns have ReDoS-safe regex and comprehensive test coverage
+
 ### Fixed
 - **findMatchingBrace** - Now skips comments to avoid breaking on quotes/apostrophes in comment text (e.g., "it's", "we're")
 - **Reality Check Output Size** - Condensed collector output to ~700 lines/~4.5k tokens (was thousands of lines)

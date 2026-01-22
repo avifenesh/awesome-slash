@@ -90,6 +90,21 @@ Detect and remove:
 - **Phantom References**: Issue/PR mentions, file path references in comments
 - **Generic Naming**: Variables named `data`, `result`, `item`, `temp`, `value` (suggests more specific names)
 
+### Code Smell Detection
+
+High-impact code smells that indicate maintainability issues:
+
+- **Boolean Blindness**: Function calls with 3+ consecutive boolean params (e.g., `process(true, false, true)`)
+- **Message Chains**: Long method chains (4+ calls) or deep property access (5+ levels)
+- **Mutable Globals**: Module-level mutable state with UPPERCASE names (`let CONFIG = {}`)
+- **Dead Code**: Unreachable code after `return`, `throw`, `break`, `continue`
+- **Shotgun Surgery**: Files that frequently change together (git history analysis)
+
+Heuristic patterns (may have false positives, use judgment):
+
+- **Feature Envy**: Method accessing another object 3+ times (may belong in that class)
+- **Speculative Generality**: Underscore-prefixed unused params, empty interfaces
+
 Reference patterns from `${CLAUDE_PLUGIN_ROOT}/lib/patterns/slop-patterns.js`
 
 ## Phase A: Map + Diagnose (Always)

@@ -801,15 +801,19 @@ const INSTANTIATION_PATTERNS = {
   ],
   python: [
     // Class instantiation: client = SomeClient()
-    /^(\w+)\s*=\s*(\w+(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))\(/gm,
+    /(\w+)\s*=\s*(\w+(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))\(/gm,
+    // Module.Class pattern: client = module.RedisClient()
+    /(\w+)\s*=\s*\w+\.(\w+(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))\(/gm,
     // Factory pattern: client = create_client()
-    /^(\w+)\s*=\s*(?:create|connect|init|initialize|setup)_(\w+)\(/gm,
+    /(\w+)\s*=\s*(?:create|connect|init|initialize|setup)_(\w+)\(/gm,
     // Async patterns: client = await create_client()
-    /^(\w+)\s*=\s*await\s+(?:create|connect|init|initialize|setup)_(\w+)\(/gm
+    /(\w+)\s*=\s*await\s+(?:create|connect|init|initialize|setup)_(\w+)\(/gm
   ],
   go: [
     // New* function pattern: client := NewClient()
     /(\w+)\s*:=\s*(?:New|Create|Connect|Init|Setup)(\w+)\(/g,
+    // Module.New* pattern: client := redis.NewClient()
+    /(\w+)\s*:=\s*\w+\.(?:New|Create|Connect|Init|Setup)(\w+)\(/g,
     // Variable declaration: var client = NewClient()
     /var\s+(\w+)\s+.*=\s*(?:New|Create|Connect|Init|Setup)(\w+)\(/g,
     // Struct literal with suffix: client := &RedisClient{}
@@ -817,11 +821,11 @@ const INSTANTIATION_PATTERNS = {
   ],
   rust: [
     // ::new() constructor: let client = Client::new()
-    /let\s+(?:mut\s+)?(\w+)\s*=\s*(\w+(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))::(?:new|create|connect|init|build)\(/g,
+    /let\s+(?:mut\s+)?(\w+)\s*=\s*(\w*(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))::(?:new|create|connect|init|build)\(/g,
     // Builder pattern: let client = ClientBuilder::new().build()
     /let\s+(?:mut\s+)?(\w+)\s*=\s*(\w+Builder)::new\(\).*\.build\(\)/g,
     // From/into patterns: let client = Client::from()
-    /let\s+(?:mut\s+)?(\w+)\s*=\s*(\w+(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))::from/g
+    /let\s+(?:mut\s+)?(\w+)\s*=\s*(\w*(?:Client|Connection|Pool|Service|Provider|Manager|Factory|Repository|Gateway|Adapter|Handler|Broker|Queue|Cache|Store|Transport|Channel|Socket|Server|Database))::from/g
   ]
 };
 
@@ -1262,8 +1266,6 @@ function analyzeInfrastructureWithoutImplementation(rootPath, options = {}) {
   const fs = options.fs || require('fs');
   const path = options.path || require('path');
 
-  const infrastructureSuffixes = options.infrastructureSuffixes || INFRASTRUCTURE_SUFFIXES;
-  const setupVerbs = options.setupVerbs || SETUP_VERBS;
   const instantiationPatterns = options.instantiationPatterns || INSTANTIATION_PATTERNS;
 
   // Collect all source files (excluding tests by default)
@@ -1335,11 +1337,11 @@ function analyzeInfrastructureWithoutImplementation(rootPath, options = {}) {
     // Pre-compile usage patterns once per variable for performance
     const escapedVarName = escapeRegex(varName);
     const usagePatterns = [
-      new RegExp(`\\b${escapedVarName}\\s*\\.\\w+`, 'g'),  // varName.method()
-      new RegExp(`\\b${escapedVarName}\\s*\\[`, 'g'),      // varName[prop]
-      new RegExp(`\\(.*\\b${escapedVarName}\\b.*\\)`, 'g'), // func(varName)
-      new RegExp(`\\b${escapedVarName}\\s*\\)`, 'g'),      // func(arg, varName)
-      new RegExp(`return\\s+.*\\b${escapedVarName}\\b`, 'g') // return varName
+      new RegExp(`\\b${escapedVarName}\\s*\\.\\w+`),  // varName.method()
+      new RegExp(`\\b${escapedVarName}\\s*\\[`),      // varName[prop]
+      new RegExp(`\\(.*\\b${escapedVarName}\\b.*\\)`), // func(varName)
+      new RegExp(`\\b${escapedVarName}\\s*\\)`),      // func(arg, varName)
+      new RegExp(`return\\s+.*\\b${escapedVarName}\\b`) // return varName
     ];
 
     // Search for usage in all source files
@@ -1405,7 +1407,7 @@ function analyzeInfrastructureWithoutImplementation(rootPath, options = {}) {
         varName: setup.varName,
         type: setup.type,
         content: setup.content,
-        severity: 'low',
+        severity: 'high',
         message: `Infrastructure component "${setup.varName}" (${setup.type}) is created but never used`
       });
     }
@@ -1415,8 +1417,294 @@ function analyzeInfrastructureWithoutImplementation(rootPath, options = {}) {
     setupsFound: infrastructureSetups.size,
     usagesFound: Array.from(infrastructureUsage.values()).filter(u => u.count > 0).length,
     violations,
-    verdict: violations.length > 0 ? 'LOW' : 'OK'
+    verdict: violations.length > 0 ? 'HIGH' : 'OK'
   };
+}
+
+// ============================================================================
+// Dead Code Detection
+// Detects unreachable code after return/throw/break/continue statements
+// ============================================================================
+
+/**
+ * Language-specific control flow termination patterns
+ * These statements terminate the current execution path
+ */
+const TERMINATION_STATEMENTS = {
+  js: [
+    /\breturn\s*(?:[^;]*)?;/,
+    /\bthrow\s+/,
+    /\bbreak\s*;/,
+    /\bcontinue\s*;/
+  ],
+  python: [
+    /^\s*return(?:\s+|$)/m,
+    /^\s*raise\s+/m,
+    /^\s*break\s*$/m,
+    /^\s*continue\s*$/m
+  ],
+  go: [
+    /\breturn\b/,
+    /\bpanic\s*\(/,
+    /\bbreak\s*$/m,
+    /\bcontinue\s*$/m
+  ],
+  rust: [
+    /\breturn\s*(?:[^;]*)?;/,
+    /\bpanic!\s*\(/,
+    /\bbreak\s*;/,
+    /\bcontinue\s*;/
+  ]
+};
+
+/**
+ * Patterns for block start (opening braces/colons)
+ */
+const BLOCK_START_PATTERNS = {
+  js: /\{[\s]*$/,
+  python: /:[\s]*$/,
+  go: /\{[\s]*$/,
+  rust: /\{[\s]*$/
+};
+
+/**
+ * Analyze dead code - unreachable statements after control flow terminators
+ *
+ * Detects code that appears after return, throw, break, or continue statements
+ * within the same block scope. This is a common sign of incomplete refactoring
+ * or copy-paste errors.
+ *
+ * @param {string} content - File content to analyze
+ * @param {Object} options - Analysis options
+ * @param {string} [options.filePath] - File path for language detection
+ * @returns {Array<Object>} Array of violations: { line, terminatedBy, deadCode }
+ */
+function analyzeDeadCode(content, options = {}) {
+  const lang = detectLanguage(options.filePath || '.js');
+  const violations = [];
+  const terminationPatterns = TERMINATION_STATEMENTS[lang] || TERMINATION_STATEMENTS.js;
+
+  const lines = content.split('\n');
+  const lineCount = lines.length;
+
+  for (let i = 0; i < lineCount; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    // Skip empty lines, comments, and closing braces
+    if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('#') ||
+        trimmed.startsWith('/*') || trimmed.startsWith('*') ||
+        trimmed === '}' || trimmed === '},' || trimmed === '};') {
+      continue;
+    }
+
+    // Check if this line contains a termination statement
+    let isTermination = false;
+    let terminationType = '';
+
+    for (const pattern of terminationPatterns) {
+      if (pattern.test(trimmed)) {
+        isTermination = true;
+        terminationType = trimmed.match(/\b(return|throw|break|continue|panic|raise)\b/i)?.[1] || 'terminator';
+        break;
+      }
+    }
+
+    if (!isTermination) continue;
+
+    // Look for non-empty code after the termination (within same block)
+    // Track brace depth to know when we exit the current block
+    let braceDepth = 0;
+
+    for (let j = i + 1; j < lineCount; j++) {
+      const nextLine = lines[j];
+      const nextTrimmed = nextLine.trim();
+
+      // Skip empty lines and comments
+      if (!nextTrimmed || nextTrimmed.startsWith('//') || nextTrimmed.startsWith('#') ||
+          nextTrimmed.startsWith('/*') || nextTrimmed.startsWith('*')) {
+        continue;
+      }
+
+      // Track brace depth
+      const openBraces = (nextTrimmed.match(/\{/g) || []).length;
+      const closeBraces = (nextTrimmed.match(/\}/g) || []).length;
+      braceDepth += openBraces - closeBraces;
+
+      // If we see a closing brace that takes us out of the current scope, stop
+      if (braceDepth < 0) break;
+
+      // If we see only a closing brace, that's fine (not dead code)
+      if (nextTrimmed === '}' || nextTrimmed === '},' || nextTrimmed === '};') {
+        continue;
+      }
+
+      // Skip case/default labels in switch statements
+      if (/^(case\s+|default\s*:)/.test(nextTrimmed)) {
+        break;
+      }
+
+      // Skip else/elif/except clauses (they're alternative paths, not dead code)
+      // Also handles "} else {" pattern where closing brace precedes else
+      if (/^(else\s*[:{]?|elif\s+|else\s+if\s+|except\s*[:(]|catch\s*\(|\}\s*else\s*)/.test(nextTrimmed)) {
+        break;
+      }
+
+      // Found potential dead code
+      violations.push({
+        line: j + 1, // 1-indexed
+        terminatedBy: `${terminationType} on line ${i + 1}`,
+        deadCode: nextTrimmed.substring(0, 50) + (nextTrimmed.length > 50 ? '...' : ''),
+        severity: 'high'
+      });
+
+      // Only report the first dead line per terminator (avoids noise)
+      break;
+    }
+  }
+
+  return violations;
+}
+
+// ============================================================================
+// Shotgun Surgery Detection
+// Detects files that frequently change together across commits
+// ============================================================================
+
+/**
+ * Analyze shotgun surgery - files that frequently change together
+ *
+ * Uses git log to find commits where multiple files change together,
+ * indicating tight coupling that may need refactoring.
+ *
+ * @param {string} repoPath - Repository root path
+ * @param {Object} options - Analysis options
+ * @param {number} [options.commitLimit=100] - Number of commits to analyze
+ * @param {number} [options.clusterThreshold=5] - Min files changed together to flag
+ * @param {Function} [options.execSync] - Command executor (for testing)
+ * @returns {Object} Analysis results: { clusters, violations, verdict }
+ */
+function analyzeShotgunSurgery(repoPath, options = {}) {
+  const commitLimit = options.commitLimit || 100;
+  const clusterThreshold = options.clusterThreshold || 5;
+  const execSync = options.execSync || require('child_process').execSync;
+  const path = options.path || require('path');
+
+  const violations = [];
+  const fileClusters = new Map(); // "file1,file2" -> count
+
+  try {
+    // Get commit hashes with file changes
+    const logResult = execSync(
+      `git log --name-only --pretty=format:"COMMIT:%H" -n ${commitLimit}`,
+      { cwd: repoPath, encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }
+    );
+
+    // Parse commits and their files
+    const commits = [];
+    let currentCommit = null;
+
+    for (const line of logResult.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      if (trimmed.startsWith('COMMIT:')) {
+        if (currentCommit && currentCommit.files.length > 1) {
+          commits.push(currentCommit);
+        }
+        currentCommit = { hash: trimmed.substring(7), files: [] };
+      } else if (currentCommit) {
+        // Filter to source files only, exclude common uninteresting files
+        const ext = path.extname(trimmed);
+        if (['.js', '.ts', '.jsx', '.tsx', '.py', '.go', '.rs', '.java'].includes(ext)) {
+          // Skip test files, they often change with implementation
+          if (!isTestFile(trimmed) && !shouldExclude(trimmed)) {
+            currentCommit.files.push(trimmed);
+          }
+        }
+      }
+    }
+
+    // Don't forget the last commit
+    if (currentCommit && currentCommit.files.length > 1) {
+      commits.push(currentCommit);
+    }
+
+    // Build co-change matrix
+    for (const commit of commits) {
+      const files = commit.files;
+      if (files.length < 2 || files.length > 20) continue; // Skip huge commits
+
+      // Count co-changes for each pair
+      for (let i = 0; i < files.length; i++) {
+        for (let j = i + 1; j < files.length; j++) {
+          const pair = [files[i], files[j]].sort().join('|||');
+          fileClusters.set(pair, (fileClusters.get(pair) || 0) + 1);
+        }
+      }
+    }
+
+    // Find highly coupled file pairs (appear together in 3+ commits)
+    const coupledPairs = [];
+    for (const [pair, count] of fileClusters.entries()) {
+      if (count >= 3) {
+        const [file1, file2] = pair.split('|||');
+        coupledPairs.push({ file1, file2, count });
+      }
+    }
+
+    // Sort by frequency
+    coupledPairs.sort((a, b) => b.count - a.count);
+
+    // Find clusters of files that frequently change together
+    // A cluster is when a file appears in multiple coupled pairs
+    const fileFrequency = new Map(); // file -> number of coupled pairs it appears in
+    for (const { file1, file2 } of coupledPairs) {
+      fileFrequency.set(file1, (fileFrequency.get(file1) || 0) + 1);
+      fileFrequency.set(file2, (fileFrequency.get(file2) || 0) + 1);
+    }
+
+    // Files that appear in many coupled pairs indicate shotgun surgery
+    const frequentlyChangedFiles = Array.from(fileFrequency.entries())
+      .filter(([_, count]) => count >= clusterThreshold)
+      .sort((a, b) => b[1] - a[1]);
+
+    // Report violations
+    for (const [file, coupledCount] of frequentlyChangedFiles) {
+      // Find all files this one is coupled with
+      const coupledWith = coupledPairs
+        .filter(p => p.file1 === file || p.file2 === file)
+        .map(p => p.file1 === file ? p.file2 : p.file1)
+        .slice(0, 5); // Limit to top 5 for readability
+
+      violations.push({
+        file,
+        coupledCount,
+        coupledWith,
+        severity: coupledCount >= clusterThreshold * 2 ? 'high' : 'medium',
+        message: `"${file}" changes with ${coupledCount} other files frequently (shotgun surgery indicator)`
+      });
+    }
+
+    return {
+      commitsAnalyzed: commits.length,
+      coupledPairs: coupledPairs.slice(0, 20), // Top 20 for report
+      violations,
+      verdict: violations.length > 0
+        ? (violations.some(v => v.severity === 'high') ? 'HIGH' : 'MEDIUM')
+        : 'OK'
+    };
+
+  } catch (err) {
+    // Git command failed - likely not a git repo or no commits
+    return {
+      commitsAnalyzed: 0,
+      coupledPairs: [],
+      violations: [],
+      verdict: 'SKIP',
+      error: err.message
+    };
+  }
 }
 
 module.exports = {
@@ -1425,6 +1713,8 @@ module.exports = {
   analyzeOverEngineering,
   analyzeBuzzwordInflation,
   analyzeInfrastructureWithoutImplementation,
+  analyzeDeadCode,
+  analyzeShotgunSurgery,
   // Export helpers for testing
   findMatchingBrace,
   countNonEmptyLines,
@@ -1459,5 +1749,8 @@ module.exports = {
   INFRASTRUCTURE_SUFFIXES,
   SETUP_VERBS,
   INSTANTIATION_PATTERNS,
-  GENERIC_VAR_PATTERN
+  GENERIC_VAR_PATTERN,
+  // Dead code detection constants
+  TERMINATION_STATEMENTS,
+  BLOCK_START_PATTERNS
 };
