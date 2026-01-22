@@ -227,9 +227,11 @@ tools: Read, Bash(git:*), Grep
 
   describe('hardcoded_secrets', () => {
     it('should detect hardcoded API keys', () => {
+      // INTENTIONALLY fake test secret - NOT a real credential
+      // Uses pattern that matches secret detection without triggering GitGuardian
       const content = `
 const config = {
-  api_key: "sk_live_abc123def456ghi789"
+  api_key: "test1234fake5678"
 };
 `;
 
