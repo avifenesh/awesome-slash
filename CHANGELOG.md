@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (3 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (45 tests)
+  - Uses opus model for quality multiplier effect
+
 - **Plugin Structure Analyzer** - New `/enhance:plugin` command (#119)
   - Analyzes plugin.json structure and required fields
   - Validates MCP tool definitions against best practices
@@ -16,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-fix capability for HIGH certainty issues
   - New lib/enhance/ module with pattern matching, reporter, fixer
   - Comprehensive test suite (21 tests)
-
 ## [2.7.1] - 2026-01-22
 
 ### Security
@@ -167,6 +179,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **CLI Installer** - `npm install -g awesome-slash@latest && awesome-slash`
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - Multi-select: choose one or more platforms (Claude Code, OpenCode, Codex)
   - Uses npm package files directly (no git clone)
   - Claude Code: Uses GitHub marketplace for plugin installation
@@ -212,6 +236,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Platform-Aware State Directories** - State files now stored in platform-specific directories
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - Claude Code: `.claude/`
   - OpenCode: `.opencode/`
   - Codex CLI: `.codex/`
@@ -233,6 +269,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Multi-Source Task Discovery** - Support for GitHub, GitLab, local files, custom CLI tools
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
 - **Source Preference Caching** - Last-used source cached in `sources/preference.json`
 - **Large Backlog Handling** - Pagination and priority filtering for repos with many issues
 
@@ -331,6 +379,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **PR Auto-Review Process** - Added mandatory workflow for 4 auto-reviewers (Copilot, Claude, Gemini, Codex)
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
 - **Agent Responsibilities** - Documented required tools and MUST-CALL agents for /next-task and /ship
 - **CLAUDE.md Enhancement** - Comprehensive agent workflow documentation with tool restrictions
 
@@ -342,6 +402,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **CLAUDE.md** - Project guidelines with release process and PR auto-review workflow
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
 - **npm installation option** - Added npm as primary installation method to INSTALLATION.md
 
 ### Fixed
@@ -369,6 +441,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Published to npm as `awesome-slash` for easier installation
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
 - Added `.npmignore` and `files` field for optimized package size (191KB → 143KB)
 
 ### Changed
@@ -379,6 +463,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Reality Check Plugin**: Deep repository analysis to detect plan drift and gaps
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - Multi-agent parallel scanning architecture (issue-scanner, doc-analyzer, code-explorer, plan-synthesizer)
   - Detects drift: plan stagnation, priority neglect, documentation lag, scope overcommit
   - Identifies gaps: missing tests, outdated docs, overdue milestones
@@ -415,6 +511,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **CI & Review Monitor Loop** for `/ship` command (#79)
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - Continuous monitoring loop waits for CI AND addresses ALL PR feedback
   - Auto-waits 3 minutes on first iteration for review bots (Gemini, CodeRabbit)
   - Configurable via `SHIP_INITIAL_WAIT` environment variable
@@ -457,6 +565,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Two-File State Management** to prevent workflow collisions
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - `tasks.json` in main repo: Shared registry of claimed tasks
   - `workflow-status.json` in worktree: Local step tracking with timestamps
   - Resume by task ID, branch name, or worktree path
@@ -518,6 +638,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Quality Gate Agents** for fully autonomous workflow after plan approval
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - `deslop-work.md` - Clean AI slop from committed but unpushed changes
   - `test-coverage-checker.md` - Validate new work has test coverage
   - `delivery-validator.md` - Autonomous delivery validation (NOT manual approval)
@@ -545,6 +677,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Master Workflow Orchestrator** - Complete task-to-production automation
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
 - **State Management** - `.claude/workflow-state.json` for workflow persistence
 - **8 Specialist Agents** - Opus for complex tasks, Sonnet for operations
 - **Cross-Platform MCP Server** - Integration with OpenCode and Codex CLI
@@ -558,6 +702,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Test Infrastructure**: Jest test suite with 103 unit tests covering all core modules
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
   - `detect-platform.test.js` - Platform detection tests
   - `verify-tools.test.js` - Tool verification tests
   - `slop-patterns.test.js` - Pattern matching and secret detection tests
@@ -600,6 +756,18 @@ Initial release with full feature set.
 
 ### Added
 - `/ship` command for complete PR workflow with deployment
+- **Agent Prompt Optimizer** - New `/enhance:agent` command (#120)
+  - Analyzes agent prompt files for prompt engineering best practices
+  - 14 detection patterns across 6 categories: structure, tools, XML, CoT, examples, anti-patterns
+  - Validates frontmatter (name, description, tools, model)
+  - Checks tool restrictions (unrestricted Bash detection)
+  - Evaluates chain-of-thought appropriateness for task complexity
+  - Detects anti-patterns: vague language, prompt bloat, example count
+  - HIGH/MEDIUM/LOW certainty levels for findings
+  - Auto-fix capability for HIGH certainty issues (4 patterns)
+  - New lib/enhance/agent-analyzer.js and agent-patterns.js
+  - Comprehensive test suite (21 tests)
+  - Uses opus model for quality multiplier effect
 - `/next-task` command for intelligent task prioritization
 - `/deslop-around` command for AI slop cleanup
 - `/project-review` command for multi-agent code review (with Phase 8 GitHub issue creation)

@@ -98,3 +98,23 @@ Cannot skip in /next-task:
 - No summary files (`*_AUDIT.md`, `*_SUMMARY.md`) - use CHANGELOG.md
 - Multi-file changes → Read checklist FIRST (`checklists/*.md`)
 </end-reminder>
+
+## Model Selection Guidelines
+
+Choose the appropriate model based on task complexity and quality multiplier effects:
+
+| Complexity | Model | When to Use |
+|------------|-------|-------------|
+| **Opus** | Major components requiring real reasoning | Enhancers, reviewers, analyzers where imperfection compounds |
+| **Inherit** | In-between complexity | Most agents, follow parent context |
+| **Sonnet** | Side tasks, simple work | Straightforward pattern matching, validation |
+| **Haiku** | No thinking, just execution | Very specified prompts, simple operations |
+
+**Key Insight**: For enhancers/analyzers, the quality loss is exponential - imperfections multiply across all items reviewed.
+
+**Examples**:
+- `/enhance:agent` uses opus - false positives damage agent quality across entire codebase
+- `simple-fixer` uses haiku - mechanically applies pre-defined fixes with no judgment
+- `review-orchestrator` uses opus - review quality affects entire workflow
+- `worktree-manager` uses haiku - scripted git commands with no decision-making
+
