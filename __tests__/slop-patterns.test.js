@@ -2111,5 +2111,375 @@ describe('slop-patterns', () => {
     it('should have analyzeVerbosityRatio function', () => {
       expect(typeof analyzers.analyzeVerbosityRatio).toBe('function');
     });
+
+    it('should have analyzeDeadCode function', () => {
+      expect(typeof analyzers.analyzeDeadCode).toBe('function');
+    });
+
+    it('should have analyzeShotgunSurgery function', () => {
+      expect(typeof analyzers.analyzeShotgunSurgery).toBe('function');
+    });
+  });
+
+  // ============================================================================
+  // Code Smell Detection Tests (#106)
+  // High-impact code smell patterns for maintainability and readability
+  // ============================================================================
+
+  describe('Code Smell Detection (#106)', () => {
+    describe('boolean_blindness pattern', () => {
+      const pattern = () => slopPatterns.boolean_blindness.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.boolean_blindness).toBeDefined();
+        expect(slopPatterns.boolean_blindness.severity).toBe('medium');
+        expect(slopPatterns.boolean_blindness.autoFix).toBe('flag');
+        expect(slopPatterns.boolean_blindness.language).toBeNull(); // Universal
+      });
+
+      it('should detect function calls with 3+ boolean params', () => {
+        expect(pattern().test('process(true, false, true)')).toBe(true);
+        expect(pattern().test('foo.bar(true, true, true, false)')).toBe(true);
+        expect(pattern().test('config(false, false, true)')).toBe(true);
+        expect(pattern().test('setupUser(true, true, false, true)')).toBe(true);
+      });
+
+      it('should NOT detect function calls with 2 or fewer booleans', () => {
+        expect(pattern().test('process(true, false)')).toBe(false);
+        expect(pattern().test('toggle(true)')).toBe(false);
+        expect(pattern().test('foo.bar(false, true)')).toBe(false);
+      });
+
+      it('should NOT detect booleans mixed with other args', () => {
+        expect(pattern().test('process("name", true, false)')).toBe(false);
+        expect(pattern().test('config(42, true, false)')).toBe(false);
+      });
+
+      it('should exclude test files', () => {
+        const excludes = slopPatterns.boolean_blindness.exclude;
+        expect(isFileExcluded('utils.test.js', excludes)).toBe(true);
+        expect(isFileExcluded('helper.spec.ts', excludes)).toBe(true);
+        expect(isFileExcluded('src/tests/foo.js', excludes)).toBe(true);
+      });
+    });
+
+    describe('message_chains_methods pattern', () => {
+      const pattern = () => slopPatterns.message_chains_methods.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.message_chains_methods).toBeDefined();
+        expect(slopPatterns.message_chains_methods.severity).toBe('low');
+        expect(slopPatterns.message_chains_methods.autoFix).toBe('flag');
+      });
+
+      it('should detect 4+ consecutive method calls', () => {
+        expect(pattern().test('a.getB().getC().getD().doThing()')).toBe(true);
+        expect(pattern().test('obj.foo().bar().baz().qux().quux()')).toBe(true);
+        expect(pattern().test('builder.setA().setB().setC().setD()')).toBe(true);
+      });
+
+      it('should NOT detect 3 or fewer method calls', () => {
+        expect(pattern().test('a.b().c()')).toBe(false);
+        expect(pattern().test('obj.foo().bar().baz()')).toBe(false);
+        expect(pattern().test('x.y()')).toBe(false);
+      });
+
+      it('should exclude config files', () => {
+        const excludes = slopPatterns.message_chains_methods.exclude;
+        expect(isFileExcluded('webpack.config.js', excludes)).toBe(true);
+        expect(isFileExcluded('jest.config.ts', excludes)).toBe(true);
+      });
+    });
+
+    describe('message_chains_properties pattern', () => {
+      const pattern = () => slopPatterns.message_chains_properties.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.message_chains_properties).toBeDefined();
+        expect(slopPatterns.message_chains_properties.severity).toBe('low');
+      });
+
+      it('should detect 5+ consecutive property accesses', () => {
+        expect(pattern().test('obj.a.b.c.d.e')).toBe(true);
+        expect(pattern().test('this.state.user.profile.settings.theme')).toBe(true);
+        expect(pattern().test('config.app.db.host.port.timeout')).toBe(true);
+      });
+
+      it('should NOT detect 4 or fewer property accesses', () => {
+        expect(pattern().test('obj.a.b.c')).toBe(false);
+        expect(pattern().test('obj.a.b.c.d')).toBe(false);
+        expect(pattern().test('this.state.user')).toBe(false);
+      });
+
+      it('should NOT detect method calls (those are message_chains_methods)', () => {
+        expect(pattern().test('obj.a().b().c().d().e()')).toBe(false);
+      });
+    });
+
+    describe('mutable_globals_js pattern', () => {
+      const pattern = () => slopPatterns.mutable_globals_js.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.mutable_globals_js).toBeDefined();
+        expect(slopPatterns.mutable_globals_js.severity).toBe('high');
+        expect(slopPatterns.mutable_globals_js.language).toBe('javascript');
+      });
+
+      it('should detect let with UPPERCASE names', () => {
+        expect(pattern().test('let CONFIG = {}')).toBe(true);
+        expect(pattern().test('let SETTINGS = []')).toBe(true);
+        expect(pattern().test('let API_ENDPOINT = "url"')).toBe(true);
+      });
+
+      it('should detect var with UPPERCASE names', () => {
+        expect(pattern().test('var GLOBAL_STATE = {}')).toBe(true);
+        expect(pattern().test('var MAX_RETRIES = 5')).toBe(true);
+      });
+
+      it('should NOT detect const with UPPERCASE names', () => {
+        expect(pattern().test('const CONFIG = {}')).toBe(false);
+        expect(pattern().test('const SETTINGS = []')).toBe(false);
+      });
+
+      it('should NOT detect let/var with lowercase names', () => {
+        expect(pattern().test('let config = {}')).toBe(false);
+        expect(pattern().test('var settings = []')).toBe(false);
+        expect(pattern().test('let myVar = 123')).toBe(false);
+      });
+
+      it('should exclude constants.js files', () => {
+        const excludes = slopPatterns.mutable_globals_js.exclude;
+        expect(isFileExcluded('constants.js', excludes)).toBe(true);
+        expect(isFileExcluded('constants.ts', excludes)).toBe(true);
+      });
+    });
+
+    describe('mutable_globals_py pattern', () => {
+      const pattern = () => slopPatterns.mutable_globals_py.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.mutable_globals_py).toBeDefined();
+        expect(slopPatterns.mutable_globals_py.severity).toBe('high');
+        expect(slopPatterns.mutable_globals_py.language).toBe('python');
+      });
+
+      it('should detect UPPERCASE names with mutable types', () => {
+        expect(pattern().test('CACHE = {}')).toBe(true);
+        expect(pattern().test('CONFIG = []')).toBe(true);
+        expect(pattern().test('SETTINGS = dict()')).toBe(true);
+        expect(pattern().test('DATA = list()')).toBe(true);
+        expect(pattern().test('ITEMS = set()')).toBe(true);
+      });
+
+      it('should NOT detect lowercase names', () => {
+        expect(pattern().test('cache = {}')).toBe(false);
+        expect(pattern().test('config = []')).toBe(false);
+      });
+
+      it('should NOT detect immutable assignments', () => {
+        expect(pattern().test('MAX_SIZE = 100')).toBe(false);
+        expect(pattern().test('API_URL = "https://api.com"')).toBe(false);
+      });
+
+      it('should exclude settings.py files', () => {
+        const excludes = slopPatterns.mutable_globals_py.exclude;
+        expect(isFileExcluded('settings.py', excludes)).toBe(true);
+        expect(isFileExcluded('constants.py', excludes)).toBe(true);
+      });
+    });
+
+    describe('dead_code pattern', () => {
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.dead_code).toBeDefined();
+        expect(slopPatterns.dead_code.pattern).toBeNull();
+        expect(slopPatterns.dead_code.requiresMultiPass).toBe(true);
+        expect(slopPatterns.dead_code.severity).toBe('high');
+      });
+
+      it('should be included in getMultiPassPatterns', () => {
+        const multiPassPatterns = getMultiPassPatterns();
+        expect(multiPassPatterns).toHaveProperty('dead_code');
+      });
+    });
+
+    describe('shotgun_surgery pattern', () => {
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.shotgun_surgery).toBeDefined();
+        expect(slopPatterns.shotgun_surgery.pattern).toBeNull();
+        expect(slopPatterns.shotgun_surgery.requiresMultiPass).toBe(true);
+        expect(slopPatterns.shotgun_surgery.severity).toBe('high');
+      });
+
+      it('should have configuration options', () => {
+        expect(slopPatterns.shotgun_surgery.commitLimit).toBe(100);
+        expect(slopPatterns.shotgun_surgery.clusterThreshold).toBe(5);
+      });
+
+      it('should be included in getMultiPassPatterns', () => {
+        const multiPassPatterns = getMultiPassPatterns();
+        expect(multiPassPatterns).toHaveProperty('shotgun_surgery');
+      });
+    });
+
+    describe('feature_envy pattern', () => {
+      const pattern = () => slopPatterns.feature_envy.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.feature_envy).toBeDefined();
+        expect(slopPatterns.feature_envy.severity).toBe('low');
+        expect(slopPatterns.feature_envy.autoFix).toBe('flag');
+      });
+
+      it('should detect repeated access to same object', () => {
+        expect(pattern().test('obj.name + obj.price + obj.tax')).toBe(true);
+        expect(pattern().test('user.id user.email user.name')).toBe(true);
+      });
+
+      it('should NOT detect access to different objects', () => {
+        expect(pattern().test('this.x + other.y + another.z')).toBe(false);
+        expect(pattern().test('a.foo + b.bar + c.baz')).toBe(false);
+      });
+    });
+
+    describe('speculative_generality_unused_params pattern', () => {
+      const pattern = () => slopPatterns.speculative_generality_unused_params.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.speculative_generality_unused_params).toBeDefined();
+        expect(slopPatterns.speculative_generality_unused_params.severity).toBe('low');
+        expect(slopPatterns.speculative_generality_unused_params.language).toBe('javascript');
+      });
+
+      it('should detect underscore-prefixed parameters', () => {
+        expect(pattern().test('function foo(_unusedArg, usedArg) {}')).toBe(true);
+        expect(pattern().test('function handler(_event, context) {}')).toBe(true);
+        expect(pattern().test('function process(_req, _res, next) {}')).toBe(true);
+      });
+
+      it('should NOT detect functions without underscore params', () => {
+        expect(pattern().test('function foo(arg1, arg2) {}')).toBe(false);
+        expect(pattern().test('function bar() {}')).toBe(false);
+      });
+
+      it('should exclude .d.ts files', () => {
+        const excludes = slopPatterns.speculative_generality_unused_params.exclude;
+        expect(isFileExcluded('types.d.ts', excludes)).toBe(true);
+      });
+    });
+
+    describe('speculative_generality_empty_interface pattern', () => {
+      const pattern = () => slopPatterns.speculative_generality_empty_interface.pattern;
+
+      it('should have pattern defined with correct metadata', () => {
+        expect(slopPatterns.speculative_generality_empty_interface).toBeDefined();
+        expect(slopPatterns.speculative_generality_empty_interface.severity).toBe('low');
+      });
+
+      it('should detect empty interfaces', () => {
+        expect(pattern().test('interface IEmpty {}')).toBe(true);
+        expect(pattern().test('interface Empty { }')).toBe(true);
+        expect(pattern().test('interface IMarker {}')).toBe(true);
+      });
+
+      it('should detect empty generic interfaces', () => {
+        expect(pattern().test('interface IEmpty<T> {}')).toBe(true);
+        expect(pattern().test('interface Container<T, U> { }')).toBe(true);
+      });
+
+      it('should NOT detect interfaces with members', () => {
+        expect(pattern().test('interface IUser { name: string; }')).toBe(false);
+        expect(pattern().test('interface IConfig {\n  port: number;\n}')).toBe(false);
+      });
+    });
+
+    describe('ReDoS safety for code smell patterns', () => {
+      const MAX_SAFE_TIME = 100;
+
+      it('boolean_blindness should resist ReDoS', () => {
+        const pattern = slopPatterns.boolean_blindness.pattern;
+        const inputs = [
+          'process(' + 'true, '.repeat(1000) + 'true)',
+          'foo(' + 'false, '.repeat(5000) + 'false)',
+          '('.repeat(100) + 'true, false, true' + ')'.repeat(100)
+        ];
+
+        inputs.forEach(input => {
+          const start = Date.now();
+          pattern.test(input);
+          expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME);
+        });
+      });
+
+      it('message_chains patterns should resist ReDoS', () => {
+        const methodPattern = slopPatterns.message_chains_methods.pattern;
+        const propPattern = slopPatterns.message_chains_properties.pattern;
+        const inputs = [
+          'obj' + '.method()'.repeat(1000),
+          'obj' + '.prop'.repeat(1000),
+          'a'.repeat(10000) + '.b().c().d().e()'
+        ];
+
+        inputs.forEach(input => {
+          const start = Date.now();
+          methodPattern.test(input);
+          propPattern.test(input);
+          expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME);
+        });
+      });
+
+      it('mutable_globals patterns should resist ReDoS', () => {
+        const jsPattern = slopPatterns.mutable_globals_js.pattern;
+        const pyPattern = slopPatterns.mutable_globals_py.pattern;
+        const inputs = [
+          'let ' + 'A'.repeat(10000) + ' = {}',
+          'CACHE' + '='.repeat(10000) + '{}',
+          ' '.repeat(10000) + 'let CONFIG = {}'
+        ];
+
+        inputs.forEach(input => {
+          const start = Date.now();
+          jsPattern.test(input);
+          pyPattern.test(input);
+          expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME);
+        });
+      });
+    });
+
+    describe('language filtering for code smell patterns', () => {
+      it('should include universal patterns in all languages', () => {
+        const jsPatterns = getPatternsForLanguage('javascript');
+        const pyPatterns = getPatternsForLanguage('python');
+
+        expect(jsPatterns).toHaveProperty('boolean_blindness');
+        expect(jsPatterns).toHaveProperty('message_chains_methods');
+        expect(jsPatterns).toHaveProperty('message_chains_properties');
+        expect(jsPatterns).toHaveProperty('feature_envy');
+
+        expect(pyPatterns).toHaveProperty('boolean_blindness');
+        expect(pyPatterns).toHaveProperty('message_chains_methods');
+        expect(pyPatterns).toHaveProperty('message_chains_properties');
+        expect(pyPatterns).toHaveProperty('feature_envy');
+      });
+
+      it('should include JS-specific patterns only in javascript', () => {
+        const jsPatterns = getPatternsForLanguage('javascript');
+        const pyPatterns = getPatternsForLanguageOnly('python');
+
+        expect(jsPatterns).toHaveProperty('mutable_globals_js');
+        expect(jsPatterns).toHaveProperty('speculative_generality_unused_params');
+        expect(jsPatterns).toHaveProperty('speculative_generality_empty_interface');
+
+        expect(pyPatterns).not.toHaveProperty('mutable_globals_js');
+        expect(pyPatterns).not.toHaveProperty('speculative_generality_unused_params');
+      });
+
+      it('should include Python-specific patterns only in python', () => {
+        const pyPatterns = getPatternsForLanguage('python');
+        const jsPatterns = getPatternsForLanguageOnly('javascript');
+
+        expect(pyPatterns).toHaveProperty('mutable_globals_py');
+        expect(jsPatterns).not.toHaveProperty('mutable_globals_py');
+      });
+    });
   });
 });

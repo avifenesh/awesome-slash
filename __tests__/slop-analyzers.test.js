@@ -8,6 +8,8 @@ const {
   analyzeVerbosityRatio,
   analyzeOverEngineering,
   analyzeInfrastructureWithoutImplementation,
+  analyzeDeadCode,
+  analyzeShotgunSurgery,
   findMatchingBrace,
   countNonEmptyLines,
   countExportsInContent,
@@ -22,7 +24,9 @@ const {
   COMMENT_SYNTAX,
   INFRASTRUCTURE_SUFFIXES,
   SETUP_VERBS,
-  INSTANTIATION_PATTERNS
+  INSTANTIATION_PATTERNS,
+  TERMINATION_STATEMENTS,
+  BLOCK_START_PATTERNS
 } = require('../lib/patterns/slop-analyzers');
 
 describe('slop-analyzers', () => {
@@ -2553,6 +2557,630 @@ describe('Redis tests', () => {
             expect(pattern).toBeInstanceOf(RegExp);
           }
         }
+      });
+    });
+  });
+
+  // ============================================================================
+  // Dead Code Detection Tests (#106)
+  // ============================================================================
+
+  describe('analyzeDeadCode', () => {
+    describe('JavaScript/TypeScript detection', () => {
+      it('should detect dead code after return statement', () => {
+        const code = `
+function test() {
+  return 42;
+  console.log('unreachable');
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].deadCode).toContain('console.log');
+        expect(violations[0].terminatedBy).toContain('return');
+      });
+
+      it('should detect dead code after throw statement', () => {
+        const code = `
+function test() {
+  throw new Error('fail');
+  doSomething();
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].deadCode).toContain('doSomething');
+        expect(violations[0].terminatedBy).toContain('throw');
+      });
+
+      it('should detect dead code after break in switch', () => {
+        const code = `
+switch (x) {
+  case 1:
+    break;
+    console.log('unreachable');
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('break');
+      });
+
+      it('should detect dead code after continue in loop', () => {
+        const code = `
+for (let i = 0; i < 10; i++) {
+  continue;
+  doWork();
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('continue');
+      });
+
+      it('should NOT detect false positives in if/else branches', () => {
+        const code = `
+function test(x) {
+  if (x) {
+    return 1;
+  }
+  return 2;
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(0);
+      });
+
+      it('should NOT flag code after closing brace', () => {
+        const code = `
+function first() {
+  return 1;
+}
+
+function second() {
+  return 2;
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(0);
+      });
+
+      it('should NOT flag else clauses', () => {
+        const code = `
+function test(x) {
+  if (x) {
+    return 1;
+  } else {
+    return 2;
+  }
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(0);
+      });
+
+      it('should NOT flag case labels in switch', () => {
+        const code = `
+switch (x) {
+  case 1:
+    return 'one';
+  case 2:
+    return 'two';
+  default:
+    return 'other';
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(0);
+      });
+    });
+
+    describe('Python detection', () => {
+      it('should detect dead code after return in Python', () => {
+        const code = `
+def test():
+    return 42
+    print("unreachable")`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.py' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('return');
+      });
+
+      it('should detect dead code after raise in Python', () => {
+        const code = `
+def test():
+    raise ValueError("fail")
+    do_something()`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.py' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('raise');
+      });
+
+      it('should NOT flag except clauses', () => {
+        const code = `
+try:
+    risky_operation()
+except ValueError:
+    return None`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.py' });
+
+        expect(violations.length).toBe(0);
+      });
+
+      it('should NOT flag elif clauses', () => {
+        const code = `
+def test(x):
+    if x > 0:
+        return "positive"
+    elif x < 0:
+        return "negative"
+    else:
+        return "zero"`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.py' });
+
+        expect(violations.length).toBe(0);
+      });
+    });
+
+    describe('Go detection', () => {
+      it('should detect dead code after return in Go', () => {
+        const code = `
+func test() int {
+    return 42
+    fmt.Println("unreachable")
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.go' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('return');
+      });
+
+      it('should detect dead code after panic in Go', () => {
+        const code = `
+func test() {
+    panic("fail")
+    doSomething()
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.go' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('panic');
+      });
+    });
+
+    describe('Rust detection', () => {
+      it('should detect dead code after return in Rust', () => {
+        const code = `
+fn test() -> i32 {
+    return 42;
+    println!("unreachable");
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.rs' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('return');
+      });
+
+      it('should detect dead code after panic! in Rust', () => {
+        const code = `
+fn test() {
+    panic!("fail");
+    do_something();
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.rs' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].terminatedBy).toContain('panic');
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle empty content', () => {
+        const violations = analyzeDeadCode('', { filePath: 'test.js' });
+        expect(violations).toEqual([]);
+      });
+
+      it('should handle content with no terminators', () => {
+        const code = `
+function test() {
+  console.log('hello');
+  console.log('world');
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+        expect(violations).toEqual([]);
+      });
+
+      it('should report correct line numbers', () => {
+        const code = `line1
+line2
+function test() {
+  return 42;
+  console.log('dead');
+}`;
+        // Lines: 1=line1, 2=line2, 3=function, 4=return, 5=console.log, 6=}
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].line).toBe(5); // console.log is on line 5 (1-indexed)
+      });
+
+      it('should handle nested blocks', () => {
+        const code = `
+function outer() {
+  function inner() {
+    return 1;
+    console.log('inner dead');
+  }
+  console.log('outer alive');
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].deadCode).toContain('inner dead');
+      });
+
+      it('should skip comments correctly', () => {
+        const code = `
+function test() {
+  return 42;
+  // This is a comment
+  console.log('dead');
+}`;
+        const violations = analyzeDeadCode(code, { filePath: 'test.js' });
+
+        expect(violations.length).toBe(1);
+        expect(violations[0].deadCode).toContain('console.log');
+      });
+    });
+
+    describe('constants validation', () => {
+      it('should have TERMINATION_STATEMENTS for all languages', () => {
+        expect(TERMINATION_STATEMENTS).toBeDefined();
+        expect(TERMINATION_STATEMENTS).toHaveProperty('js');
+        expect(TERMINATION_STATEMENTS).toHaveProperty('python');
+        expect(TERMINATION_STATEMENTS).toHaveProperty('go');
+        expect(TERMINATION_STATEMENTS).toHaveProperty('rust');
+
+        for (const patterns of Object.values(TERMINATION_STATEMENTS)) {
+          expect(Array.isArray(patterns)).toBe(true);
+          expect(patterns.length).toBeGreaterThan(0);
+          for (const pattern of patterns) {
+            expect(pattern).toBeInstanceOf(RegExp);
+          }
+        }
+      });
+
+      it('should have BLOCK_START_PATTERNS for all languages', () => {
+        expect(BLOCK_START_PATTERNS).toBeDefined();
+        expect(BLOCK_START_PATTERNS).toHaveProperty('js');
+        expect(BLOCK_START_PATTERNS).toHaveProperty('python');
+        expect(BLOCK_START_PATTERNS).toHaveProperty('go');
+        expect(BLOCK_START_PATTERNS).toHaveProperty('rust');
+
+        for (const pattern of Object.values(BLOCK_START_PATTERNS)) {
+          expect(pattern).toBeInstanceOf(RegExp);
+        }
+      });
+    });
+
+    describe('ReDoS safety', () => {
+      const MAX_SAFE_TIME = 100;
+
+      it('should handle large files safely', () => {
+        let code = '';
+        for (let i = 0; i < 1000; i++) {
+          code += `function func${i}() { return ${i}; }\n`;
+        }
+
+        const start = Date.now();
+        analyzeDeadCode(code, { filePath: 'test.js' });
+        expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME * 10);
+      });
+
+      it('should handle pathological inputs safely', () => {
+        const code = 'return ' + ';'.repeat(10000);
+
+        const start = Date.now();
+        analyzeDeadCode(code, { filePath: 'test.js' });
+        expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME);
+      });
+    });
+  });
+
+  // ============================================================================
+  // Shotgun Surgery Detection Tests (#106)
+  // ============================================================================
+
+  describe('analyzeShotgunSurgery', () => {
+    const createMockExecSync = (gitOutput) => {
+      return jest.fn().mockReturnValue(gitOutput);
+    };
+
+    const createMockPath = () => ({
+      extname: (file) => {
+        const lastDot = file.lastIndexOf('.');
+        return lastDot > -1 ? file.substring(lastDot) : '';
+      }
+    });
+
+    describe('basic functionality', () => {
+      it('should detect files frequently changing together', () => {
+        // Simulate git log output where src/user.js and src/auth.js change together
+        const gitOutput = `COMMIT:abc123
+src/user.js
+src/auth.js
+
+COMMIT:def456
+src/user.js
+src/auth.js
+
+COMMIT:ghi789
+src/user.js
+src/auth.js
+
+COMMIT:jkl012
+src/user.js
+src/auth.js
+
+COMMIT:mno345
+src/user.js
+src/auth.js`;
+
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 3,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        expect(result.commitsAnalyzed).toBe(5);
+        expect(result.coupledPairs.length).toBeGreaterThan(0);
+        expect(result.coupledPairs[0].count).toBe(5);
+      });
+
+      it('should NOT flag files that rarely change together', () => {
+        const gitOutput = `COMMIT:abc123
+src/user.js
+
+COMMIT:def456
+src/auth.js
+
+COMMIT:ghi789
+src/config.js`;
+
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 3,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        expect(result.coupledPairs.length).toBe(0);
+        expect(result.violations.length).toBe(0);
+        expect(result.verdict).toBe('OK');
+      });
+
+      it('should skip test files', () => {
+        const gitOutput = `COMMIT:abc123
+src/user.js
+src/user.test.js
+
+COMMIT:def456
+src/user.js
+src/user.test.js
+
+COMMIT:ghi789
+src/user.js
+src/user.test.js`;
+
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 3,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        // user.test.js should be skipped, so no coupling detected
+        expect(result.coupledPairs.length).toBe(0);
+      });
+
+      it('should skip non-source files', () => {
+        const gitOutput = `COMMIT:abc123
+src/user.js
+README.md
+package.json
+
+COMMIT:def456
+src/user.js
+README.md
+package.json`;
+
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 2,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        // README.md and package.json should be skipped
+        expect(result.coupledPairs.length).toBe(0);
+      });
+    });
+
+    describe('cluster detection', () => {
+      it('should identify high-coupling files (shotgun surgery indicators)', () => {
+        // Simulate a file that changes with 5+ other files frequently
+        const gitOutput = `COMMIT:1
+src/core.js
+src/a.js
+src/b.js
+src/c.js
+src/d.js
+src/e.js
+
+COMMIT:2
+src/core.js
+src/a.js
+src/b.js
+src/c.js
+src/d.js
+src/e.js
+
+COMMIT:3
+src/core.js
+src/a.js
+src/b.js
+src/c.js
+src/d.js
+src/e.js`;
+
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 5,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        expect(result.violations.length).toBeGreaterThan(0);
+        expect(result.verdict).not.toBe('OK');
+      });
+
+      it('should report severity based on coupling count', () => {
+        const gitOutput = `COMMIT:1
+src/core.js
+src/a.js
+src/b.js
+src/c.js
+src/d.js
+src/e.js
+src/f.js
+src/g.js
+src/h.js
+src/i.js
+src/j.js
+
+COMMIT:2
+src/core.js
+src/a.js
+src/b.js
+src/c.js
+src/d.js
+src/e.js
+src/f.js
+src/g.js
+src/h.js
+src/i.js
+src/j.js
+
+COMMIT:3
+src/core.js
+src/a.js
+src/b.js
+src/c.js
+src/d.js
+src/e.js
+src/f.js
+src/g.js
+src/h.js
+src/i.js
+src/j.js`;
+
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 5,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        // core.js is coupled with 10 files, should be high severity
+        const coreViolation = result.violations.find(v => v.file.includes('core.js'));
+        expect(coreViolation).toBeDefined();
+        expect(coreViolation.severity).toBe('high');
+      });
+    });
+
+    describe('error handling', () => {
+      it('should handle git command failure gracefully', () => {
+        const mockExec = jest.fn().mockImplementation(() => {
+          throw new Error('git: not a repository');
+        });
+
+        const result = analyzeShotgunSurgery('/not-a-repo', {
+          execSync: mockExec,
+          path: createMockPath()
+        });
+
+        expect(result.verdict).toBe('SKIP');
+        expect(result.error).toBeDefined();
+        expect(result.commitsAnalyzed).toBe(0);
+      });
+
+      it('should handle empty repository', () => {
+        const result = analyzeShotgunSurgery('/repo', {
+          commitLimit: 100,
+          clusterThreshold: 5,
+          execSync: createMockExecSync(''),
+          path: createMockPath()
+        });
+
+        expect(result.commitsAnalyzed).toBe(0);
+        expect(result.violations.length).toBe(0);
+        expect(result.verdict).toBe('OK');
+      });
+    });
+
+    describe('configuration', () => {
+      it('should respect commitLimit option', () => {
+        const mockExec = jest.fn().mockReturnValue('COMMIT:abc\nfile.js');
+
+        analyzeShotgunSurgery('/repo', {
+          commitLimit: 50,
+          execSync: mockExec,
+          path: createMockPath()
+        });
+
+        expect(mockExec).toHaveBeenCalledWith(
+          expect.stringContaining('-n 50'),
+          expect.any(Object)
+        );
+      });
+
+      it('should use default options when not provided', () => {
+        const mockExec = jest.fn().mockReturnValue('COMMIT:abc\nfile.js');
+
+        analyzeShotgunSurgery('/repo', {
+          execSync: mockExec,
+          path: createMockPath()
+        });
+
+        expect(mockExec).toHaveBeenCalledWith(
+          expect.stringContaining('-n 100'), // Default commitLimit
+          expect.any(Object)
+        );
+      });
+    });
+
+    describe('ReDoS safety', () => {
+      const MAX_SAFE_TIME = 1000;
+
+      it('should handle large git history safely', () => {
+        // Simulate 1000 commits
+        let gitOutput = '';
+        for (let i = 0; i < 1000; i++) {
+          gitOutput += `COMMIT:${i}\nsrc/file${i % 10}.js\nsrc/file${(i + 1) % 10}.js\n\n`;
+        }
+
+        const start = Date.now();
+        analyzeShotgunSurgery('/repo', {
+          commitLimit: 1000,
+          clusterThreshold: 5,
+          execSync: createMockExecSync(gitOutput),
+          path: createMockPath()
+        });
+
+        expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME);
       });
     });
   });
