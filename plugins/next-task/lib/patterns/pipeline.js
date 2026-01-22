@@ -544,19 +544,25 @@ function formatHandoffPrompt(findings, mode, options = {}) {
  * @returns {string} Compact formatted prompt
  */
 function formatCompactPrompt(findings, mode, maxFindings) {
-  // Group by certainty
-  const byGroup = {
-    HIGH: findings.filter(f => f.certainty === CERTAINTY.HIGH),
-    MEDIUM: findings.filter(f => f.certainty === CERTAINTY.MEDIUM),
-    LOW: findings.filter(f => f.certainty === CERTAINTY.LOW)
-  };
+  // Single pass to count certainty levels and auto-fixable findings
+  const { highCount, mediumCount, lowCount, autoFixableCount } = findings.reduce((acc, f) => {
+    switch (f.certainty) {
+      case CERTAINTY.HIGH: acc.highCount++; break;
+      case CERTAINTY.MEDIUM: acc.mediumCount++; break;
+      case CERTAINTY.LOW: acc.lowCount++; break;
+    }
+    if (f.autoFix && f.autoFix !== 'flag' && f.autoFix !== 'none') {
+      acc.autoFixableCount++;
+    }
+    return acc;
+  }, { highCount: 0, mediumCount: 0, lowCount: 0, autoFixableCount: 0 });
 
   // Truncate if needed
   const limited = findings.slice(0, maxFindings);
   const truncated = findings.length > maxFindings;
 
   // Summary header
-  let output = `## Slop: ${mode}|H:${byGroup.HIGH.length}|M:${byGroup.MEDIUM.length}|L:${byGroup.LOW.length}\n\n`;
+  let output = `## Slop: ${mode}|H:${highCount}|M:${mediumCount}|L:${lowCount}\n\n`;
 
   // Table format
   output += '|File|L|Pattern|Cert|Fix|\n';
@@ -573,8 +579,7 @@ function formatCompactPrompt(findings, mode, maxFindings) {
   }
 
   // Auto-fix summary
-  const autoFixable = findings.filter(f => f.autoFix && f.autoFix !== 'flag' && f.autoFix !== 'none');
-  output += `\n**Auto-fixable: ${autoFixable.length}** | Manual: ${findings.length - autoFixable.length}`;
+  output += `\n**Auto-fixable: ${autoFixableCount}** | Manual: ${findings.length - autoFixableCount}`;
 
   return output;
 }
