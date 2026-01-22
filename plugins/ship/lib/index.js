@@ -23,6 +23,7 @@ const config = require('./config');
 const sourceCache = require('./sources/source-cache');
 const customHandler = require('./sources/custom-handler');
 const policyQuestions = require('./sources/policy-questions');
+const crossPlatform = require('./cross-platform');
 
 /**
  * Platform detection and verification utilities
@@ -174,6 +175,46 @@ const sources = {
   buildCustomConfig: customHandler.buildCustomConfig
 };
 
+/**
+ * Cross-platform utilities for Claude Code, OpenCode, and Codex CLI
+ * @see module:cross-platform
+ */
+const xplat = {
+  // Platform detection
+  PLATFORMS: crossPlatform.PLATFORMS,
+  STATE_DIRS: crossPlatform.STATE_DIRS,
+  getStateDir: crossPlatform.getStateDir,
+  detectPlatform: crossPlatform.detectPlatform,
+
+  // Tool schema helpers
+  TOOL_SCHEMA_GUIDELINES: crossPlatform.TOOL_SCHEMA_GUIDELINES,
+  createToolDefinition: crossPlatform.createToolDefinition,
+
+  // Response helpers (MCP-compatible)
+  successResponse: crossPlatform.successResponse,
+  errorResponse: crossPlatform.errorResponse,
+  unknownToolResponse: crossPlatform.unknownToolResponse,
+
+  // Prompt formatting
+  formatBlock: crossPlatform.formatBlock,
+  formatList: crossPlatform.formatList,
+  formatSection: crossPlatform.formatSection,
+
+  // Token efficiency
+  truncate: crossPlatform.truncate,
+  compactSummary: crossPlatform.compactSummary,
+
+  // Agent prompts
+  AGENT_TEMPLATE: crossPlatform.AGENT_TEMPLATE,
+  createAgentPrompt: crossPlatform.createAgentPrompt,
+
+  // Platform configs
+  getOpenCodeConfig: crossPlatform.getOpenCodeConfig,
+  getCodexConfig: crossPlatform.getCodexConfig,
+  getInstructionFiles: crossPlatform.getInstructionFiles,
+  INSTRUCTION_FILES: crossPlatform.INSTRUCTION_FILES
+};
+
 // Main exports
 module.exports = {
   platform,
@@ -182,6 +223,7 @@ module.exports = {
   utils,
   config,
   sources,
+  xplat,
 
   // Direct module access for backward compatibility
   detectPlatform,
@@ -195,5 +237,6 @@ module.exports = {
   shellEscape,
   sourceCache,
   customHandler,
-  policyQuestions
+  policyQuestions,
+  crossPlatform
 };

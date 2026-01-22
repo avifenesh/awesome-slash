@@ -19,10 +19,13 @@ const {
 
 const path = require('path');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const { promisify } = require('util');
 const { exec } = require('child_process');
 const execAsync = promisify(exec);
 const workflowState = require('../lib/state/workflow-state.js');
+const { runPipeline, formatHandoffPrompt, CERTAINTY, THOROUGHNESS } = require('../lib/patterns/pipeline.js');
+const crossPlatform = require('../lib/cross-platform/index.js');
 
 // Plugin root for relative paths
 const PLUGIN_ROOT = process.env.PLUGIN_ROOT || path.join(__dirname, '..');
@@ -110,7 +113,7 @@ const TOOLS = [
   },
   {
     name: 'review_code',
-    description: 'Run multi-agent code review on changed files',
+    description: 'Run pattern-based code review on changed files',
     inputSchema: {
       type: 'object',
       properties: {
@@ -119,9 +122,42 @@ const TOOLS = [
           items: { type: 'string' },
           description: 'Files to review (defaults to git diff)'
         },
-        maxIterations: {
-          type: 'number',
-          description: 'Maximum review iterations (default: 3)'
+        thoroughness: {
+          type: 'string',
+          enum: ['quick', 'normal', 'deep'],
+          description: 'Analysis depth (default: normal)'
+        },
+        compact: {
+          type: 'boolean',
+          description: 'Use compact output format (default: true)'
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: 'slop_detect',
+    description: 'Detect AI slop patterns with certainty-based findings',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: 'Directory or file to scan (default: current directory)'
+        },
+        mode: {
+          type: 'string',
+          enum: ['report', 'apply'],
+          description: 'Report only or apply fixes (default: report)'
+        },
+        thoroughness: {
+          type: 'string',
+          enum: ['quick', 'normal', 'deep'],
+          description: 'quick=regex only, normal=+analyzers, deep=+CLI tools'
+        },
+        compact: {
+          type: 'boolean',
+          description: 'Use compact table format (60% fewer tokens)'
         }
       },
       required: []
@@ -498,10 +534,11 @@ const toolHandlers = {
     }
   },
 
-  async review_code({ files, maxIterations }) {
+  async review_code({ files, thoroughness, compact }) {
     try {
       let filesToReview = files || [];
 
+      // Auto-detect files from git if not provided
       if (!filesToReview.length) {
         try {
           const { stdout } = await execAsync('git diff --name-only HEAD');
@@ -517,145 +554,90 @@ const toolHandlers = {
               const { stdout: lastCommit } = await execAsync('git diff --name-only HEAD~1');
               filesToReview = lastCommit.trim().split('\n').filter(f => f);
             } catch (e) {
-              // HEAD~1 doesn't exist (single-commit repo) - no files to review
+              // HEAD~1 doesn't exist (single-commit repo)
             }
           }
-
         } catch (error) {
-          return {
-            content: [{
-              type: 'text',
-              text: `Error getting changed files: ${error.message}\nCommand: git diff\nPlease specify files explicitly.`
-            }],
-            isError: true
-          };
+          return crossPlatform.errorResponse(
+            `Cannot get changed files: ${error.message}. Specify files explicitly.`
+          );
         }
       }
 
       if (!filesToReview.length) {
-        return {
-          content: [{
-            type: 'text',
-            text: 'No files to review. No changes detected in working directory or last commit.'
-          }]
-        };
+        return crossPlatform.successResponse('No files to review. No changes detected.');
       }
 
-      const findings = [];
-      const patterns = {
-        console_log: {
-          pattern: /console\.(log|debug|info|warn|error)\(/g,
-          severity: 'warning',
-          message: 'Debug console statement found'
-        },
-        todo_fixme: {
-          pattern: /\/\/\s*(TODO|FIXME|HACK|XXX|NOTE):/gi,
-          severity: 'info',
-          message: 'Comment marker found'
-        },
-        commented_code: {
-          pattern: /^\s*\/\/.*[{};].*$/gm,
-          severity: 'info',
-          message: 'Possible commented-out code'
-        },
-        debugger: {
-          pattern: /\bdebugger\b/g,
-          severity: 'error',
-          message: 'Debugger statement found'
-        },
-        empty_catch: {
-          pattern: /catch\s*\([^)]*\)\s*{\s*}/g,
-          severity: 'warning',
-          message: 'Empty catch block - silent error swallowing'
-        },
-        any_type: {
-          pattern: /:\s*any\b/g,
-          severity: 'warning',
-          message: 'TypeScript "any" type used'
-        },
-        hardcoded_secret: {
-          pattern: /(api[_-]?key|secret|password|token)\s*[:=]\s*["'][^"']+["']/gi,
-          severity: 'error',
-          message: 'Possible hardcoded secret'
-        }
-      };
+      // Use the full pipeline for detection
+      const result = runPipeline(process.cwd(), {
+        thoroughness: thoroughness || THOROUGHNESS.NORMAL,
+        targetFiles: filesToReview,
+        mode: 'report'
+      });
 
-      for (const file of filesToReview) {
-        try {
-          const content = await fs.readFile(file, 'utf-8');
-          const lines = content.split('\n');
-          const fileFindings = [];
+      // Use compact format by default for MCP (token efficiency)
+      const useCompact = compact !== false;
+      const prompt = formatHandoffPrompt(result.findings, 'report', {
+        compact: useCompact,
+        maxFindings: 50
+      });
 
-          for (const [name, check] of Object.entries(patterns)) {
-            const matches = [...content.matchAll(check.pattern)];
-
-            for (const match of matches) {
-              const position = match.index;
-              let lineNum = 1;
-              let charCount = 0;
-
-              for (let i = 0; i < lines.length; i++) {
-                charCount += lines[i].length + 1; // +1 for newline
-                if (charCount > position) {
-                  lineNum = i + 1;
-                  break;
-                }
-              }
-
-              fileFindings.push({
-                type: name,
-                line: lineNum,
-                column: match.index - content.lastIndexOf('\n', match.index),
-                severity: check.severity,
-                message: check.message,
-                match: match[0].substring(0, 100) // Truncate long matches
-              });
-            }
-          }
-
-          if (fileFindings.length > 0) {
-            findings.push({
-              file: file,
-              issues: fileFindings
-            });
-          }
-
-        } catch (error) {
-          findings.push({
-            file: file,
-            error: `Could not read file: ${error.message}`
-          });
-        }
-      }
-
-      const totalIssues = findings.reduce((sum, f) => sum + (f.issues?.length || 0), 0);
-      const bySeverity = {
-        error: findings.flatMap(f => f.issues || []).filter(i => i.severity === 'error').length,
-        warning: findings.flatMap(f => f.issues || []).filter(i => i.severity === 'warning').length,
-        info: findings.flatMap(f => f.issues || []).filter(i => i.severity === 'info').length
-      };
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            filesReviewed: filesToReview.length,
-            totalIssues: totalIssues,
-            bySeverity: bySeverity,
-            findings: findings
-          }, null, 2)
-        }]
-      };
+      return crossPlatform.successResponse({
+        filesReviewed: filesToReview.length,
+        totalIssues: result.findings.length,
+        summary: result.summary,
+        prompt: prompt
+      });
 
     } catch (error) {
       console.error('Error during code review:', error);
-      return {
-        content: [{
-          type: 'text',
-          text: `Error during code review: An internal error occurred.`
-        }],
-        isError: true
-      };
+      return crossPlatform.errorResponse('Code review failed. Check server logs.');
+    }
+  },
+
+  async slop_detect({ path: scanPath, mode, thoroughness, compact }) {
+    try {
+      const targetPath = scanPath || process.cwd();
+
+      // Validate path exists
+      try {
+        await fs.access(targetPath);
+      } catch (e) {
+        return crossPlatform.errorResponse(`Path not found: ${targetPath}`);
+      }
+
+      // Run the 3-phase pipeline
+      const result = runPipeline(targetPath, {
+        thoroughness: thoroughness || THOROUGHNESS.NORMAL,
+        mode: mode || 'report'
+      });
+
+      // Use compact format by default for MCP (60% fewer tokens)
+      const useCompact = compact !== false;
+      const prompt = formatHandoffPrompt(result.findings, mode || 'report', {
+        compact: useCompact,
+        maxFindings: 50
+      });
+
+      // Return structured result
+      return crossPlatform.successResponse({
+        path: targetPath,
+        mode: mode || 'report',
+        thoroughness: thoroughness || 'normal',
+        filesAnalyzed: result.metadata.filesAnalyzed,
+        findings: {
+          total: result.findings.length,
+          byCertainty: result.summary.byCertainty,
+          bySeverity: result.summary.bySeverity,
+          autoFixable: result.summary.byAutoFix.remove || 0
+        },
+        missingTools: result.missingTools,
+        prompt: prompt
+      });
+
+    } catch (error) {
+      console.error('Error during slop detection:', error);
+      return crossPlatform.errorResponse('Slop detection failed. Check server logs.');
     }
   }
 };
