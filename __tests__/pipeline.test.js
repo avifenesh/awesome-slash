@@ -132,22 +132,30 @@ describe('pipeline', () => {
 
   describe('runMultiPassAnalyzers', () => {
     it('should detect excessive JSDoc', () => {
+      // JSDoc: 15 non-empty lines, Function: 4 code lines = 15/4 = 3.75x (exceeds 3.0 max)
       const code = `
 /**
- * Add two numbers
- * Line 1
- * Line 2
- * Line 3
- * Line 4
- * Line 5
- * Line 6
- * Line 7
- * Line 8
- * Line 9
- * Line 10
+ * Add two numbers together with detailed documentation
+ * This function performs addition
+ * Line 3 with more explanation
+ * Line 4 describes parameters
+ * @param {number} a - First number to add
+ * @param {number} b - Second number to add
+ * @returns {number} The sum of a and b
+ * Line 8 with additional context
+ * Line 9 more details about the function
+ * Line 10 even more information
+ * Line 11 some more text here
+ * Line 12 additional notes
+ * Line 13 edge cases documented
+ * Line 14 performance considerations
+ * Line 15 final closing notes
  */
 function add(a, b) {
-  return a + b;
+  const sum = a + b;
+  const validated = sum;
+  console.log(validated);
+  return validated;
 }`;
       fs.writeFileSync(path.join(tmpDir, 'math.js'), code);
 
@@ -159,17 +167,23 @@ function add(a, b) {
     });
 
     it('should detect excessive inline comments', () => {
+      // Comments: 8 lines, Code: 4 lines = 8/4 = 2x (matches 2.0 maxCommentRatio threshold)
+      // Need to exceed the threshold, so making it higher
       const code = `
 function process(data) {
-  // This is a comment
-  // Another comment
-  // Yet another comment
-  // Still more comments
-  // Even more explanation
-  // So much text here
-  // Really explaining everything
+  // This is a comment explaining the function
+  // Another comment with more details
+  // Yet another comment about edge cases
+  // Still more comments about implementation
+  // Even more explanation about approach
+  // So much text here describing behavior
+  // Really explaining everything in detail
+  // One more comment to push over threshold
+  // And another for good measure
   const result = data.trim();
-  return result;
+  const processed = result.toLowerCase();
+  const final = processed.replace(/\\s+/g, ' ');
+  return final;
 }`;
       fs.writeFileSync(path.join(tmpDir, 'processor.js'), code);
 
