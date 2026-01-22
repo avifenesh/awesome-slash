@@ -50,9 +50,12 @@ awesome-slash/
 │   ├── claude.sh
 │   ├── opencode.sh
 │   └── codex.sh
-└── docs/                         # Knowledge base
-    ├── CROSS_PLATFORM.md
-    ├── INSTALLATION.md
+├── docs/                         # User documentation
+│   ├── CROSS_PLATFORM.md
+│   ├── INSTALLATION.md
+│   └── USAGE.md
+└── agent-docs/                   # Knowledge base (research)
+    ├── KNOWLEDGE-LIBRARY.md      # Index
     └── *-REFERENCE.md            # Research documents
 ```
 
@@ -200,17 +203,18 @@ enabled = true
 
 ## Knowledge Base
 
-Research documents informing the implementation:
+Research documents informing the implementation (in `agent-docs/`):
 
 | Document | Topic |
 |----------|-------|
-| `docs/CONTEXT-OPTIMIZATION-REFERENCE.md` | Token efficiency strategies |
-| `docs/PROMPT-ENGINEERING-REFERENCE.md` | Cross-model prompt design |
-| `docs/FUNCTION-CALLING-TOOL-USE-REFERENCE.md` | MCP and tool patterns |
-| `docs/MULTI-AGENT-SYSTEMS-REFERENCE.md` | Agent orchestration |
-| `docs/LLM-INSTRUCTION-FOLLOWING-RELIABILITY.md` | Instruction adherence |
-| `docs/CLAUDE-CODE-REFERENCE.md` | Claude Code specifics |
-| `docs/AI-AGENT-ARCHITECTURE-RESEARCH.md` | Agent design patterns |
+| `CONTEXT-OPTIMIZATION-REFERENCE.md` | Token efficiency strategies |
+| `PROMPT-ENGINEERING-REFERENCE.md` | Cross-model prompt design |
+| `FUNCTION-CALLING-TOOL-USE-REFERENCE.md` | MCP and tool patterns |
+| `MULTI-AGENT-SYSTEMS-REFERENCE.md` | Agent orchestration |
+| `LLM-INSTRUCTION-FOLLOWING-RELIABILITY.md` | Instruction adherence |
+| `CLAUDE-CODE-REFERENCE.md` | Claude Code specifics |
+| `AI-AGENT-ARCHITECTURE-RESEARCH.md` | Agent design patterns |
+| `KNOWLEDGE-LIBRARY.md` | Index and overview |
 | `lib/cross-platform/RESEARCH.md` | Platform comparison |
 
 ## Implementation Status
