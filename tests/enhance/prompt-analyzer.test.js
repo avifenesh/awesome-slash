@@ -769,7 +769,7 @@ As needed, add more context.
       if (hasAggressiveIssue) {
         const fixResults = promptAnalyzer.applyFixes(results, { dryRun: false, backup: false });
 
-        expect(fixResults.applied.length).toBeGreaterThanOrEqual(0);
+        expect(fixResults.applied.length).toBeGreaterThan(0);
         expect(fixResults.errors).toEqual([]);
       }
     });
