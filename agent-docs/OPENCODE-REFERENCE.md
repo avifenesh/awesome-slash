@@ -3,6 +3,18 @@
 > **SST OpenCode** (opencode.ai, github.com/sst/opencode) - 85k+ stars
 > Not to be confused with the archived opencode-ai/opencode (now "Crush")
 
+## Executive Summary
+
+OpenCode has significant features Claude Code doesn't have:
+- **Extended thinking** across 7+ providers (Anthropic, OpenAI, Google, Bedrock, etc.)
+- **LSP integration** for code intelligence
+- **Session compaction** with auto-summarization
+- **12+ plugin hooks** for deep customization
+- **Permission wildcards** with cascading approval
+- **Event bus** for pub-sub across all operations
+
+---
+
 ## Quick Facts
 
 | Aspect | OpenCode | Claude Code |
@@ -474,9 +486,429 @@ ls .opencode/
 
 ---
 
+---
+
+## Extended Thinking / Reasoning Configuration
+
+OpenCode supports thinking/reasoning across **multiple providers** with different APIs.
+
+### Provider-Specific Thinking Config
+
+| Provider | Variants | Configuration |
+|----------|----------|---------------|
+| **Anthropic** | `high`, `max` | `thinking: { type: "enabled", budgetTokens: 16000 }` |
+| **OpenAI/GPT-5** | `none`, `minimal`, `low`, `medium`, `high`, `xhigh` | `reasoningEffort: "high"` |
+| **Google Gemini** | `low`, `high`, `max` | `thinkingConfig: { includeThoughts: true, thinkingBudget: 16000 }` |
+| **Amazon Bedrock** | `high`, `max` | `reasoningConfig: { type: "enabled", budgetTokens: 16000 }` |
+| **Groq** | `none`, `low`, `medium`, `high` | `includeThoughts: true, thinkingLevel: "high"` |
+
+### Configuring Extended Thinking
+
+**Per-Agent (in opencode.jsonc):**
+```jsonc
+{
+  "agent": {
+    "build": {
+      "model": "anthropic/claude-sonnet-4-20250929",
+      "options": {
+        "thinking": {
+          "type": "enabled",
+          "budgetTokens": 16000
+        }
+      }
+    },
+    "explore": {
+      "model": "openai/gpt-5.1",
+      "options": {
+        "reasoningEffort": "high",
+        "reasoningSummary": "auto"
+      }
+    }
+  }
+}
+```
+
+**Via Plugin Hook (runtime):**
+```typescript
+"chat.params": async (input, output) => {
+  if (input.agent === "review-orchestrator") {
+    output.options.thinking = { type: "enabled", budgetTokens: 16000 }
+  }
+}
+```
+
+**Cycle at Runtime:** Press `Ctrl+T` to cycle through available thinking variants.
+
+---
+
+## Question API Details
+
+### Format Comparison
+
+| Field | Claude Code | OpenCode |
+|-------|-------------|----------|
+| Multi-select | `multiSelect: true` | `multiple: true` |
+| Custom input | Always available | `custom: true` (default) |
+| Header max | 12 chars | 30 chars |
+| Batch questions | 1-4 questions | Unlimited |
+
+### OpenCode Question Schema
+
+```typescript
+{
+  question: string,           // Full question text
+  header: string,             // Label (max 30 chars)
+  options: [
+    { label: string, description: string }
+  ],
+  multiple?: boolean,         // Allow multi-select
+  custom?: boolean            // Allow custom answer (default: true)
+}
+```
+
+### Adapting Our AskUserQuestion Calls
+
+Our agents use Claude's `AskUserQuestion` format. For OpenCode compatibility:
+
+```typescript
+// Claude Code format (current)
+{
+  questions: [{
+    question: "Which task source?",
+    header: "Source",        // max 12 chars
+    multiSelect: false,
+    options: [
+      { label: "GitHub Issues", description: "..." }
+    ]
+  }]
+}
+
+// OpenCode equivalent
+{
+  questions: [{
+    question: "Which task source?",
+    header: "Task Source",   // max 30 chars - can be more descriptive
+    multiple: false,
+    custom: true,
+    options: [
+      { label: "GitHub Issues", description: "..." }
+    ]
+  }]
+}
+```
+
+**Key Insight:** The formats are similar enough that Claude's `AskUserQuestion` tool works in OpenCode - it just renders as numbered list instead of checkboxes.
+
+---
+
+## Plugin Hooks (Deep Customization)
+
+OpenCode has 12+ hooks for intercepting and modifying behavior.
+
+### Hook Categories
+
+**Chat Hooks:**
+| Hook | Purpose |
+|------|---------|
+| `chat.message` | Intercept/modify user messages |
+| `chat.params` | Modify temperature, reasoning effort, options |
+| `chat.headers` | Add custom HTTP headers |
+
+**Tool Hooks:**
+| Hook | Purpose |
+|------|---------|
+| `tool.execute.before` | Modify tool arguments |
+| `tool.execute.after` | Modify tool results |
+
+**Permission Hook:**
+| Hook | Purpose |
+|------|---------|
+| `permission.ask` | Override permission decisions (allow/deny/ask) |
+
+**Experimental Hooks:**
+| Hook | Purpose |
+|------|---------|
+| `experimental.chat.system.transform` | Modify system prompt |
+| `experimental.session.compacting` | Customize session compaction |
+| `experimental.chat.messages.transform` | Transform message history |
+
+### Example: Workflow Enforcement via Hooks
+
+```typescript
+export const WorkflowPlugin: Plugin = async (ctx) => {
+  return {
+    "permission.ask": async (input, output) => {
+      // Block git push during review phase
+      if (input.permission === "bash" && input.metadata?.command?.includes("git push")) {
+        const state = await getWorkflowState(ctx.directory)
+        if (state?.phase === "review") {
+          output.status = "deny"
+        }
+      }
+    },
+
+    "chat.params": async (input, output) => {
+      // Use higher reasoning for complex agents
+      if (["review-orchestrator", "planning-agent"].includes(input.agent)) {
+        output.options.thinking = { type: "enabled", budgetTokens: 16000 }
+      }
+    }
+  }
+}
+```
+
+---
+
+## Session Compaction
+
+OpenCode auto-compacts sessions when context overflows.
+
+### How It Works
+
+1. **Overflow Detection:** Monitors tokens vs model context limit
+2. **Pruning:** Removes old tool outputs (keeps recent 40k tokens)
+3. **Summarization:** Creates compacted summary message
+4. **Continuation:** Auto-continues conversation
+
+### Customizing Compaction
+
+```typescript
+"experimental.session.compacting": async (input, output) => {
+  // Add workflow context to compaction
+  const state = await getWorkflowState()
+  output.context.push(`Current workflow phase: ${state?.phase}`)
+  output.context.push(`Active task: ${state?.task?.title}`)
+
+  // Custom compaction prompt
+  output.prompt = "Summarize preserving: 1) workflow state 2) pending decisions 3) key findings"
+}
+```
+
+---
+
+## Permission System (Advanced)
+
+### Wildcard Pattern Matching
+
+```jsonc
+{
+  "permission": {
+    "edit": {
+      "*.env": "ask",
+      "*.env.example": "allow",
+      "src/**/*.ts": "allow",
+      "*": "ask"
+    },
+    "bash": {
+      "git *": "allow",
+      "npm *": "allow",
+      "rm -rf *": "deny",
+      "*": "ask"
+    }
+  }
+}
+```
+
+### Cascading Approval
+
+When user selects "always" for a permission:
+- All pending permissions matching same pattern are auto-approved
+- Future requests matching pattern are auto-approved for session
+
+### Permission Hook for Workflow
+
+```typescript
+"permission.ask": async (input, output) => {
+  const workflowPatterns = {
+    "git push": "deny",      // Block during review
+    "gh pr create": "deny",  // Only /ship creates PRs
+    "npm publish": "deny"    // Block publishing
+  }
+
+  for (const [pattern, action] of Object.entries(workflowPatterns)) {
+    if (input.metadata?.command?.includes(pattern)) {
+      output.status = action
+      return
+    }
+  }
+}
+```
+
+---
+
+## LSP Integration
+
+OpenCode has built-in Language Server Protocol support.
+
+### Features
+
+- **Symbol lookup:** Document and workspace symbols
+- **Multiple servers:** pyright, TypeScript, custom
+- **Dynamic spawning:** Per-file-type activation
+- **Diagnostics:** Real-time error reporting
+
+### Configuration
+
+```jsonc
+{
+  "lsp": {
+    "typescript": {
+      "command": ["typescript-language-server", "--stdio"],
+      "extensions": [".ts", ".tsx", ".js", ".jsx"]
+    },
+    "python": {
+      "command": ["pyright-langserver", "--stdio"],
+      "extensions": [".py"]
+    },
+    "custom": {
+      "command": ["my-lsp", "--stdio"],
+      "extensions": [".custom"],
+      "disabled": false
+    }
+  }
+}
+```
+
+---
+
+## Event Bus
+
+OpenCode has a pub-sub event system for all operations.
+
+### Key Events
+
+| Event | Description |
+|-------|-------------|
+| `session.created` | New session started |
+| `session.compacted` | Session compressed |
+| `message.updated` | Message content changed |
+| `tool.execute.before/after` | Tool lifecycle |
+| `file.edited` | File modified |
+| `permission.updated` | Permission changed |
+
+### Subscribing to Events
+
+```typescript
+"event": async ({ event }) => {
+  switch (event.type) {
+    case "tool.execute.after":
+      // Update workflow state after tool completion
+      await updateWorkflowState(event.properties)
+      break
+    case "session.compacted":
+      // Preserve workflow context
+      await preserveWorkflowContext(event.properties.sessionID)
+      break
+  }
+}
+```
+
+---
+
+## Native Plugin vs MCP
+
+### Comparison
+
+| Aspect | Native Plugin | MCP Server |
+|--------|---------------|------------|
+| Setup | `.opencode/plugins/` | MCP config + server process |
+| Performance | Faster (in-process) | Slower (IPC) |
+| Hooks | Full access (12+) | Tools only |
+| Auth | Built-in OAuth/API | Manual |
+| Events | Full subscription | None |
+
+### Recommendation
+
+**Use MCP** when:
+- Cross-platform compatibility needed (Claude + OpenCode + Codex)
+- Simple tool exposure
+
+**Use Native Plugin** when:
+- OpenCode-only features needed (hooks, events, compaction)
+- Maximum performance required
+- Deep workflow integration
+
+---
+
+## Implementation Opportunities
+
+### Short Term (adapt existing)
+
+1. **Question format:** Our `AskUserQuestion` works but could use longer headers (30 vs 12 chars)
+2. **Model hints:** Add `model:` to agent frontmatter for OpenCode users
+3. **Permission patterns:** Document recommended permission config for workflows
+
+### Medium Term (new features)
+
+1. **Native plugin:** Create OpenCode plugin alongside MCP server
+2. **Reasoning config:** Add thinking budget config to our agents
+3. **Compaction hook:** Preserve workflow state during session compaction
+4. **Event integration:** Use event bus for workflow state management
+
+### Long Term (unique value)
+
+1. **LSP integration:** Leverage code intelligence for better reviews
+2. **Permission enforcement:** Use hooks to enforce workflow gates
+3. **Auto-model selection:** Choose reasoning level based on task complexity
+
+---
+
+## Global Thinking Model Configuration
+
+### Proposal for awesome-slash
+
+Add to user's `opencode.jsonc`:
+
+```jsonc
+{
+  "agent": {
+    // Simple agents - no extended thinking
+    "worktree-manager": {
+      "model": "anthropic/claude-haiku-4-5"
+    },
+    "simple-fixer": {
+      "model": "anthropic/claude-haiku-4-5"
+    },
+
+    // Medium agents - standard thinking
+    "task-discoverer": {
+      "model": "anthropic/claude-sonnet-4",
+      "options": { "thinking": { "type": "enabled", "budgetTokens": 8000 } }
+    },
+
+    // Complex agents - extended thinking
+    "review-orchestrator": {
+      "model": "anthropic/claude-sonnet-4",
+      "options": { "thinking": { "type": "enabled", "budgetTokens": 16000 } }
+    },
+    "planning-agent": {
+      "model": "anthropic/claude-sonnet-4",
+      "options": { "thinking": { "type": "enabled", "budgetTokens": 16000 } }
+    },
+    "delivery-validator": {
+      "model": "anthropic/claude-sonnet-4",
+      "options": { "thinking": { "type": "enabled", "budgetTokens": 16000 } }
+    }
+  }
+}
+```
+
+### Model Selection Strategy
+
+| Agent Category | Model | Thinking Budget |
+|----------------|-------|-----------------|
+| **Execution** (worktree, simple-fixer) | Haiku | None |
+| **Discovery** (task-discoverer, ci-monitor) | Sonnet | 8k |
+| **Analysis** (exploration, deslop-work) | Sonnet | 12k |
+| **Reasoning** (planning, review, delivery) | Sonnet | 16k |
+| **Synthesis** (plan-synthesizer, enhancement-orchestrator) | Opus | 16k+ |
+
+---
+
 ## Resources
 
 - **Docs**: https://opencode.ai/docs
 - **GitHub**: https://github.com/sst/opencode
 - **Config Schema**: https://opencode.ai/config.json
 - **SDK**: `npm install @opencode-ai/sdk`
+- **Plugin SDK**: `npm install @opencode-ai/plugin`
