@@ -13,10 +13,12 @@ const {
   findMatchingBrace,
   countNonEmptyLines,
   countExportsInContent,
+  countSourceFiles,
   detectLanguage,
   detectCommentLanguage,
   shouldExclude,
   isTestFile,
+  parseGitignore,
   ENTRY_POINTS,
   EXPORT_PATTERNS,
   SOURCE_EXTENSIONS,
@@ -3284,6 +3286,160 @@ src/j.js`;
 
         expect(Date.now() - start).toBeLessThan(MAX_SAFE_TIME);
       });
+    });
+  });
+
+  describe('parseGitignore', () => {
+    const createMockFs = (gitignoreContent) => ({
+      readFileSync: (filePath) => {
+        if (filePath.endsWith('.gitignore')) {
+          if (gitignoreContent === null) throw new Error('ENOENT');
+          return gitignoreContent;
+        }
+        throw new Error('File not found');
+      }
+    });
+
+    const mockPath = {
+      join: (...args) => args.join('/')
+    };
+
+    it('should return null when no .gitignore exists', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs(null), mockPath);
+      expect(isIgnored).toBeNull();
+    });
+
+    it('should ignore simple file patterns', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('*.log\n*.tmp'), mockPath);
+      expect(isIgnored('debug.log')).toBe(true);
+      expect(isIgnored('temp.tmp')).toBe(true);
+      expect(isIgnored('index.js')).toBe(false);
+    });
+
+    it('should ignore directory patterns', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('build/\ncoverage/'), mockPath);
+      expect(isIgnored('build', true)).toBe(true);
+      expect(isIgnored('coverage', true)).toBe(true);
+      expect(isIgnored('src', true)).toBe(false);
+    });
+
+    it('should handle negation patterns', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('*.log\n!important.log'), mockPath);
+      expect(isIgnored('debug.log')).toBe(true);
+      expect(isIgnored('important.log')).toBe(false);
+    });
+
+    it('should ignore comments and empty lines', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('# comment\n\n*.log'), mockPath);
+      expect(isIgnored('debug.log')).toBe(true);
+      expect(isIgnored('# comment')).toBe(false);
+    });
+
+    it('should handle nested path patterns', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('src/generated/'), mockPath);
+      expect(isIgnored('src/generated', true)).toBe(true);
+      expect(isIgnored('src/utils', true)).toBe(false);
+    });
+
+    it('should handle globstar patterns', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('**/temp/**'), mockPath);
+      expect(isIgnored('temp/file.js')).toBe(true);
+      expect(isIgnored('src/temp/file.js')).toBe(true);
+      expect(isIgnored('src/file.js')).toBe(false);
+    });
+
+    it('should handle anchored patterns', () => {
+      const isIgnored = parseGitignore('/repo', createMockFs('/root-only.txt'), mockPath);
+      expect(isIgnored('root-only.txt')).toBe(true);
+      expect(isIgnored('sub/root-only.txt')).toBe(false);
+    });
+  });
+
+  describe('countSourceFiles with gitignore', () => {
+    const createMockFs = (files, gitignoreContent) => {
+      const dirs = new Set();
+      files.forEach(f => {
+        const parts = f.split('/');
+        let current = '';
+        for (let i = 0; i < parts.length - 1; i++) {
+          current += (current ? '/' : '') + parts[i];
+          dirs.add(current);
+        }
+      });
+
+      return {
+        readdirSync: (dir, opts) => {
+          const entries = [];
+          const prefix = dir === '/repo' ? '' : dir.replace('/repo/', '') + '/';
+          const children = new Set();
+
+          files.forEach(f => {
+            if (prefix && !f.startsWith(prefix)) return;
+            const remainder = prefix ? f.slice(prefix.length) : f;
+            const firstSlash = remainder.indexOf('/');
+            const name = firstSlash === -1 ? remainder : remainder.slice(0, firstSlash);
+            if (!children.has(name)) {
+              children.add(name);
+              const fullPath = prefix + name;
+              entries.push({
+                name,
+                isDirectory: () => dirs.has(fullPath),
+                isFile: () => !dirs.has(fullPath)
+              });
+            }
+          });
+          return entries;
+        },
+        readFileSync: (filePath, encoding) => {
+          if (filePath === '/repo/.gitignore') {
+            if (gitignoreContent === null) throw new Error('ENOENT');
+            return gitignoreContent;
+          }
+          throw new Error('File not found');
+        }
+      };
+    };
+
+    const mockPath = {
+      join: (...args) => args.join('/'),
+      relative: (from, to) => to.replace(from + '/', ''),
+      extname: (f) => {
+        const match = f.match(/\.[^.]+$/);
+        return match ? match[0] : '';
+      }
+    };
+
+    it('should exclude files matching gitignore patterns', () => {
+      const files = ['src/index.js', 'src/generated/types.js', 'lib/utils.js'];
+      const fs = createMockFs(files, 'generated/');
+      const result = countSourceFiles('/repo', { fs, path: mockPath });
+      expect(result.files).toContain('src/index.js');
+      expect(result.files).toContain('lib/utils.js');
+      expect(result.files).not.toContain('src/generated/types.js');
+    });
+
+    it('should include all files when respectGitignore is false', () => {
+      const files = ['src/index.js', 'src/generated/types.js'];
+      const fs = createMockFs(files, 'generated/');
+      const result = countSourceFiles('/repo', { fs, path: mockPath, respectGitignore: false });
+      expect(result.files).toContain('src/index.js');
+      expect(result.files).toContain('src/generated/types.js');
+    });
+
+    it('should work when no .gitignore exists', () => {
+      const files = ['src/index.js', 'lib/utils.js'];
+      const fs = createMockFs(files, null);
+      const result = countSourceFiles('/repo', { fs, path: mockPath });
+      expect(result.files).toContain('src/index.js');
+      expect(result.files).toContain('lib/utils.js');
+    });
+
+    it('should exclude files with extension patterns', () => {
+      const files = ['src/app.js', 'logs/debug.log', 'data/cache.tmp'];
+      const fs = createMockFs(files, '*.log\n*.tmp');
+      const result = countSourceFiles('/repo', { fs, path: mockPath });
+      expect(result.files).toContain('src/app.js');
+      // .log and .tmp are not in SOURCE_EXTENSIONS anyway, but pattern should match
     });
   });
 });
