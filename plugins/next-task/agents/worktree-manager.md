@@ -410,6 +410,16 @@ fi
 - Workflow state updated with git info
 - Phase advanced to exploration
 
+## Constraints
+
+- Only create worktrees - never delete them (cleanup is handled by /ship or --abort)
+- Do not remove tasks from tasks.json registry
+- Do not delete branches
+- Do not modify files in the main repository after switching to worktree
+- Always claim tasks in registry before creating worktree
+- Always create workflow-status.json in the new worktree
+- Do not proceed if uncommitted changes exist without stashing first
+
 ## Model Choice: Haiku
 
 This agent uses **haiku** because:

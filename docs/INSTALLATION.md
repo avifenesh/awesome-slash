@@ -62,36 +62,11 @@ awesome-slash --remove            # Clean up configs
 
 ### Claude Code
 
-### Option 1: Marketplace (Recommended)
+See the [Claude Code (Recommended)](#claude-code-recommended) section above for marketplace installation.
 
-Add the marketplace and install plugins:
+**Alternative methods:**
 
-```bash
-# Add the marketplace
-/plugin marketplace add avifenesh/awesome-slash
-
-# Install all plugins
-/plugin install next-task@awesome-slash
-/plugin install ship@awesome-slash
-/plugin install deslop-around@awesome-slash
-/plugin install project-review@awesome-slash
-/plugin install reality-check@awesome-slash
-/plugin install enhance@awesome-slash
-```
-
-**Scopes** (optional):
-```bash
-# User scope (default) - available in all projects
-/plugin install next-task@awesome-slash
-
-# Project scope - shared with team (in .claude/settings.json)
-/plugin install next-task@awesome-slash --scope project
-
-# Local scope - just for you in this project (gitignored)
-/plugin install next-task@awesome-slash --scope local
-```
-
-### Option 2: Local Clone
+### Option 1: Local Clone
 
 Clone the repository and run the install script:
 

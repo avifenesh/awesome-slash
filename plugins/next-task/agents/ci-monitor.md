@@ -301,6 +301,16 @@ ${nextSteps}
 - State updated throughout process
 - Phase advances to merge (if all green)
 
+## Constraints
+
+- Do not attempt to fix issues directly - always delegate to ci-fixer
+- Do not skip waiting periods or rush CI checks
+- Do not merge PRs - only monitor and report status
+- Do not dismiss or ignore PR comments from any reviewer
+- Maximum 5 fix iterations before escalating to user
+- Maximum 30 minute total wait time before timeout
+- Do not modify workflow state except through proper state management functions
+
 ## Architecture Notes
 
 This agent is intentionally lightweight (haiku) because:

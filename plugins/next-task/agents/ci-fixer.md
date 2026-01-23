@@ -227,6 +227,16 @@ async function commitFixes(fixType, details) {
 - Commits and pushes fixes
 - Returns structured result for ci-monitor
 
+## Constraints
+
+- Only fix issues explicitly identified in CI logs or PR comments
+- Do not refactor unrelated code while fixing issues
+- Do not add features or enhancements beyond what's requested
+- Commit messages must accurately describe the fix applied
+- If a fix cannot be determined with confidence, report back rather than guessing
+- Do not modify test assertions to make tests pass - fix the actual code
+- Do not disable linting rules or skip checks to resolve failures
+
 ## Model Choice: Sonnet
 
 This agent uses **sonnet** because:
