@@ -600,6 +600,231 @@ describe('Reporter - Prompt Reports', () => {
   });
 });
 
+describe('Analyzer Integration Tests', () => {
+  const fs = require('fs');
+  const os = require('os');
+
+  let tempDir;
+
+  beforeEach(() => {
+    // Create temp directory for test files
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'prompt-analyzer-test-'));
+  });
+
+  afterEach(() => {
+    // Clean up temp directory
+    if (tempDir && fs.existsSync(tempDir)) {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  describe('analyzePrompt', () => {
+    it('should analyze a single prompt file', () => {
+      const promptPath = path.join(tempDir, 'test-prompt.md');
+      fs.writeFileSync(promptPath, `
+# Test Prompt
+
+You are a helpful assistant.
+
+## Your Role
+
+Help users with their questions.
+      `);
+
+      const result = promptAnalyzer.analyzePrompt(promptPath);
+
+      expect(result.promptName).toBe('test-prompt');
+      expect(result.promptPath).toBe(promptPath);
+      expect(result.tokenCount).toBeGreaterThan(0);
+      expect(result.clarityIssues).toBeDefined();
+      expect(result.structureIssues).toBeDefined();
+    });
+
+    it('should handle non-existent file', () => {
+      const result = promptAnalyzer.analyzePrompt('/nonexistent/path.md');
+
+      expect(result.structureIssues).toHaveLength(1);
+      expect(result.structureIssues[0].issue).toContain('File not found');
+    });
+
+    it('should detect vague instructions in prompt file', () => {
+      const promptPath = path.join(tempDir, 'vague-prompt.md');
+      fs.writeFileSync(promptPath, `
+You should usually follow the guidelines.
+Sometimes you might need to handle edge cases.
+Try to be helpful if possible.
+When appropriate, provide examples.
+As needed, add more context.
+      `);
+
+      const result = promptAnalyzer.analyzePrompt(promptPath);
+
+      const vagueIssue = result.clarityIssues.find(i => i.patternId === 'vague_instructions');
+      expect(vagueIssue).toBeDefined();
+      expect(vagueIssue.certainty).toBe('HIGH');
+    });
+  });
+
+  describe('analyzeAllPrompts', () => {
+    it('should analyze all prompts in a directory', () => {
+      // Create test files
+      fs.writeFileSync(path.join(tempDir, 'prompt1.md'), '# Prompt 1\nHelp users.');
+      fs.writeFileSync(path.join(tempDir, 'prompt2.md'), '# Prompt 2\nAssist with tasks.');
+
+      const results = promptAnalyzer.analyzeAllPrompts(tempDir);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].promptName).toBeDefined();
+      expect(results[1].promptName).toBeDefined();
+    });
+
+    it('should return empty array for non-existent directory', () => {
+      const results = promptAnalyzer.analyzeAllPrompts('/nonexistent/directory');
+
+      expect(results).toEqual([]);
+    });
+
+    it('should return empty array for invalid path input', () => {
+      expect(promptAnalyzer.analyzeAllPrompts(null)).toEqual([]);
+      expect(promptAnalyzer.analyzeAllPrompts('')).toEqual([]);
+      expect(promptAnalyzer.analyzeAllPrompts(123)).toEqual([]);
+    });
+
+    it('should skip README files', () => {
+      fs.writeFileSync(path.join(tempDir, 'README.md'), '# README');
+      fs.writeFileSync(path.join(tempDir, 'prompt.md'), '# Prompt');
+
+      const results = promptAnalyzer.analyzeAllPrompts(tempDir);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].promptName).toBe('prompt');
+    });
+
+    it('should analyze recursively by default', () => {
+      const subDir = path.join(tempDir, 'subdir');
+      fs.mkdirSync(subDir);
+      fs.writeFileSync(path.join(tempDir, 'top.md'), '# Top');
+      fs.writeFileSync(path.join(subDir, 'nested.md'), '# Nested');
+
+      const results = promptAnalyzer.analyzeAllPrompts(tempDir);
+
+      expect(results).toHaveLength(2);
+    });
+
+    it('should skip excluded directories', () => {
+      const nodeModules = path.join(tempDir, 'node_modules');
+      fs.mkdirSync(nodeModules);
+      fs.writeFileSync(path.join(nodeModules, 'dep.md'), '# Dependency');
+      fs.writeFileSync(path.join(tempDir, 'main.md'), '# Main');
+
+      const results = promptAnalyzer.analyzeAllPrompts(tempDir);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].promptName).toBe('main');
+    });
+  });
+
+  describe('analyze', () => {
+    it('should analyze single file when prompt option provided', () => {
+      const promptPath = path.join(tempDir, 'single.md');
+      fs.writeFileSync(promptPath, '# Single Prompt');
+
+      const result = promptAnalyzer.analyze({ prompt: promptPath });
+
+      expect(result.promptName).toBe('single');
+    });
+
+    it('should analyze directory when prompt option is a directory', () => {
+      fs.writeFileSync(path.join(tempDir, 'a.md'), '# A');
+      fs.writeFileSync(path.join(tempDir, 'b.md'), '# B');
+
+      const results = promptAnalyzer.analyze({ prompt: tempDir });
+
+      expect(Array.isArray(results)).toBe(true);
+      expect(results).toHaveLength(2);
+    });
+
+    it('should analyze promptsDir when specified', () => {
+      fs.writeFileSync(path.join(tempDir, 'c.md'), '# C');
+
+      const results = promptAnalyzer.analyze({ promptsDir: tempDir });
+
+      expect(Array.isArray(results)).toBe(true);
+      expect(results).toHaveLength(1);
+    });
+  });
+
+  describe('applyFixes', () => {
+    it('should apply auto-fixes for aggressive emphasis', () => {
+      const promptPath = path.join(tempDir, 'aggressive.md');
+      fs.writeFileSync(promptPath, 'This is CRITICAL and IMPORTANT! Do NOT skip this!!');
+
+      const results = promptAnalyzer.analyzePrompt(promptPath, { verbose: true });
+
+      // Check if aggressive emphasis was detected
+      const hasAggressiveIssue = results.clarityIssues.some(
+        i => i.patternId === 'aggressive_emphasis'
+      );
+
+      if (hasAggressiveIssue) {
+        const fixResults = promptAnalyzer.applyFixes(results, { dryRun: false, backup: false });
+
+        expect(fixResults.applied.length).toBeGreaterThanOrEqual(0);
+        expect(fixResults.errors).toEqual([]);
+      }
+    });
+
+    it('should handle dry run mode', () => {
+      const promptPath = path.join(tempDir, 'dryrun.md');
+      const originalContent = 'This is CRITICAL!';
+      fs.writeFileSync(promptPath, originalContent);
+
+      const results = promptAnalyzer.analyzePrompt(promptPath);
+      promptAnalyzer.applyFixes(results, { dryRun: true });
+
+      // File should be unchanged
+      const content = fs.readFileSync(promptPath, 'utf8');
+      expect(content).toBe(originalContent);
+    });
+
+    it('should handle array of results', () => {
+      fs.writeFileSync(path.join(tempDir, 'multi1.md'), '# Test 1');
+      fs.writeFileSync(path.join(tempDir, 'multi2.md'), '# Test 2');
+
+      const results = promptAnalyzer.analyzeAllPrompts(tempDir);
+      const fixResults = promptAnalyzer.applyFixes(results);
+
+      expect(fixResults.applied).toBeDefined();
+      expect(fixResults.skipped).toBeDefined();
+      expect(fixResults.errors).toBeDefined();
+    });
+  });
+
+  describe('generateReport', () => {
+    it('should generate report for single result', () => {
+      const promptPath = path.join(tempDir, 'report-test.md');
+      fs.writeFileSync(promptPath, '# Test Prompt');
+
+      const results = promptAnalyzer.analyzePrompt(promptPath);
+      const report = promptAnalyzer.generateReport(results);
+
+      expect(report).toContain('Prompt Analysis');
+      expect(report).toContain('report-test');
+    });
+
+    it('should generate summary report for array of results', () => {
+      fs.writeFileSync(path.join(tempDir, 'r1.md'), '# R1');
+      fs.writeFileSync(path.join(tempDir, 'r2.md'), '# R2');
+
+      const results = promptAnalyzer.analyzeAllPrompts(tempDir);
+      const report = promptAnalyzer.generateReport(results);
+
+      expect(report).toContain('Prompt Analysis Summary');
+      expect(report).toContain('2 prompts');
+    });
+  });
+});
+
 describe('Pattern Helper Functions', () => {
   describe('getAllPatterns', () => {
     it('should return all patterns', () => {

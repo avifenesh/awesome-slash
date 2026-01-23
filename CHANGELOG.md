@@ -73,7 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **General Prompt Analyzer** - New `/enhance:prompt` command (#122)
   - Analyzes general prompts for prompt engineering best practices
   - Differentiates from `/enhance:agent` (prompt quality vs agent config)
-  - 17 detection patterns across 6 categories: clarity, structure, examples, context, output, anti-patterns
+  - 16 detection patterns across 6 categories: clarity, structure, examples, context, output, anti-patterns
   - Clarity patterns: vague instructions, negative-only constraints, aggressive emphasis
   - Structure patterns: missing XML structure, inconsistent sections, critical info buried
   - Example patterns: missing examples, suboptimal count, lack of good/bad contrast

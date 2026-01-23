@@ -291,13 +291,13 @@ Respond with a JSON object:
 
 | Category | Patterns | Auto-Fixable |
 |----------|----------|--------------|
-| Clarity | 4 | 1 |
+| Clarity | 3 | 1 |
 | Structure | 3 | 0 |
 | Examples | 3 | 0 |
 | Context | 2 | 0 |
 | Output | 2 | 0 |
 | Anti-Pattern | 3 | 0 |
-| **Total** | **17** | **1** |
+| **Total** | **16** | **1** |
 
 ### Certainty Distribution
 
@@ -305,7 +305,7 @@ Respond with a JSON object:
 |-------|-------|---------|
 | HIGH | 7 | Definite issues (1 auto-fixable) |
 | MEDIUM | 8 | Likely improvements |
-| LOW | 2 | Advisory suggestions |
+| LOW | 1 | Advisory suggestions |
 
 ## Constraints
 
