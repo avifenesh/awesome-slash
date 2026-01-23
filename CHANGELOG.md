@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Improved
+- **Enhancer Agent XML Compatibility** - Added cross-model XML structure to all 4 enhancer agents
+  - `agent-enhancer.md`: Added `<constraints>`, `<examples>` sections (unrestricted Bash, missing role examples)
+  - `docs-enhancer.md`: Added `<constraints>`, `<examples>` sections (verbose phrases, RAG chunking examples)
+  - `plugin-enhancer.md`: Added `<constraints>`, `<examples>`, quality multiplier section
+  - `claudemd-enhancer.md`: Added `<examples>` section (WHY explanations, cross-platform paths examples)
+  - All agents now properly structured for cross-model compatibility (Claude, GPT, Gemini)
+
 ### Added
 - **Cross-Platform Validation** - Internal tooling for Claude Code, OpenCode, Codex compatibility
   - New `npm run validate:cross-platform` script scans all plugins for platform-specific code
