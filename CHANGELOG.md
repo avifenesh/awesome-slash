@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Master /enhance Orchestrator** - New `/enhance` command runs all enhancers in parallel (#118)
+  - Orchestrates 5 enhancers: plugin, agent, claudemd, docs, prompt
+  - Parallel execution via Task() for efficiency
+  - Unified report with executive summary table
+  - Deduplication of overlapping findings
+  - Sorted by certainty (HIGH > MEDIUM > LOW)
+  - Auto-fix coordination with `--apply` flag
+  - Focus filtering with `--focus=TYPE` flag
+  - New agents: `enhancement-orchestrator.md` (opus), `enhancement-reporter.md` (sonnet)
+  - New lib functions: `generateOrchestratorReport()`, `deduplicateOrchestratorFindings()`
+
 ### Improved
 - **Enhancer Agent XML Compatibility** - Added cross-model XML structure to all 4 enhancer agents
   - `agent-enhancer.md`: Added `<constraints>`, `<examples>` sections (unrestricted Bash, missing role examples)
