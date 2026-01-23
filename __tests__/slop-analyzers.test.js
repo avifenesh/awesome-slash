@@ -414,6 +414,79 @@ function foo() {
         expect(violations[0].ratio).toBe(2); // 6/3 = 2
       });
     });
+
+    describe('multi-language support', () => {
+      it('should detect excessive Python docstrings', () => {
+        const code = `def process():
+    """
+    This is a very long docstring.
+    It explains the function in detail.
+    Line 3 of documentation.
+    Line 4 of documentation.
+    Line 5 of documentation.
+    Line 6 of documentation.
+    """
+    return 1`;
+        const violations = analyzeDocCodeRatio(code, { maxRatio: 3.0, minFunctionLines: 1, filePath: 'test.py' });
+        expect(violations.length).toBe(1);
+        expect(violations[0].ratio).toBeGreaterThan(3.0);
+      });
+
+      it('should detect excessive Rust doc comments', () => {
+        const code = `/// This function does something.
+/// Line 2 of documentation.
+/// Line 3 of documentation.
+/// Line 4 of documentation.
+/// Line 5 of documentation.
+/// Line 6 of documentation.
+fn process() {
+    1
+}`;
+        const violations = analyzeDocCodeRatio(code, { maxRatio: 3.0, minFunctionLines: 1, filePath: 'test.rs' });
+        expect(violations.length).toBe(1);
+      });
+
+      it('should detect excessive Go doc comments', () => {
+        const code = `// Process does something important.
+// Line 2 of documentation.
+// Line 3 of documentation.
+// Line 4 of documentation.
+// Line 5 of documentation.
+// Line 6 of documentation.
+func Process() {
+    return
+}`;
+        const violations = analyzeDocCodeRatio(code, { maxRatio: 3.0, minFunctionLines: 1, filePath: 'test.go' });
+        expect(violations.length).toBe(1);
+      });
+
+      it('should detect excessive Java Javadoc', () => {
+        const code = `/**
+ * This method does something.
+ * Line 2 of documentation.
+ * Line 3 of documentation.
+ * Line 4 of documentation.
+ * Line 5 of documentation.
+ * Line 6 of documentation.
+ */
+public void process() {
+    return;
+}`;
+        const violations = analyzeDocCodeRatio(code, { maxRatio: 3.0, minFunctionLines: 1, filePath: 'Test.java' });
+        expect(violations.length).toBe(1);
+      });
+
+      it('should NOT flag Python functions with acceptable ratio', () => {
+        const code = `def process():
+    """Short docstring."""
+    x = 1
+    y = 2
+    z = 3
+    return x + y + z`;
+        const violations = analyzeDocCodeRatio(code, { maxRatio: 3.0, minFunctionLines: 1, filePath: 'test.py' });
+        expect(violations.length).toBe(0);
+      });
+    });
   });
 
   describe('findMatchingBrace', () => {
