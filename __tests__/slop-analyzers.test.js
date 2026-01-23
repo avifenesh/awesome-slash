@@ -957,6 +957,33 @@ function func${i}() {
         expect(countExportsInContent(content, 'python')).toBe(2);
       });
     });
+
+    describe('Java', () => {
+      it('should count public classes', () => {
+        const content = 'public class MyClass {\n}\npublic interface MyInterface {\n}';
+        expect(countExportsInContent(content, 'java')).toBe(2);
+      });
+
+      it('should count public methods', () => {
+        const content = 'public void doSomething() {\n}\npublic String getName() {\n}';
+        expect(countExportsInContent(content, 'java')).toBe(2);
+      });
+
+      it('should count public static methods', () => {
+        const content = 'public static void main(String[] args) {\n}';
+        expect(countExportsInContent(content, 'java')).toBe(1);
+      });
+
+      it('should count generic return types', () => {
+        const content = 'public List<String> getItems() {\n}';
+        expect(countExportsInContent(content, 'java')).toBe(1);
+      });
+
+      it('should not count private members', () => {
+        const content = 'private void helper() {\n}\nprivate class Inner {\n}';
+        expect(countExportsInContent(content, 'java')).toBe(0);
+      });
+    });
   });
 
   describe('constants', () => {
@@ -972,6 +999,7 @@ function func${i}() {
       expect(EXPORT_PATTERNS.rust).toBeDefined();
       expect(EXPORT_PATTERNS.go).toBeDefined();
       expect(EXPORT_PATTERNS.python).toBeDefined();
+      expect(EXPORT_PATTERNS.java).toBeDefined();
     });
 
     it('should have SOURCE_EXTENSIONS for each language', () => {
@@ -2621,6 +2649,7 @@ describe('Redis tests', () => {
         expect(INSTANTIATION_PATTERNS).toHaveProperty('python');
         expect(INSTANTIATION_PATTERNS).toHaveProperty('go');
         expect(INSTANTIATION_PATTERNS).toHaveProperty('rust');
+        expect(INSTANTIATION_PATTERNS).toHaveProperty('java');
 
         // Each language should have an array of regex patterns
         for (const patterns of Object.values(INSTANTIATION_PATTERNS)) {
