@@ -495,11 +495,11 @@ Override with `AI_STATE_DIR` environment variable.
 
 *Data collection handled by JavaScript collectors (lib/reality-check/collectors.js)*
 
-**Enhancement Analyzers (Sonnet - Code Quality):**
-| Agent | Purpose |
-|-------|---------|
-| enhancement-orchestrator | Coordinate parallel enhancer execution and aggregate results |
-| enhancement-reporter | Generate unified reports with deduplication |
+**Enhancement Orchestration (Mixed Models):**
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| enhancement-orchestrator | opus | Coordinate parallel enhancer execution and aggregate results |
+| enhancement-reporter | sonnet | Generate unified reports with deduplication |
 
 
 ---

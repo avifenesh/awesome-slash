@@ -217,6 +217,7 @@ function installForOpenCode(installDir) {
   // Sync command files (matching install.sh mappings)
   const commandMappings = [
     ['deslop-around.md', 'deslop-around', 'deslop-around.md'],
+    ['enhance.md', 'enhance', 'enhance.md'],
     ['next-task.md', 'next-task', 'next-task.md'],
     ['delivery-approval.md', 'next-task', 'delivery-approval.md'],
     ['update-docs-around.md', 'next-task', 'update-docs-around.md'],
@@ -326,6 +327,7 @@ AI_STATE_DIR = ".codex"
   // Skill mappings: [skillName, plugin, sourceFile, description]
   // Codex skills require SKILL.md with name and description in YAML frontmatter
   const skillMappings = [
+    ['enhance', 'enhance', 'enhance.md', 'Master enhancement orchestrator with parallel analyzer execution'],
     ['next-task', 'next-task', 'next-task.md', 'Master workflow orchestrator with autonomous task-to-production automation'],
     ['ship', 'ship', 'ship.md', 'Complete PR workflow from commit to production with validation'],
     ['deslop-around', 'deslop-around', 'deslop-around.md', 'AI slop cleanup with minimal diffs and behavior preservation'],
