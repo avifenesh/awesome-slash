@@ -865,39 +865,82 @@ describe('slop-patterns', () => {
     });
 
     describe('JavaScript/TypeScript placeholder detection', () => {
-      describe('stub returns', () => {
-        // Pattern disabled due to high false positive rate (95%)
-        // Tests skipped - pattern requires multi-pass analysis
-        const pattern = () => slopPatterns.placeholder_stub_returns_js.pattern;
+      describe('stub returns (multi-pass analyzer)', () => {
+        // Uses analyzeStubFunctions from slop-analyzers.js
+        const { analyzeStubFunctions } = require('../lib/patterns/slop-analyzers.js');
 
-        it.skip('should detect return 0 (pattern disabled)', () => {
-          expect(pattern().test('return 0;')).toBe(true);
-          expect(pattern().test('return 0')).toBe(true);
-          expect(pattern().test('  return 0;')).toBe(true);
+        it('should detect stub function returning 0', () => {
+          const code = 'function stub() { return 0; }';
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(1);
+          expect(violations[0].returnValue).toBe('0');
         });
 
-        it.skip('should detect return true/false (pattern disabled)', () => {
-          expect(pattern().test('return true;')).toBe(true);
-          expect(pattern().test('return false;')).toBe(true);
-          expect(pattern().test('return true')).toBe(true);
+        it('should detect stub function returning null/undefined', () => {
+          const code = `
+            function stub1() { return null; }
+            function stub2() { return undefined; }
+          `;
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(2);
         });
 
-        it.skip('should detect return null/undefined (pattern disabled)', () => {
-          expect(pattern().test('return null;')).toBe(true);
-          expect(pattern().test('return undefined;')).toBe(true);
-          expect(pattern().test('return null')).toBe(true);
+        it('should detect stub function returning true/false', () => {
+          const code = `
+            function stub1() { return true; }
+            function stub2() { return false; }
+          `;
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(2);
         });
 
-        it.skip('should detect return empty array/object (pattern disabled)', () => {
-          expect(pattern().test('return [];')).toBe(true);
-          expect(pattern().test('return {};')).toBe(true);
+        it('should detect stub function returning empty array/object', () => {
+          const code = `
+            function stub1() { return []; }
+            function stub2() { return {}; }
+          `;
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(2);
         });
 
-        it.skip('should not match non-stub returns (pattern disabled)', () => {
-          expect(pattern().test('return result;')).toBe(false);
-          expect(pattern().test('return data.value;')).toBe(false);
-          expect(pattern().test('return 42;')).toBe(false);
-          expect(pattern().test('return "hello";')).toBe(false);
+        it('should NOT match functions with real logic', () => {
+          const code = `
+            function realLogic(x) {
+              if (x > 10) return true;
+              return false;
+            }
+            function withComputation() {
+              const result = doSomething();
+              return result;
+            }
+          `;
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(0);
+        });
+
+        it('should mark stubs with TODO as HIGH certainty', () => {
+          const code = `
+            function notImplemented() {
+              // TODO: implement
+              return null;
+            }
+          `;
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(1);
+          expect(violations[0].certainty).toBe('HIGH');
+          expect(violations[0].hasTodo).toBe(true);
+        });
+
+        it('should detect arrow function stubs', () => {
+          const code = 'const stub = () => { return 0; }';
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(1);
+        });
+
+        it('should detect async function stubs', () => {
+          const code = 'async function stub() { return null; }';
+          const violations = analyzeStubFunctions(code, { filePath: 'test.js' });
+          expect(violations.length).toBe(1);
         });
       });
 
