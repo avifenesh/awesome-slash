@@ -285,7 +285,8 @@ Analyze CLAUDE.md/AGENTS.md project memory files for optimization opportunities.
 Parse from $ARGUMENTS:
 - **path**: Project directory or specific file (default: current directory)
 - **--verbose**: Show all issues including LOW certainty
-- **--check-references**: Validate file and command references (default: true)
+
+Note: Reference validation (file paths, npm commands) is always enabled.
 
 ## Workflow
 
