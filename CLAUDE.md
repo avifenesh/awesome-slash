@@ -1,5 +1,7 @@
 # Project Memory: awesome-slash
 
+> **Cross-tool compatible**: This file works as CLAUDE.md (Claude Code) and can be copied to AGENTS.md for OpenCode, Codex, and other AI tools.
+
 Quick reference for AI assistants. Follow links for details.
 
 <critical-rules>
