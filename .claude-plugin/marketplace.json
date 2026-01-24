@@ -1,6 +1,6 @@
 {
   "name": "awesome-slash",
-  "description": "6 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, and enhancement analysis",
+  "description": "7 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, and documentation sync",
   "version": "2.10.1",
   "owner": {
     "name": "Avi Fenesh",
@@ -49,6 +49,13 @@
       "source": "./plugins/enhance",
       "description": "Master enhancement orchestrator: parallel analyzer execution for plugins, agents, docs, CLAUDE.md, and prompts with unified reporting",
       "version": "2.10.1",
+      "category": "development"
+    },
+    {
+      "name": "update-docs-around",
+      "source": "./plugins/update-docs-around",
+      "description": "Standalone documentation sync: find outdated refs, update CHANGELOG, flag stale examples based on code changes",
+      "version": "1.0.0",
       "category": "development"
     }
   ],

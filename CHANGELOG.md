@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Standalone /update-docs-around Command** - New plugin for documentation sync outside main workflow
+  - Finds docs that reference changed files (imports, filenames, paths)
+  - Checks for outdated imports, removed exports, version mismatches
+  - Identifies commits that may need CHANGELOG entries
+  - Two modes: `report` (default, safe) and `apply` (auto-fix safe issues)
+  - Scope options: `--recent` (default), `--all`, or specific path
+  - Works standalone or integrated with `/next-task` workflow
+
 ## [2.10.1] - 2025-01-24
 
 ### Fixed

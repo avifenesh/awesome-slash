@@ -29,6 +29,7 @@ You shouldn't have to repeat the same requests every session. These commands han
 | `/project-review` | Multi-agent code review | Thorough analysis |
 | `/reality-check:scan` | Compare docs to actual code | Plan drift detection |
 | `/enhance` | Analyze prompts, plugins, docs | Quality improvement |
+| `/update-docs-around` | Sync docs with code changes | Documentation sync |
 
 ---
 
@@ -155,6 +156,34 @@ Comprehensive multi-agent code review that adapts to your project.
 | devops-reviewer | If CI/CD detected | Pipelines, configs, secrets |
 
 Only relevant agents run based on your codebase - no wasted analysis.
+
+---
+
+### `/update-docs-around`
+
+Sync documentation with actual code state. Find outdated references, update CHANGELOG, flag stale examples.
+
+```bash
+/update-docs-around                    # Report mode (safe, no changes)
+/update-docs-around apply              # Apply auto-fixable issues
+/update-docs-around report src/        # Check docs related to src/
+/update-docs-around --all              # Full codebase scan
+```
+
+**Phases:**
+1. Get changed files (since last commit to main, or all with `--all`)
+2. Find related documentation (references to changed files)
+3. Analyze issues (outdated imports, removed exports, version mismatches)
+4. Check CHANGELOG (undocumented commits)
+5. Report findings or apply fixes
+
+**Auto-fixable (apply mode):**
+- Outdated version numbers
+- CHANGELOG entries for undocumented commits
+
+**Flagged for manual review:**
+- Removed exports referenced in docs
+- Code examples that may need context updates
 
 ---
 

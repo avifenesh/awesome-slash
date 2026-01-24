@@ -10,7 +10,7 @@ AI models can write code. That's not the hard part anymore. The hard part is eve
 
 | Section | What's there |
 |---------|--------------|
-| [Commands](#commands) | All 6 commands with jump links |
+| [Commands](#commands) | All 7 commands with jump links |
 | [What This Does](#what-this-project-does) | The problem and how this solves it |
 | [What's Different](#what-makes-this-different) | Why this isn't just another AI tool |
 | [Design Philosophy](#design-philosophy) | The thinking behind the architecture |
@@ -30,6 +30,7 @@ AI models can write code. That's not the hard part anymore. The hard part is eve
 | [`/project-review`](#project-review) | Multi-agent code review until issues resolved | [→](#project-review) |
 | [`/reality-check:scan`](#reality-checkscan) | Compares your docs to actual code state | [→](#reality-checkscan) |
 | [`/enhance`](#enhance) | Analyzes prompts, plugins, docs for improvements | [→](#enhance) |
+| [`/update-docs-around`](#update-docs-around) | Syncs documentation with code changes | [→](#update-docs-around) |
 
 ---
 
@@ -442,6 +443,36 @@ Multi-agent collection wastes tokens on coordination. JavaScript collectors are 
 /enhance                    # Run all analyzers
 /enhance --focus=agent      # Just agent prompts
 /enhance --apply            # Apply HIGH certainty fixes
+```
+
+---
+
+### /update-docs-around
+
+**Purpose:** Sync documentation with actual code changes—find outdated refs, update CHANGELOG, flag stale examples.
+
+**What happens when you run it:**
+
+1. **Get Changed Files** - Finds files changed since last commit to main (or use `--all` for full scan)
+2. **Find Related Docs** - Searches docs that reference changed files (imports, filenames, paths)
+3. **Analyze Issues** - Checks for outdated imports, removed exports, version mismatches
+4. **Check CHANGELOG** - Identifies commits that may need CHANGELOG entries
+5. **Report/Apply** - Shows findings (report mode) or fixes safe issues (apply mode)
+
+**Modes:**
+
+| Mode | What it does |
+|------|--------------|
+| `report` (default) | Shows findings without making changes |
+| `apply` | Fixes auto-fixable issues, flags others for review |
+
+**Usage:**
+
+```bash
+/update-docs-around              # Check what docs need updates (safe)
+/update-docs-around apply        # Apply safe fixes
+/update-docs-around report src/  # Check docs related to src/
+/update-docs-around --all        # Full codebase scan
 ```
 
 ---

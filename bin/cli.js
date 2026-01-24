@@ -135,7 +135,7 @@ function installForClaude() {
     }
 
     // PLUGINS_ARRAY - Install or update plugins
-    const plugins = ['next-task', 'ship', 'deslop-around', 'project-review', 'reality-check', 'enhance'];
+    const plugins = ['next-task', 'ship', 'deslop-around', 'project-review', 'reality-check', 'enhance', 'update-docs-around'];
     for (const plugin of plugins) {
       console.log(`  Installing ${plugin}...`);
       try {
@@ -238,7 +238,7 @@ function installForOpenCode(installDir) {
     ['enhance.md', 'enhance', 'enhance.md'],
     ['next-task.md', 'next-task', 'next-task.md'],
     ['delivery-approval.md', 'next-task', 'delivery-approval.md'],
-    ['update-docs-around.md', 'next-task', 'update-docs-around.md'],
+    ['update-docs-around.md', 'update-docs-around', 'update-docs-around.md'],
     ['project-review.md', 'project-review', 'project-review.md'],
     ['ship.md', 'ship', 'ship.md'],
     ['reality-check-scan.md', 'reality-check', 'scan.md']
@@ -487,7 +487,7 @@ AI_STATE_DIR = ".codex"
       'Use when user asks to "check plan drift", "compare docs to code", "verify roadmap", "scan for reality gaps". Analyzes documentation vs actual code to detect drift and outdated plans.'],
     ['delivery-approval', 'next-task', 'delivery-approval.md',
       'Use when user asks to "validate delivery", "approve for shipping", "check if ready to ship", "verify task completion". Autonomous validation that tests pass, build succeeds, and requirements are met.'],
-    ['update-docs-around', 'next-task', 'update-docs-around.md',
+    ['update-docs-around', 'update-docs-around', 'update-docs-around.md',
       'Use when user asks to "update docs", "sync documentation", "fix outdated docs", "refresh README". Compares documentation to actual code and fixes discrepancies.']
   ];
 

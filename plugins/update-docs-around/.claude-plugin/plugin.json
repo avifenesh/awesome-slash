@@ -1,0 +1,6 @@
+{
+  "name": "update-docs-around",
+  "version": "1.0.0",
+  "description": "Sync documentation with code changes. Find outdated refs, update CHANGELOG, flag stale examples.",
+  "commands": ["commands/update-docs-around.md"]
+}

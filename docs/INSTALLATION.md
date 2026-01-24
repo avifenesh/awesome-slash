@@ -29,6 +29,7 @@ Add the marketplace and install plugins directly in Claude Code:
 /plugin install project-review@awesome-slash
 /plugin install reality-check@awesome-slash
 /plugin install enhance@awesome-slash
+/plugin install update-docs-around@awesome-slash
 ```
 
 **Scopes** (optional):
@@ -118,6 +119,7 @@ You should see commands:
 - `/project-review` - Multi-agent code review
 - `/reality-check:scan` - Plan drift detection
 - `/enhance` - Enhancement analyzer suite
+- `/update-docs-around` - Documentation sync
 
 ### OpenCode / Codex
 
