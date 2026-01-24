@@ -244,17 +244,48 @@ function installForOpenCode(installDir) {
     ['reality-check-scan.md', 'reality-check', 'scan.md']
   ];
 
+  // Helper function to transform content for OpenCode
+  function transformForOpenCode(content) {
+    // Transform plugin root variable
+    content = content.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, '${PLUGIN_ROOT}');
+    content = content.replace(/\$CLAUDE_PLUGIN_ROOT/g, '$PLUGIN_ROOT');
+    // Transform state directory references (.claude -> .opencode)
+    content = content.replace(/\.claude\//g, '.opencode/');
+    content = content.replace(/\.claude'/g, ".opencode'");
+    content = content.replace(/\.claude"/g, '.opencode"');
+    content = content.replace(/\.claude`/g, '.opencode`');
+    return content;
+  }
+
+  // Transform and copy command files
   for (const [target, plugin, source] of commandMappings) {
     const srcPath = path.join(installDir, 'plugins', plugin, 'commands', source);
     const destPath = path.join(commandsDir, target);
     if (fs.existsSync(srcPath)) {
-      // Read, transform CLAUDE_PLUGIN_ROOT -> PLUGIN_ROOT, then write
       let content = fs.readFileSync(srcPath, 'utf8');
-      content = content.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, '${PLUGIN_ROOT}');
-      content = content.replace(/\$CLAUDE_PLUGIN_ROOT/g, '$PLUGIN_ROOT');
+      content = transformForOpenCode(content);
       fs.writeFileSync(destPath, content);
     }
   }
+
+  // Transform agent files in-place for OpenCode compatibility
+  console.log('  Transforming agents for OpenCode...');
+  const pluginDirs = ['next-task', 'enhance', 'project-review', 'reality-check', 'ship', 'deslop-around'];
+  for (const pluginName of pluginDirs) {
+    const agentsDir = path.join(installDir, 'plugins', pluginName, 'agents');
+    if (fs.existsSync(agentsDir)) {
+      const agentFiles = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
+      for (const agentFile of agentFiles) {
+        const agentPath = path.join(agentsDir, agentFile);
+        let content = fs.readFileSync(agentPath, 'utf8');
+        const transformed = transformForOpenCode(content);
+        if (transformed !== content) {
+          fs.writeFileSync(agentPath, transformed);
+        }
+      }
+    }
+  }
+  console.log('  ✓ Agents transformed for OpenCode');
 
   console.log('✅ OpenCode installation complete!');
   console.log(`   Config: ${configPath}`);
