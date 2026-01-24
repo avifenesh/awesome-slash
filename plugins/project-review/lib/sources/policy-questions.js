@@ -32,14 +32,21 @@ function getPolicyQuestions() {
   const sourceOptions = [];
 
   // If cached, add as first option
+  // NOTE: OpenCode enforces 30-char max on labels
   if (cached) {
     const cachedLabel = cached.source === 'custom'
       ? `${cached.tool} (${cached.type})`
       : SOURCE_LABELS[cached.source] || (cached.source.charAt(0).toUpperCase() + cached.source.slice(1));
 
+    // Truncate to fit within 30 chars: "X (last used)" where X can be max 17 chars
+    const maxBaseLen = 30 - ' (last used)'.length; // 18 chars for base
+    const truncatedLabel = cachedLabel.length > maxBaseLen
+      ? cachedLabel.substring(0, maxBaseLen - 1) + '…'
+      : cachedLabel;
+
     sourceOptions.push({
-      label: `${cachedLabel} (last used)`,
-      description: 'Use your previous choice'
+      label: `${truncatedLabel} (last used)`,
+      description: `Use your previous choice: ${cachedLabel}`
     });
   }
 
