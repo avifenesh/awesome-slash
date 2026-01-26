@@ -85,7 +85,7 @@ Implementation → Pre-Review Gates → Review Loop → Delivery Validation
 ║           ↓ MUST trigger                                                 ║
 ║  2. deslop-work + test-coverage-checker (parallel)                       ║
 ║           ↓ MUST trigger                                                 ║
-║  3. review-orchestrator (MUST approve - all critical/high resolved)      ║
+║  3. review-orchestrator (MUST approve - no open issues or override)      ║
 ║           ↓ MUST trigger (only if approved)                              ║
 ║  4. delivery-validator (MUST approve - tests pass, build passes)         ║
 ║           ↓ MUST trigger (only if approved)                              ║
@@ -103,6 +103,46 @@ Implementation → Pre-Review Gates → Review Loop → Delivery Validation
 ║  ⛔ NO AGENT may skip workflow-status.json updates after each phase      ║
 ║                                                                          ║
 ╚══════════════════════════════════════════════════════════════════════════╝
+```
+
+## Review Decision Gate (Blocked/Resume)
+
+If `review-orchestrator` exits with `reviewResult.blocked: true`, the /next-task orchestrator MUST decide the next action (no user prompt).
+
+Use the review queue file (`flow.reviewQueue.path`) to inspect open items and their `pass` values.
+
+Decision rules:
+1. **If any open issue is critical/high OR any open issue is from security/performance/devops/database/api/backend/architecture** → re-run review-orchestrator with `--resume`.
+2. **If all open issues are medium/low and only code-quality/test-coverage** → you may override and continue if the issues are non-blocking.
+3. **If unclear** → re-run with `--resume`.
+
+When overriding, update flow:
+```javascript
+const fs = require('fs');
+
+if (flow.reviewQueue?.path && fs.existsSync(flow.reviewQueue.path)) {
+  try {
+    fs.unlinkSync(flow.reviewQueue.path);
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+}
+
+workflowState.updateFlow({
+  reviewResult: {
+    approved: true,
+    override: true,
+    overrideReason: 'issues deemed non-blocking',
+    reviewQueuePath: flow.reviewQueue?.path
+  },
+  reviewQueue: {
+    path: flow.reviewQueue?.path,
+    status: 'override-cleared',
+    updatedAt: new Date().toISOString()
+  }
+});
 ```
 
 ## ⚠️ MANDATORY STATE UPDATES - EVERY AGENT
@@ -614,11 +654,11 @@ workflowState.startPhase('review-loop');
 await Task({
   subagent_type: "next-task:review-orchestrator",
   model: "opus",
-  prompt: `Orchestrate multi-agent review. Fix critical/high issues. Max ${policy.maxReviewIterations || 3} iterations.`
+  prompt: `Orchestrate deep review. Fix all non-false-positive issues. Max ${policy.maxReviewIterations || 5} iterations.`
 });
 
 // Runs deslop-work after each iteration to clean fixes
-// → SubagentStop hook triggers delivery validation when approved
+// → SubagentStop hook triggers delivery validation when approved (or returns control if blocked)
 ```
 
 ## Phase 10: Delivery Validation
@@ -697,7 +737,7 @@ console.log(`
 ## ✓ Implementation Complete - Ready to Ship
 
 Task #${state.task.id} passed all validation checks.
-- ✓ Review approved (all critical/high resolved)
+- ✓ Review approved (no open issues or override)
 - ✓ Delivery validated (tests pass, build passes)
 - ✓ Documentation updated
 
