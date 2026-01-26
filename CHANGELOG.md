@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-01-26
+
+### Added
+- **Queue-Based Review Loop** - Multi-pass review with resume support, stall detection, and decision-gate overrides
+- **CI Consistency Validation** - Repository validator for version/mapping/agent-count alignment (`npm run validate`)
+- **Pre-Release Channels** - `rc`/`beta` tag support for npm dist-tags and GitHub prereleases
+
+### Fixed
+- **MCP Path Scoping** - MCP tools now reject paths outside the repo (custom tasks, review_code, slop_detect)
+- **MCP Responsiveness** - Review and slop pipelines run in a worker thread with sync fallback
+- **Slop Pipeline IO** - Cached file reads reduce repeated disk access
+
+### Changed
+- **Complexity Analysis** - Caps escomplex runs to reduce process spawn overhead
+- **GitHub Actions** - Actions pinned to commit SHAs for supply-chain hardening
+
 ## [3.0.3-rc.1] - 2026-01-26
 
 ### Added
