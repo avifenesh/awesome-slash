@@ -37,7 +37,8 @@ const GENERIC_LABELS = new Set([
   'name', 'type', 'default', 'options', 'windows', 'mac', 'linux', 'twitter',
   'e-mail', 'email', 'renderer', 'addons', 'architecture', 'forums', 'github issues',
   'slack', 'newsletter', 'facebook page', 'resources', 'communication', 'documentation',
-  'source code', 'docs', 'dependency', 'prerequisites', 'installation', 'requirements', 'module'
+  'source code', 'docs', 'dependency', 'prerequisites', 'installation', 'requirements', 'module',
+  'note', 'notes'
 ]);
 
 const LOW_SIGNAL_EXACT = new Set([

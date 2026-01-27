@@ -102,7 +102,8 @@ function findFeatureEvidence(basePath, features = [], options = {}) {
           name: entry.name,
           kind: entry.kind || 'file',
           line: entry.line || null,
-          exported: false
+          exported: false,
+          testOnly: entry.testOnly === true
         })),
         refs: [],
         snippets: []
@@ -117,13 +118,14 @@ function findFeatureEvidence(basePath, features = [], options = {}) {
 
     for (const def of matches) {
       const usage = collectUsageEvidence(basePath, def, reverseDeps, map, opts, referenceIndex);
-      if (usage.used) implemented = true;
+      if (usage.used && !def.testOnly) implemented = true;
       defs.push({
         file: def.file,
         name: def.name,
         kind: def.kind,
         line: def.line,
-        exported: def.exported || false
+        exported: def.exported || false,
+        testOnly: def.testOnly === true
       });
 
       for (const ref of usage.refs) {
@@ -255,6 +257,12 @@ function expandTokens(tokens) {
     if (!token) continue;
     const base = singularizeToken(token);
     addToken(base);
+    if (base.includes('/') || base.includes('-')) {
+      const parts = base.split(/[/-]+/).filter(part => part && part !== base);
+      for (const part of parts) {
+        addToken(part);
+      }
+    }
     const aliasSet = new Set();
     for (const alias of collectAliases(base)) aliasSet.add(alias);
     if (base !== token) {
@@ -289,6 +297,16 @@ function isShortCodeToken(token) {
   return /^[a-z]\d$/i.test(token) || /^\d[a-z]$/i.test(token);
 }
 
+function isValidSymbolName(name) {
+  const value = String(name || '').trim();
+  if (!value) return false;
+  if (value.length > 120) return false;
+  if (/\s/.test(value)) return false;
+  if (/[(){}\[\];]/.test(value)) return false;
+  if (value.includes('=>')) return false;
+  return true;
+}
+
 function buildSymbolIndex(map) {
   const index = [];
   for (const [file, data] of Object.entries(map.files || {})) {
@@ -298,6 +316,7 @@ function buildSymbolIndex(map) {
       if (!Array.isArray(list)) continue;
       for (const entry of list) {
         if (!entry || !entry.name) continue;
+        if (!isValidSymbolName(entry.name)) continue;
         index.push({
           file,
           name: entry.name,
@@ -328,8 +347,11 @@ function matchFeatureToSymbols(feature, symbolIndex, limit) {
   });
 
   const nonTest = matches.filter(entry => !isTestFile(entry.file));
-  if (nonTest.length === 0) return [];
-  return nonTest.slice(0, limit);
+  if (nonTest.length > 0) return nonTest.slice(0, limit);
+
+  const testOnly = matches.filter(entry => isTestFile(entry.file));
+  if (testOnly.length === 0) return [];
+  return testOnly.slice(0, limit).map(entry => ({ ...entry, testOnly: true }));
 }
 
 function featureMatchScore(feature, symbolName, filePath) {
@@ -485,9 +507,11 @@ function matchFeatureToFiles(feature, map, limit) {
   if (tokens.length === 0) return [];
   const nonGeneric = tokens.filter(token => !GENERIC_TOKENS.has(token));
   const matches = [];
+  const testMatches = [];
 
   for (const file of files) {
-    if (isTestFile(file) || isDocLikePath(file)) continue;
+    if (isDocLikePath(file)) continue;
+    const isTest = isTestFile(file);
     const fileLower = file.toLowerCase();
     const matched = new Set();
     for (const token of tokens) {
@@ -500,12 +524,17 @@ function matchFeatureToFiles(feature, map, limit) {
       if (!nonGenericMatched && matched.size < 2) continue;
     }
     const score = matched.size + (nonGeneric.length > 0 ? 1 : 0);
-    matches.push({
+    const entry = {
       file,
       name: path.posix.basename(file),
       kind: 'file',
       score
-    });
+    };
+    if (isTest) {
+      testMatches.push(entry);
+    } else {
+      matches.push(entry);
+    }
   }
 
   matches.sort((a, b) => {
@@ -513,7 +542,14 @@ function matchFeatureToFiles(feature, map, limit) {
     return a.file.localeCompare(b.file);
   });
 
-  return matches.slice(0, limit);
+  if (matches.length > 0) return matches.slice(0, limit);
+
+  testMatches.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.file.localeCompare(b.file);
+  });
+
+  return testMatches.slice(0, limit).map(entry => ({ ...entry, testOnly: true }));
 }
 
 function matchFeatureToDiskFiles(basePath, feature, options) {
@@ -523,10 +559,12 @@ function matchFeatureToDiskFiles(basePath, feature, options) {
   const limit = Number(options?.maxDefsPerFeature) || DEFAULT_OPTIONS.maxDefsPerFeature;
   const maxScan = Number(options?.maxPathScanFiles) || DEFAULT_OPTIONS.maxPathScanFiles;
   const matches = [];
+  const testMatches = [];
   const files = listCodeFiles(basePath, maxScan);
 
   for (const file of files) {
-    if (isTestFile(file) || isDocLikePath(file)) continue;
+    if (isDocLikePath(file)) continue;
+    const isTest = isTestFile(file);
     const fileLower = file.toLowerCase();
     const matched = new Set();
     for (const token of tokens) {
@@ -539,12 +577,17 @@ function matchFeatureToDiskFiles(basePath, feature, options) {
       if (!nonGenericMatched && matched.size < 2) continue;
     }
     const score = matched.size + (nonGeneric.length > 0 ? 1 : 0);
-    matches.push({
+    const entry = {
       file,
       name: path.posix.basename(file),
       kind: 'file',
       score
-    });
+    };
+    if (isTest) {
+      testMatches.push(entry);
+    } else {
+      matches.push(entry);
+    }
   }
 
   matches.sort((a, b) => {
@@ -552,7 +595,14 @@ function matchFeatureToDiskFiles(basePath, feature, options) {
     return a.file.localeCompare(b.file);
   });
 
-  return matches.slice(0, limit);
+  if (matches.length > 0) return matches.slice(0, limit);
+
+  testMatches.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return a.file.localeCompare(b.file);
+  });
+
+  return testMatches.slice(0, limit).map(entry => ({ ...entry, testOnly: true }));
 }
 
 function listCodeFiles(basePath, maxFiles) {
@@ -656,6 +706,10 @@ function collectUsageEvidence(basePath, def, reverseDeps, map, options, referenc
   if (!used) {
     const selfCount = countSymbolInMap(map, def.file, def.name) ?? countSymbolInFile(basePath, def.file, def.name);
     if (selfCount > 1) used = true;
+  }
+
+  if (!used && def.exported && !isTestFile(def.file)) {
+    used = true;
   }
 
   return { used, refs };
