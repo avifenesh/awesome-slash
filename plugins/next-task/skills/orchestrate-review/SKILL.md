@@ -60,7 +60,7 @@ const signals = {
   hasFrontend: files.some(f => /\.(tsx|jsx|vue|svelte)$/.test(f)),
   hasBackend: files.some(f => /(server|backend|services?|domain)/i.test(f)),
   hasDevops: files.some(f => /(\.github\/workflows|Dockerfile|k8s|terraform)/i.test(f)),
-  needsArchitecture: files.length > 20
+  needsArchitecture: files.length > 20  // 20+ files typically indicates cross-module changes
 };
 ```
 
@@ -86,18 +86,33 @@ Return JSON:
   }]
 }
 
-Example finding:
-{
-  "file": "src/auth/login.ts",
-  "line": 89,
-  "severity": "high",
-  "description": "Password comparison uses timing-vulnerable string equality",
-  "suggestion": "Use crypto.timingSafeEqual() instead of === for password comparison",
-  "confidence": "high",
-  "falsePositive": false
-}
+Example findings (diverse passes and severities):
 
-Report every issue found. Empty findings array if code is clean.
+// Security - high severity
+{ "file": "src/auth/login.ts", "line": 89, "severity": "high",
+  "description": "Password comparison uses timing-vulnerable string equality",
+  "suggestion": "Use crypto.timingSafeEqual() instead of ===",
+  "confidence": "high", "falsePositive": false }
+
+// Code quality - medium severity
+{ "file": "src/utils/helpers.ts", "line": 45, "severity": "medium",
+  "description": "Duplicated validation logic exists in src/api/validators.ts:23",
+  "suggestion": "Extract to shared lib/validation.ts",
+  "confidence": "high", "falsePositive": false }
+
+// Performance - low severity
+{ "file": "src/config.ts", "line": 12, "severity": "low",
+  "description": "Magic number 3600 should be named constant",
+  "suggestion": "const CACHE_TTL_SECONDS = 3600;",
+  "confidence": "medium", "falsePositive": false }
+
+// False positive example
+{ "file": "src/crypto/hash.ts", "line": 78, "severity": "high",
+  "description": "Non-constant time comparison",
+  "suggestion": "N/A - intentional for non-secret data",
+  "confidence": "low", "falsePositive": true }
+
+Report all issues with confidence >= medium. Empty findings array if clean.
 ```
 
 ## Aggregation
@@ -136,6 +151,7 @@ function aggregateFindings(results) {
 ## Iteration Loop
 
 ```javascript
+// 5 iterations balances thoroughness vs cost; 2 stalls indicates fixes aren't progressing
 const MAX_ITERATIONS = 5, MAX_STALLS = 2;
 let iteration = 1, stallCount = 0, lastHash = null;
 
@@ -160,7 +176,8 @@ while (iteration <= MAX_ITERATIONS) {
   for (const issue of [...findings.bySeverity.critical, ...findings.bySeverity.high,
                           ...findings.bySeverity.medium, ...findings.bySeverity.low]) {
     if (!issue.falsePositive) {
-      // Apply fix using Edit tool based on issue.suggestion
+      // Read file, locate issue.line, apply issue.suggestion via Edit tool
+      // For complex fixes, use simple-fixer agent pattern
     }
   }
 
