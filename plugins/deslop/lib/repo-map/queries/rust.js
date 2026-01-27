@@ -7,9 +7,13 @@
 module.exports = {
   exports: [
     { pattern: 'pub fn $NAME($$$) { $$$ }', kind: 'function', nameVar: 'NAME' },
+    { pattern: 'pub fn $NAME($$$) -> $RET { $$$ }', kind: 'function', nameVar: 'NAME' },
     { pattern: 'pub(crate) fn $NAME($$$) { $$$ }', kind: 'function', nameVar: 'NAME' },
+    { pattern: 'pub(crate) fn $NAME($$$) -> $RET { $$$ }', kind: 'function', nameVar: 'NAME' },
     { pattern: 'pub(super) fn $NAME($$$) { $$$ }', kind: 'function', nameVar: 'NAME' },
+    { pattern: 'pub(super) fn $NAME($$$) -> $RET { $$$ }', kind: 'function', nameVar: 'NAME' },
     { pattern: 'pub(in $PATH) fn $NAME($$$) { $$$ }', kind: 'function', nameVar: 'NAME' },
+    { pattern: 'pub(in $PATH) fn $NAME($$$) -> $RET { $$$ }', kind: 'function', nameVar: 'NAME' },
     { pattern: 'pub struct $NAME { $$$ }', kind: 'type', nameVar: 'NAME' },
     { pattern: 'pub(crate) struct $NAME { $$$ }', kind: 'type', nameVar: 'NAME' },
     { pattern: 'pub(super) struct $NAME { $$$ }', kind: 'type', nameVar: 'NAME' },
@@ -42,13 +46,21 @@ module.exports = {
   ],
   functions: [
     { pattern: 'fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
     { pattern: 'async fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'async fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
     { pattern: 'pub fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'pub fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
     { pattern: 'pub(crate) fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'pub(crate) fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
     { pattern: 'pub(super) fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'pub(super) fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
     { pattern: 'pub(in $PATH) fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'pub(in $PATH) fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
     { pattern: 'pub async fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
-    { pattern: 'pub(crate) async fn $NAME($$$) { $$$ }', nameVar: 'NAME' }
+    { pattern: 'pub async fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' },
+    { pattern: 'pub(crate) async fn $NAME($$$) { $$$ }', nameVar: 'NAME' },
+    { pattern: 'pub(crate) async fn $NAME($$$) -> $RET { $$$ }', nameVar: 'NAME' }
   ],
   classes: [],
   types: [

@@ -559,6 +559,8 @@ function cleanupFeatureText(text) {
     .trim();
 
   cleaned = cleaned.replace(/^[^A-Za-z0-9]+/g, '').replace(/[^A-Za-z0-9]+$/g, '').trim();
+  cleaned = cleaned.replace(/\s*[–—]\s*/g, ' - ');
+  cleaned = cleaned.replace(/\([^)]*(?:requires|requirement|version)[^)]*\)/gi, '').trim();
 
   if (cleaned.includes(' - ')) {
     cleaned = cleaned.split(' - ')[0].trim();
@@ -595,6 +597,9 @@ function extractLabeledFeature(text) {
 
   const boldMatch = raw.match(/^\*\*([^*]{3,40})\*\*:\s*/);
   if (boldMatch) return boldMatch[1].trim();
+
+  const boldLinkMatch = raw.match(/^\*\*\[([^\]]{3,60})\]\([^)]+\)\*\*/);
+  if (boldLinkMatch) return boldLinkMatch[1].trim();
 
   const colonMatch = raw.match(/^([^:]{3,40}):\s+/);
   if (colonMatch) {
@@ -652,6 +657,7 @@ function isFormulaLine(line, candidate) {
   const text = String(candidate || '');
   const normalized = normalizeText(text);
   if (!normalized) return false;
+  if (/https?:\/\//i.test(raw)) return false;
   if (normalized.includes('equivalent to') || normalized.includes('is equivalent')) return true;
   const hasDigits = /\d/.test(raw);
   const hasOps = /[+\-/*%^]/.test(raw);
@@ -668,11 +674,13 @@ function isConfigKeyLine(candidate, line) {
   if (!trimmed) return false;
   const full = String(line || '');
   const firstToken = trimmed.split(/\s+/)[0] || trimmed;
+  if (/`[A-Z0-9_]{3,}`/.test(full)) return true;
   if (/^--/.test(firstToken)) return true;
   if (!/^[a-z0-9_.-]+$/i.test(firstToken)) return false;
   if (firstToken.length < 4 || firstToken.length > 40) return false;
-  if (full.includes('#') || full.includes('=')) return true;
+  if ((full.includes('#') || full.includes('=')) && !/https?:\/\//i.test(full)) return true;
   if (/(enable|disable|flag|option|setting)/i.test(firstToken) && firstToken.length <= 30) return true;
+  if (/^(?:[A-Z0-9_]{3,})$/.test(firstToken) && /(env|environment|variable|defaults?)/i.test(full)) return true;
   return false;
 }
 
@@ -787,10 +795,17 @@ function buildFeatureRecord(name, filePath, lineNumber, contextLine, options) {
   }
   if (sourceType !== 'release' && tokens.length < 2) {
     const allowSingleInContext = contextLine && /\bfeatures?\b/i.test(contextLine);
-    if (!allowSingleInContext && !isAllowedSingleToken(trimmedName) && !isFeatureDocPath(filePath)) return null;
+    const words = trimmedName.split(/\s+/).filter(Boolean);
+    const hasShortUpper = words.some(word => word.length <= 2 && /^[A-Z0-9]+$/.test(word));
+    if (!allowSingleInContext && !hasShortUpper && !isAllowedSingleToken(trimmedName) && !isFeatureDocPath(filePath)) return null;
   }
   if (sourceType !== 'release' && isLowSignalText(normalized)) return null;
   if (tokens.length === 0) return null;
+  if (sourceType === 'plan') {
+    const context = String(contextLine || '');
+    if (/\b\w+\.(rs|ts|tsx|js|jsx|py|go|java)\b/i.test(context)) return null;
+    if (/`[^`]+\/[^`]*`/.test(context)) return null;
+  }
 
   return {
     name: trimmedName,
@@ -861,6 +876,7 @@ function dedupeFeatures(features) {
 function trimFeatureName(text, maxLength) {
   let value = String(text || '').trim();
   if (!value) return value;
+  value = value.replace(/\s*[–—]\s*/g, ' - ');
   const splitters = ['. ', '; ', ' — ', ' - ', ', '];
   for (const splitter of splitters) {
     const idx = value.indexOf(splitter);
@@ -1014,7 +1030,7 @@ function isInstructionalText(normalized) {
 
 function isPlanInstruction(normalized) {
   if (!normalized) return false;
-  return /^(format|scroll|press|mark|save|verify|run|delete|export|copy|open|jump|switch|toggle|select|focus)\b/.test(normalized);
+  return /^(format|scroll|press|mark|save|verify|run|delete|export|copy|open|jump|switch|toggle|select|focus|quit|restart)\b/.test(normalized);
 }
 
 function looksLikeInstructionContext(contextLine) {
