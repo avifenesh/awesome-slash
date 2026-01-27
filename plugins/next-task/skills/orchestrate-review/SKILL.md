@@ -150,6 +150,8 @@ function aggregateFindings(results) {
 
 ## Iteration Loop
 
+**Security Note**: Fixes are applied by the orchestrator using standard Edit tool permissions. Critical/high severity findings should be reviewed before applying - do not blindly apply LLM-suggested fixes to security-sensitive code. The orchestrator validates each fix against the original issue.
+
 ```javascript
 // 5 iterations balances thoroughness vs cost; 2 stalls indicates fixes aren't progressing
 const MAX_ITERATIONS = 5, MAX_STALLS = 2;
@@ -173,10 +175,11 @@ while (iteration <= MAX_ITERATIONS) {
   }
 
   // 4. Fix issues (severity order: critical → high → medium → low)
+  // Orchestrator reviews each suggestion before applying via Edit tool
   for (const issue of [...findings.bySeverity.critical, ...findings.bySeverity.high,
                           ...findings.bySeverity.medium, ...findings.bySeverity.low]) {
     if (!issue.falsePositive) {
-      // Read file, locate issue.line, apply issue.suggestion via Edit tool
+      // Read file, locate issue.line, validate suggestion, apply via Edit tool
       // For complex fixes, use simple-fixer agent pattern
     }
   }
