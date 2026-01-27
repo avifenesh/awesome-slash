@@ -65,7 +65,9 @@ const LOW_SIGNAL_PREFIXES = [
   '-',
   'want to',
   'wants to',
-  'aims to'
+  'aims to',
+  'provide the foundation',
+  'provides the foundation'
 ];
 
 const LOW_SIGNAL_CONTAINS = [
@@ -88,6 +90,8 @@ const LOW_SIGNAL_CONTAINS = [
   'trademark',
   'sponsor',
   'following out of the box',
+  'build optimizations',
+  'build optimization',
   'for example',
   'for instance',
   'equivalent',
@@ -98,14 +102,21 @@ const LOW_SIGNAL_CONTAINS = [
   'migrated',
   'deprecated',
   'eol',
-  'required'
+  'required',
+  'this is done',
+  'developer experience',
+  'time traveling',
+  'feature-rich development experience'
 ];
 
 const LOW_SIGNAL_REGEX = [
   /^(it|after|since|returns|return|argument|many|additional|in the)\b/,
   /^(element|elements)\b/,
   /^(users to|add \w+ todos)\b/,
-  /(developer|instant)\s+(ready|feedback)/
+  /(developer\s+ready|instant\s+feedback)/,
+  /^number of\b/,
+  /^any kind of\b/,
+  /^default data\b/
 ];
 
 const PLAN_NOISE_EXACT = new Set([

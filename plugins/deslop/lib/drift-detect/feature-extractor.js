@@ -150,9 +150,51 @@ function extractFeaturesFromContent(content, filePath, options) {
   let skipBlockBlankAllowance = 0;
   let seenHeading = false;
   let headingCount = 0;
+  let inCodeBlock = false;
+  let codeFence = null;
+  let pendingAdocBlock = false;
 
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i];
+    const trimmedLine = String(line || '').trim();
+
+    if (inCodeBlock) {
+      if (isClosingFence(trimmedLine, codeFence)) {
+        inCodeBlock = false;
+        codeFence = null;
+      }
+      continue;
+    }
+
+    if (pendingAdocBlock) {
+      if (isAdocFenceLine(trimmedLine)) {
+        inCodeBlock = true;
+        codeFence = trimmedLine;
+        pendingAdocBlock = false;
+        continue;
+      }
+      if (trimmedLine) {
+        pendingAdocBlock = false;
+      }
+    }
+
+    if (isMarkdownFenceLine(trimmedLine)) {
+      inCodeBlock = true;
+      codeFence = trimmedLine;
+      continue;
+    }
+
+    if (isAdocCodeDirective(trimmedLine)) {
+      pendingAdocBlock = true;
+      continue;
+    }
+
+    if (isAdocFenceLine(trimmedLine)) {
+      inCodeBlock = true;
+      codeFence = trimmedLine;
+      continue;
+    }
+
     const headingMatch = line.match(/^(#{1,6})\s+(.+)$/);
     if (headingMatch) {
       seenHeading = true;
@@ -173,7 +215,7 @@ function extractFeaturesFromContent(content, filePath, options) {
         continue;
       }
       inFeatureSection = isFeatureSection(title);
-      skipSection = isNonFeatureSection(title);
+      skipSection = isNonFeatureSection(title) || isExternalProductSection(title);
       skipSectionLevel = skipSection ? level : null;
       currentCategory = matchCategorySection(title, filePath);
       if (isPlanDoc) {
@@ -237,9 +279,13 @@ function extractFeaturesFromContent(content, filePath, options) {
         if (isCodeOptionItem(listMatch[1])) continue;
         const labeled = extractLabeledFeature(listMatch[1]);
         if (labeled && isGenericLabel(labeled)) continue;
-        const candidate = (labeled && sourceType === 'release')
+        let candidate = (labeled && sourceType === 'release')
           ? cleanupFeatureText(removeLeadingLabel(listMatch[1], labeled))
           : (labeled || cleanupFeatureText(listMatch[1]));
+        const modeFeature = labeled ? extractModeFeatureFromLine(line) : null;
+        if (modeFeature && labeled && isLowSignalText(normalizeText(labeled))) {
+          candidate = modeFeature;
+        }
         if (isCodePathCandidate(candidate)) continue;
         if (isExampleLine(line, candidate)) continue;
         if (isFormulaLine(line, candidate)) continue;
@@ -282,6 +328,18 @@ function extractFeaturesFromContent(content, filePath, options) {
     }
 
     if (!inFeatureSection && !skipSection) {
+      if (sourceType === 'docs' || sourceType === 'doc') {
+        const linkedList = extractLinkedFeatureList(line);
+        if (linkedList && linkedList.length > 0) {
+          for (const item of linkedList) {
+            const record = buildFeatureRecord(item, filePath, i + 1, line, options);
+            if (record) {
+              features.push(record);
+            }
+          }
+          continue;
+        }
+      }
       if (sourceType === 'release') {
         const releaseFeature = extractReleaseTableFeature(line);
         if (releaseFeature) {
@@ -294,7 +352,12 @@ function extractFeaturesFromContent(content, filePath, options) {
       if (sourceType !== 'docs' && sourceType !== 'doc') {
         const boldLabel = extractBoldLabel(line);
         if (boldLabel) {
-          const record = buildFeatureRecord(boldLabel, filePath, i + 1, line, options);
+          let candidate = boldLabel;
+          const modeFeature = extractModeFeatureFromLine(line);
+          if (modeFeature && isLowSignalText(normalizeText(boldLabel))) {
+            candidate = modeFeature;
+          }
+          const record = buildFeatureRecord(candidate, filePath, i + 1, line, options);
           if (record) {
             features.push(record);
           }
@@ -331,9 +394,13 @@ function extractFeaturesFromContent(content, filePath, options) {
         if (isCodeOptionItem(listMatch[1])) continue;
         const labeled = extractLabeledFeature(listMatch[1]);
         if (labeled && isGenericLabel(labeled)) continue;
-        const candidate = (labeled && sourceType === 'release')
+        let candidate = (labeled && sourceType === 'release')
           ? cleanupFeatureText(removeLeadingLabel(listMatch[1], labeled))
           : (labeled || cleanupFeatureText(listMatch[1]));
+        const modeFeature = labeled ? extractModeFeatureFromLine(line) : null;
+        if (modeFeature && labeled && isLowSignalText(normalizeText(labeled))) {
+          candidate = modeFeature;
+        }
         if (isCodePathCandidate(candidate)) continue;
         if (isExampleLine(line, candidate)) continue;
         if (isFormulaLine(line, candidate)) continue;
@@ -424,6 +491,14 @@ function isFeatureSection(title) {
   return false;
 }
 
+function isExternalProductSection(title) {
+  const normalized = normalizeText(title);
+  if (!normalized) return false;
+  if (/\b(pro|enterprise|commercial|premium)\b/.test(normalized)) return true;
+  if (/\bhosted\b/.test(normalized) && /\bservice\b/.test(normalized)) return true;
+  return false;
+}
+
 function matchCategorySection(title, filePath) {
   const trimmed = String(title || '').trim();
   const path = String(filePath || '').replace(/\\/g, '/');
@@ -452,6 +527,10 @@ function isNonFeatureLabel(label) {
 function extractInlineFeature(line) {
   const trimmed = String(line || '').trim();
   if (/^if\b/i.test(trimmed)) return null;
+  if (/\b(?:does not|doesn't|do not|don't|will not|won't|cannot|can't)\b/i.test(trimmed)) return null;
+  if (/\b(?:does not|doesn't|do not|don't|not)\s+(?:supports?|provides?|include|includes|enables?|allows?|adds?|introduces?)\b/i.test(trimmed)) {
+    return null;
+  }
   const verbMatch = line.match(/\b(?:supports|provides|provide|includes|enables|allows|adds|introduces)\s+(.+)/i);
   if (verbMatch) {
     let candidate = cleanupFeatureText(verbMatch[1]);
@@ -502,9 +581,37 @@ function extractInlineFeature(line) {
       candidate = candidate.slice(0, 120).trim();
     }
     if (candidate.length < 10) return null;
+    if (isGenericProductDescription(candidate)) return null;
     return candidate;
   }
 
+  return null;
+}
+
+function extractModeFeatureFromLine(line) {
+  const raw = String(line || '');
+  if (!raw.includes(':')) return null;
+  const match = raw.match(/\b([A-Za-z][A-Za-z\s-]{2,30})\s+mode\b/i);
+  if (!match) return null;
+  return cleanupFeatureText(match[0]);
+}
+
+function extractLinkedFeatureList(line) {
+  const raw = String(line || '');
+  if (!raw) return null;
+  const match = raw.match(/features?\s+includes?/i);
+  if (!match || typeof match.index !== 'number') return null;
+  const start = match.index;
+  if (start < 0) return null;
+  const tail = raw.slice(start);
+  const items = [];
+  const linkRegex = /\[([^\]]{3,80})\]\([^)]+\)/g;
+  let linkMatch;
+  while ((linkMatch = linkRegex.exec(tail)) !== null) {
+    const cleaned = cleanupFeatureText(linkMatch[1]);
+    if (cleaned) items.push(cleaned);
+  }
+  if (items.length >= 2) return items;
   return null;
 }
 
@@ -512,6 +619,9 @@ function shouldMergeLines(previous, current) {
   const prev = String(previous || '').trim();
   const curr = String(current || '').trim();
   if (!prev || !curr) return false;
+  if (isMarkdownFenceLine(prev) || isMarkdownFenceLine(curr)) return false;
+  if (isAdocFenceLine(prev) || isAdocFenceLine(curr)) return false;
+  if (isAdocCodeDirective(prev) || isAdocCodeDirective(curr)) return false;
   if (/^#{1,6}\s+/.test(curr)) return false;
   if (/^\s*(?:[-*+]|\d+\.)\s+/.test(curr)) return false;
   if (/^```/.test(curr) || /^```/.test(prev)) return false;
@@ -542,7 +652,10 @@ function isBuildArtifactLine(candidate, line) {
 function looksLikeDescriptiveSentence(line) {
   const normalized = normalizeText(line);
   if (!normalized) return false;
-  return DESCRIPTIVE_HINTS.some(hint => normalized.includes(hint));
+  const matches = DESCRIPTIVE_HINTS.filter(hint => normalized.includes(hint));
+  if (matches.length === 0) return false;
+  const genericOnly = matches.every(hint => ['framework', 'library', 'tool', 'cli'].includes(hint));
+  return !genericOnly;
 }
 
 function cleanupFeatureText(text) {
@@ -583,7 +696,48 @@ function cleanupFeatureText(text) {
   cleaned = cleaned.replace(/\b(e\.g\.?|i\.e\.?)$/i, '').trim();
   cleaned = cleaned.replace(/[:.;,]+$/g, '').trim();
 
+  if (cleaned.includes('(') && !cleaned.includes(')')) {
+    cleaned = cleaned.split('(')[0].trim();
+  }
+
   return cleaned;
+}
+
+function isGenericProductDescription(text) {
+  const normalized = normalizeText(text);
+  if (!normalized) return false;
+  const words = normalized.split(' ').filter(Boolean);
+  if (words.length === 0) return false;
+  const tail = words[words.length - 1];
+  const genericTails = new Set(['library', 'framework', 'tool', 'cli', 'sdk', 'platform', 'service', 'application']);
+  if (!genericTails.has(tail)) return false;
+  if (words.length <= 5) return true;
+  return words.some(word => ['simple', 'elegant', 'fast', 'lightweight', 'modern'].includes(word));
+}
+
+function isMarkdownFenceLine(line) {
+  const trimmed = String(line || '').trim();
+  return trimmed.startsWith('```') || trimmed.startsWith('~~~');
+}
+
+function isAdocFenceLine(line) {
+  const trimmed = String(line || '').trim();
+  return trimmed === '----' || trimmed === '....' || trimmed === '++++';
+}
+
+function isAdocCodeDirective(line) {
+  const trimmed = String(line || '').trim();
+  if (!trimmed.startsWith('[') || !trimmed.endsWith(']')) return false;
+  return /\b(source|listing|literal|code|example)\b/i.test(trimmed);
+}
+
+function isClosingFence(trimmedLine, fence) {
+  if (!trimmedLine) return false;
+  if (!fence) return false;
+  if (fence.startsWith('```') || fence.startsWith('~~~')) {
+    return trimmedLine.startsWith(fence.slice(0, 3));
+  }
+  return trimmedLine === fence;
 }
 
 function extractLabeledFeature(text) {
@@ -625,7 +779,9 @@ function isCodeOptionItem(text) {
 function isNegativeConstraint(text) {
   const normalized = normalizeText(text);
   if (!normalized) return false;
-  return /\bnot supported\b/.test(normalized) || /\bonly accepts\b/.test(normalized);
+  return /\bnot supported\b/.test(normalized)
+    || /\bonly accepts\b/.test(normalized)
+    || /\b(will not|won't|does not|doesn't|do not|don't|cannot|can't)\b/.test(normalized);
 }
 
 function isSupportPlanLine(candidate, line) {
@@ -775,7 +931,9 @@ function buildFeatureRecord(name, filePath, lineNumber, contextLine, options) {
   if (normalized.startsWith('plugin ') && /(enable|remove|disable)/.test(normalized)) return null;
   if (sourceType === 'plan' && (isInstructionalText(normalized) || isPlanInstruction(normalized))) return null;
   if (sourceType === 'plan' && /^(manual test|test flow)/.test(normalized)) return null;
-  if ((sourceType === 'docs' || sourceType === 'doc') && isInstructionalText(normalized)) return null;
+  if ((sourceType === 'docs' || sourceType === 'doc') && isInstructionalText(normalized)) {
+    if (!/\bfeatures?\s+include/i.test(contextLine || '')) return null;
+  }
   if (sourceType === 'readme' && isInstructionalText(normalized) && looksLikeInstructionContext(contextLine)) return null;
   const tokens = tokenize(normalized);
   if (tokens.length === 1 && contextLine) {

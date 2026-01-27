@@ -12,12 +12,6 @@ const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const featureExtractor = require('./feature-extractor');
-const {
-  DOC_FILES,
-  DOC_POINTER_EXT,
-  shouldSkipFeatureDoc,
-  shouldSkipFeatureDocPath
-} = require('./doc-rules');
 
 let cachedRepoMap = null;
 function getRepoMap() {
@@ -726,7 +720,35 @@ function analyzeDocumentation(options = {}) {
     };
 
   // Standard documentation files to analyze
-  const docFiles = DOC_FILES;
+  const docFiles = [
+    'README.md',
+    'README.mdx',
+    'README.rst',
+    'README.txt',
+    'README.adoc',
+    'README.asciidoc',
+    '.github/README.md',
+    '.github/README.mdx',
+    '.github/README.rst',
+    '.github/README.txt',
+    '.github/README.adoc',
+    '.github/README.asciidoc',
+    'PLAN.md',
+    'CLAUDE.md',
+    'AGENTS.md',
+    'CONTRIBUTING.md',
+    'CHANGELOG.md',
+    'HISTORY.md',
+    'RELEASES.md',
+    'RELEASE_NOTES.md',
+    'docs/README.md',
+    'docs/README.mdx',
+    'docs/README.rst',
+    'docs/README.txt',
+    'docs/README.adoc',
+    'docs/README.asciidoc',
+    'docs/PLAN.md'
+  ];
 
     const seenFiles = new Set();
     const documents = [];
@@ -763,13 +785,15 @@ function analyzeDocumentation(options = {}) {
 
     const extraDirs = [
       { dir: 'docs', limit: extraLimits.docs },
-      { dir: 'documentation', limit: Math.max(6, Math.floor(extraLimits.docs / 2)) },
-      { dir: 'antora', limit: Math.max(6, Math.floor(extraLimits.docs / 2)) },
       { dir: 'examples', limit: extraLimits.docs },
       { dir: 'extensions', limit: extraLimits.docs },
       { dir: 'plans', limit: extraLimits.plans },
       { dir: 'checklists', limit: extraLimits.checklists }
     ];
+    const extraDocRoots = findExtraDocRoots(basePath, 4);
+    for (const root of extraDocRoots) {
+      extraDirs.push({ dir: root, limit: extraLimits.docs });
+    }
 
     for (const entry of extraDirs) {
       let dirsToScan = [entry.dir];
@@ -814,20 +838,7 @@ function analyzeDocumentation(options = {}) {
       }
     }
 
-    const docIndexCandidates = [
-      ...findIndexDocCandidates(basePath, 'documentation', 6),
-      ...findIndexDocCandidates(basePath, 'antora', 6)
-    ];
-    for (const filePath of docIndexCandidates) {
-      if (docFiles.includes(filePath)) continue;
-      if (seenFiles.has(filePath)) continue;
-      const content = safeReadFile(filePath, basePath);
-      if (content) {
-        addDoc(filePath, content);
-      }
-    }
-
-    const featureDocs = documents.filter(doc => !shouldSkipFeatureDoc(doc.path) && !shouldSkipFeatureDocPath(doc.path));
+    const featureDocs = documents.filter(doc => !shouldSkipFeatureDoc(doc.path) && !shouldSkipFeatureDocPath(doc.path, doc.content));
     const featureData = featureExtractor.extractFeaturesFromDocs(featureDocs, opts.docFeatures);
     result.features = featureData.features || [];
     result.featureDetails = featureData.details || [];
@@ -851,13 +862,76 @@ function analyzeDocumentation(options = {}) {
   return result;
 }
 
+function shouldSkipFeatureDoc(filePath) {
+  const normalized = String(filePath || '').replace(/\\/g, '/').toLowerCase();
+  const name = path.basename(normalized);
+  if (normalized === 'docs/readme.md') return true;
+  return [
+    'agents.md',
+    'claude.md',
+    'contributing.md',
+    'code_of_conduct.md',
+    'security.md',
+    'license.md',
+    'history.md'
+  ].includes(name);
+}
+
+function shouldSkipFeatureDocPath(filePath, content) {
+  const normalized = String(filePath || '').replace(/\\/g, '/').toLowerCase();
+  const hasSignal = hasFeatureSignal(content);
+  if (/^docs\/[a-z-]{2}\//.test(normalized) && !/^docs\/en\//.test(normalized)) return true;
+  const baseName = normalized.split('/').pop() || '';
+  const baseStem = baseName.replace(/\.[^.]+$/, '');
+  const allowDocNames = /(readme|index|overview|introduction|intro|get-started|getting-started|quickstart|features?|capabilities?|doc|tutorial|guide|howto|how-to|blueprints?|cli|async|deploy|patterns?|extensions?)/.test(baseStem);
+  if (/^(api|reference|ref|changes?|changelog|release|breaking|migration|deprecated|deprecation|security)$/.test(baseStem)) return true;
+  if (normalized.startsWith('docs/en/docs/') && !allowDocNames && !normalized.includes('/features') && !hasSignal) return true;
+  const parts = normalized.split('/');
+  const docsIndex = parts.indexOf('docs');
+  if (docsIndex >= 0) {
+    const depthAfterDocs = parts.length - docsIndex - 1;
+    const allowDocPath = /^(docs\/(charts|axes|plugins|elements|markdown|guides|guide|howto|how-to|config|changes|concepts|api|intro|topics|faq|tutorial|tutorials|java-rest|internal|extend|community-clients)\/)/.test(normalized)
+      || /^docs\/en\/docs\//.test(normalized);
+    if (depthAfterDocs >= 2 && !allowDocPath && !hasSignal) return true;
+    if (!allowDocNames && !allowDocPath && !hasSignal) return true;
+    if (!hasSignal && /(docs\/(extend|community-clients|internal|java-rest)\/)/.test(normalized)) return true;
+  }
+  if (normalized.endsWith('supportedsites.md')) return true;
+  if (normalized.includes('docs/source/') && !normalized.endsWith('docs/source/index.md')) return true;
+  if (normalized.includes('docs/content/') && !normalized.endsWith('docs/content/index.md')) return true;
+  if (/(^|\/)api\//.test(normalized)) return true;
+  if (/(^|\/)reference\//.test(normalized)) return true;
+  if (/(^|\/)spec\//.test(normalized)) return true;
+  if (/(^|\/)docs\/blog\//.test(normalized)) return true;
+  if (/(^|\/)examples?\//.test(normalized)) return true;
+  if (/(^|\/)i18n\//.test(normalized)) return true;
+  if (/(^|\/)release(s)?\//.test(normalized)) return true;
+  if (/(^|\/)checklists?\//.test(normalized)) return true;
+  if (normalized.includes('migration') || normalized.includes('migrations')) return true;
+  if (normalized.includes('breaking-changes') || normalized.includes('breaking-changes')) return true;
+  if (normalized.includes('changes') || normalized.includes('changelog')) return true;
+  if (/(^|\/)releases?\.md$/.test(normalized)) return true;
+  if (normalized.includes('release-notes') || normalized.includes('release_notes')) return true;
+  if (normalized.includes('deprecations') || normalized.includes('deprecated')) return true;
+  return false;
+}
+
+function hasFeatureSignal(content) {
+  if (!content) return false;
+  const text = String(content);
+  if (/\b(features include|features includes|feature list|list of features|key features|supported features|core features|feature highlights)\b/i.test(text)) return true;
+  if (/^#{1,6}\s+.*features?\b/im.test(text)) return true;
+  if (/^=+\s+.*features?\b/im.test(text)) return true;
+  return false;
+}
+
 function resolveDocPointer(content) {
   const trimmed = String(content || '').trim();
   if (!trimmed) return null;
   if (trimmed.includes('\n')) return null;
   if (/\s/.test(trimmed)) return null;
   if (/^https?:\/\//i.test(trimmed)) return null;
-  if (!DOC_POINTER_EXT.test(trimmed)) return null;
+  if (!/\.(md|mdx|rst|txt|adoc|asciidoc)$/i.test(trimmed)) return null;
   return trimmed.replace(/^\.\//, '');
 }
 
@@ -1623,12 +1697,14 @@ function extractRepoMapTerms(docs) {
 }
 
 function listMarkdownFiles(basePath, relativeDir, limit) {
-  const results = [];
+  const priority = [];
+  const standard = [];
+  const lowPriority = [];
   const root = path.join(basePath, relativeDir);
-  if (!fs.existsSync(root)) return results;
+  if (!fs.existsSync(root)) return [];
 
   const walk = (dir) => {
-    if (results.length >= limit) return;
+    if ((priority.length + standard.length) >= limit * 4) return;
     let entries;
     try {
       entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -1636,19 +1712,58 @@ function listMarkdownFiles(basePath, relativeDir, limit) {
       return;
     }
     for (const entry of entries) {
-      if (results.length >= limit) break;
+      if ((priority.length + standard.length) >= limit * 4) break;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (entry.name.startsWith('.')) continue;
         walk(fullPath);
-      } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.mdx') || entry.name.endsWith('.rst') || entry.name.endsWith('.adoc') || entry.name.endsWith('.asciidoc'))) {
+      } else if (entry.isFile() && (entry.name.endsWith('.md') || entry.name.endsWith('.mdx') || entry.name.endsWith('.rst') || entry.name.endsWith('.txt') || entry.name.endsWith('.adoc') || entry.name.endsWith('.asciidoc'))) {
         const relPath = path.relative(basePath, fullPath).replace(/\\/g, '/');
-        results.push(relPath);
+        const baseName = entry.name.toLowerCase();
+        const isPriority = /(readme|index|overview|introduction|intro|getting-started|gettingstarted|quickstart|features?|capabilities?|concepts?)\.(md|mdx|rst|txt|adoc|asciidoc)$/.test(baseName);
+        const isLow = /(nav|appendix|glossary|changelog|release|changes)\.(md|mdx|rst|txt|adoc|asciidoc)$/.test(baseName);
+        if (isPriority) {
+          priority.push(relPath);
+        } else if (isLow) {
+          lowPriority.push(relPath);
+        } else {
+          standard.push(relPath);
+        }
       }
     }
   };
 
   walk(root);
+  return priority.concat(standard, lowPriority).slice(0, limit);
+}
+
+function findExtraDocRoots(basePath, limit) {
+  const results = [];
+  if (!fs.existsSync(basePath)) return results;
+  let entries;
+  try {
+    entries = fs.readdirSync(basePath, { withFileTypes: true });
+  } catch {
+    return results;
+  }
+
+  const ignoreDirs = new Set([
+    '.git', '.github', '.claude', '.codex', '.opencode', '.vscode',
+    'node_modules', 'dist', 'build', 'out', 'coverage', 'tmp', 'temp',
+    'vendor', 'packages', 'examples', 'docs'
+  ]);
+
+  for (const entry of entries) {
+    if (results.length >= limit) break;
+    if (!entry.isDirectory()) continue;
+    const name = entry.name;
+    if (name.startsWith('.')) continue;
+    if (ignoreDirs.has(name)) continue;
+    const lower = name.toLowerCase();
+    if (!lower.includes('doc') && !lower.includes('docs') && !lower.includes('documentation')) continue;
+    results.push(name);
+  }
+
   return results.slice(0, limit);
 }
 
@@ -1731,48 +1846,6 @@ function findFeatureDocCandidates(basePath, limit) {
   if (!fs.existsSync(root)) return results;
 
   const targets = new Set(['features.md', 'feature.md']);
-  const walk = (dir) => {
-    if (results.length >= limit) return;
-    let entries;
-    try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
-    } catch {
-      return;
-    }
-    for (const entry of entries) {
-      if (results.length >= limit) break;
-      const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name.startsWith('.')) continue;
-        walk(fullPath);
-      } else if (entry.isFile() && targets.has(entry.name.toLowerCase())) {
-        const relPath = path.relative(basePath, fullPath).replace(/\\/g, '/');
-        results.push(relPath);
-      }
-    }
-  };
-
-  walk(root);
-  return results.slice(0, limit);
-}
-
-function findIndexDocCandidates(basePath, relativeDir, limit) {
-  const results = [];
-  const root = path.join(basePath, relativeDir);
-  if (!fs.existsSync(root)) return results;
-
-  const targets = new Set([
-    'index.md',
-    'index.mdx',
-    'index.rst',
-    'index.adoc',
-    'index.asciidoc',
-    'overview.md',
-    'overview.rst',
-    'overview.adoc',
-    'overview.asciidoc'
-  ]);
-
   const walk = (dir) => {
     if (results.length >= limit) return;
     let entries;
