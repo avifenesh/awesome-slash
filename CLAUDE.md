@@ -49,7 +49,7 @@ lib/                    # Shared library (canonical source)
 └── index.js            # Main exports
 
 plugins/                # Claude Code plugins
-├── next-task/          # Master workflow (14 agents)
+├── next-task/          # Master workflow (12 agents)
 ├── ship/               # PR workflow
 ├── deslop/      # AI slop cleanup
 ├── audit-project/     # Multi-agent review
