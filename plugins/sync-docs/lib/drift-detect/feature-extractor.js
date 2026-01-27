@@ -146,6 +146,7 @@ function extractFeaturesFromContent(content, filePath, options) {
   let planContext = { active: false, status: null, phase: null, heading: null };
   let featureLead = false;
   let featureLeadLevel = null;
+  let optionSection = false;
   let skipBlock = false;
   let skipBlockBlankAllowance = 0;
   let seenHeading = false;
@@ -202,21 +203,27 @@ function extractFeaturesFromContent(content, filePath, options) {
       const level = headingMatch[1].length;
       const titleRaw = headingMatch[2].trim();
       const title = cleanupFeatureText(titleRaw);
+      const isOptionHeading = /\b(options|flags|cli options)\b/.test(normalizeText(title));
       currentSection = title;
       currentLevel = level;
       skipBlock = false;
       skipBlockBlankAllowance = 0;
+      optionSection = isOptionHeading;
       if (featureLead && featureLeadLevel !== null && level <= featureLeadLevel) {
         featureLead = false;
         featureLeadLevel = null;
       }
-      if (skipSection && skipSectionLevel && level > skipSectionLevel) {
+      if (skipSection && skipSectionLevel && level > skipSectionLevel && !isOptionHeading) {
         inFeatureSection = false;
         continue;
       }
       inFeatureSection = isFeatureSection(title);
       skipSection = isNonFeatureSection(title) || isExternalProductSection(title);
       skipSectionLevel = skipSection ? level : null;
+      if (isOptionHeading) {
+        skipSection = false;
+        skipSectionLevel = null;
+      }
       currentCategory = matchCategorySection(title, filePath);
       if (isPlanDoc) {
         const planInfo = parsePlanHeading(title);
@@ -272,6 +279,19 @@ function extractFeaturesFromContent(content, filePath, options) {
                 features.push(record);
               }
             }
+          }
+          continue;
+        }
+        const optionFeature = optionSection
+          ? extractOptionFeature(listMatch[1], lines, i)
+          : null;
+        if (optionFeature) {
+          const record = buildFeatureRecord(optionFeature, filePath, i + 1, line, options);
+          if (record) {
+            if (isPlanDoc && planContext.active) {
+              record.plan = buildPlanMeta(line, planContext);
+            }
+            features.push(record);
           }
           continue;
         }
@@ -393,6 +413,19 @@ function extractFeaturesFromContent(content, filePath, options) {
                 features.push(record);
               }
             }
+          }
+          continue;
+        }
+        const optionFeature = optionSection
+          ? extractOptionFeature(listMatch[1], lines, i)
+          : null;
+        if (optionFeature) {
+          const record = buildFeatureRecord(optionFeature, filePath, i + 1, line, options);
+          if (record) {
+            if (isPlanDoc && planContext.active) {
+              record.plan = buildPlanMeta(line, planContext);
+            }
+            features.push(record);
           }
           continue;
         }
@@ -614,6 +647,38 @@ function splitInlineFeatureList(candidate) {
     .filter(part => part && part.length >= 3);
   if (cleaned.length < 2) return null;
   return cleaned;
+}
+
+function extractOptionFeature(rawText, lines, index) {
+  const text = String(rawText || '').trim();
+  if (!text) return null;
+  const flagMatch = text.match(/--[a-z0-9][\w-]*/i);
+  if (!flagMatch) return null;
+  const flag = flagMatch[0].replace(/^--/, '').toLowerCase();
+  if (!flag || flag === 'help' || flag === 'version') return null;
+  let label = flag.replace(/-/g, ' ').trim();
+  if (!label) return null;
+  if (label === 'silent') label = 'silent mode';
+  if (label === 'quiet') label = 'quiet mode';
+  if (label === 'verbose') label = 'verbose output';
+  if (label === 'revert') {
+    const desc = findNextNonEmptyLine(lines, index + 1);
+    if (desc && desc.includes('revert') && desc.includes('clean')) {
+      label = 'revert cleanup';
+    }
+  }
+  return label;
+}
+
+function findNextNonEmptyLine(lines, startIndex) {
+  for (let i = startIndex; i < Math.min(lines.length, startIndex + 4); i += 1) {
+    const line = String(lines[i] || '').trim();
+    if (!line) continue;
+    if (/^\s*(?:[-*+]|\d+\.)\s+/.test(line)) return null;
+    if (/^#{1,6}\s+/.test(line)) return null;
+    return line.toLowerCase();
+  }
+  return null;
 }
 
 function extractModeFeatureFromLine(line) {

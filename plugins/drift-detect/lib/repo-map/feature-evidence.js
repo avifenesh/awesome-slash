@@ -33,6 +33,7 @@ function isImplementedByFileMatches(fileMatches, feature) {
   if (!Array.isArray(fileMatches) || fileMatches.length === 0) return false;
   const nonTestMatches = fileMatches.filter(entry => entry.testOnly !== true);
   if (nonTestMatches.length === 0) return false;
+  if (nonTestMatches.some(entry => entry.kind === 'flag')) return true;
   if (feature?.hasNonGeneric) {
     return nonTestMatches.length >= 2;
   }
@@ -88,6 +89,9 @@ function findFeatureEvidence(basePath, features = [], options = {}) {
     const matches = matchFeatureToSymbols(feature, symbolIndex, opts.maxDefsPerFeature);
     if (matches.length === 0) {
       let fileMatches = matchFeatureToFiles(feature, map, opts.maxDefsPerFeature);
+      if (fileMatches.length === 0) {
+        fileMatches = matchFeatureToFlagStrings(basePath, map, feature, opts);
+      }
       if (fileMatches.length === 0 && opts.enablePathFallback) {
         fileMatches = matchFeatureToDiskFiles(basePath, feature, opts);
       }
@@ -156,6 +160,9 @@ function findFeatureEvidence(basePath, features = [], options = {}) {
 
     if (!implemented) {
       let fileMatches = matchFeatureToFiles(feature, map, opts.maxDefsPerFeature);
+      if (fileMatches.length === 0) {
+        fileMatches = matchFeatureToFlagStrings(basePath, map, feature, opts);
+      }
       if (fileMatches.length === 0 && opts.enablePathFallback) {
         fileMatches = matchFeatureToDiskFiles(basePath, feature, opts);
       }
@@ -225,7 +232,8 @@ function normalizeFeatureItem(item) {
       hasNonGeneric: tokens.some(token => !GENERIC_TOKENS.has(token)),
       sourceType: item.sourceType || null,
       sourceFile: item.sourceFile || null,
-      sourceLine: item.sourceLine || null
+      sourceLine: item.sourceLine || null,
+      context: item.context || null
     };
   }
 
@@ -610,6 +618,67 @@ function matchFeatureToFiles(feature, map, limit) {
     return a.file.localeCompare(b.file);
   });
 
+  return testMatches.slice(0, limit).map(entry => ({ ...entry, testOnly: true }));
+}
+
+function extractFlagHints(feature) {
+  const raw = [feature?.context, feature?.original].filter(Boolean).join(' ');
+  if (!raw) return [];
+  const matches = raw.match(/--[a-z0-9][\w-]*/gi) || [];
+  return Array.from(new Set(matches.map(match => match.toLowerCase())));
+}
+
+function expandFlagVariants(flag) {
+  const cleaned = flag.replace(/^--/, '').toLowerCase();
+  if (!cleaned) return [];
+  const variants = new Set();
+  variants.add(`--${cleaned}`);
+  variants.add(cleaned);
+  variants.add(cleaned.replace(/-/g, '_'));
+  variants.add(cleaned.replace(/-/g, ''));
+  return Array.from(variants);
+}
+
+function matchFeatureToFlagStrings(basePath, map, feature, options) {
+  const flags = extractFlagHints(feature);
+  if (flags.length === 0) return [];
+  const limit = Number(options?.maxDefsPerFeature) || DEFAULT_OPTIONS.maxDefsPerFeature;
+  const maxFiles = Number(options?.maxPathScanFiles) || DEFAULT_OPTIONS.maxPathScanFiles;
+  const files = Object.keys(map.files || {}).slice(0, maxFiles);
+  const matches = [];
+  const testMatches = [];
+  const flagVariants = flags.flatMap(expandFlagVariants);
+  const uniqueVariants = Array.from(new Set(flagVariants));
+
+  for (const file of files) {
+    if (matches.length >= limit) break;
+    if (isDocLikePath(file)) continue;
+    const fullPath = path.join(basePath, file);
+    let content;
+    try {
+      const stat = fs.statSync(fullPath);
+      if (stat.size > 512 * 1024) continue;
+      content = fs.readFileSync(fullPath, 'utf8');
+    } catch {
+      continue;
+    }
+    const lower = content.toLowerCase();
+    const found = uniqueVariants.find(variant => lower.includes(variant));
+    if (!found) continue;
+    const entry = {
+      file,
+      name: found,
+      kind: 'flag',
+      score: 1
+    };
+    if (isTestFile(file)) {
+      testMatches.push(entry);
+    } else {
+      matches.push(entry);
+    }
+  }
+
+  if (matches.length > 0) return matches.slice(0, limit);
   return testMatches.slice(0, limit).map(entry => ({ ...entry, testOnly: true }));
 }
 
