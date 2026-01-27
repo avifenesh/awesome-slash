@@ -627,6 +627,56 @@ function extractInlineFeature(line) {
     return candidate;
   }
 
+  const usedMatch = line.match(/\b(?:is|are)\s+used\s+to\s+(.+)/i);
+  if (usedMatch) {
+    let candidate = cleanupFeatureText(usedMatch[1]);
+    candidate = candidate.replace(/^(?:an?|the)\s+/i, '');
+    candidate = candidate.replace(/^(?:you\s+to|you\s+can|to)\s+/i, '');
+    candidate = candidate.replace(/^(?:for|with)\s+/i, '');
+    if (candidate.includes(' by ')) {
+      candidate = candidate.split(' by ')[0].trim();
+    }
+    const sentenceSplit = splitSentenceFeatures(candidate);
+    if (sentenceSplit) return sentenceSplit;
+    if (candidate.length > 120) {
+      candidate = candidate.slice(0, 120).trim();
+    }
+    if (candidate.length < 10) return null;
+    return candidate;
+  }
+
+  const usedForMatch = line.match(/\b(?:is|are)\s+used\s+for\s+(.+)/i);
+  if (usedForMatch) {
+    let candidate = cleanupFeatureText(usedForMatch[1]);
+    candidate = candidate.replace(/^(?:an?|the)\s+/i, '');
+    candidate = candidate.replace(/^(?:you\s+to|you\s+can|to)\s+/i, '');
+    candidate = candidate.replace(/^(?:for|with)\s+/i, '');
+    if (candidate.includes(' by ')) {
+      candidate = candidate.split(' by ')[0].trim();
+    }
+    const sentenceSplit = splitSentenceFeatures(candidate);
+    if (sentenceSplit) return sentenceSplit;
+    if (candidate.length > 120) {
+      candidate = candidate.slice(0, 120).trim();
+    }
+    if (candidate.length < 10) return null;
+    return candidate;
+  }
+
+  const syncedMatch = line.match(/^(?:all\s+)?(.+?)\s+are\s+synced\b/i);
+  if (syncedMatch) {
+    let candidate = cleanupFeatureText(syncedMatch[1]);
+    candidate = candidate.replace(/^(?:an?|the)\s+/i, '');
+    if (candidate.length > 120) {
+      candidate = candidate.split('.')[0].trim();
+    }
+    if (candidate.length > 120) {
+      candidate = candidate.slice(0, 120).trim();
+    }
+    if (candidate.length < 10) return null;
+    return candidate;
+  }
+
   if (looksLikeDescriptiveSentence(line)) {
     const descMatch = line.match(/\bis\s+(?:an?|the)\s+(.+)/i);
     if (!descMatch) return null;
@@ -662,6 +712,18 @@ function splitInlineFeatureList(candidate) {
   const cleaned = parts
     .map(part => part.replace(/^(and|or)\s+/i, '').trim())
     .filter(part => part && part.length >= 3);
+  if (cleaned.length < 2) return null;
+  return cleaned;
+}
+
+function splitSentenceFeatures(candidate) {
+  const raw = String(candidate || '').trim();
+  if (!raw || !raw.includes('.')) return null;
+  const parts = raw.split(/\.\s+/).map(part => part.trim()).filter(Boolean);
+  if (parts.length < 2) return null;
+  const cleaned = parts
+    .map(part => cleanupFeatureText(part))
+    .filter(part => part && part.length >= 10);
   if (cleaned.length < 2) return null;
   return cleaned;
 }
@@ -842,7 +904,7 @@ function cleanupFeatureText(text) {
     .replace(/[:.;,]+$/g, '')
     .trim();
 
-  cleaned = cleaned.replace(/^[^A-Za-z0-9]+/g, '').replace(/[^A-Za-z0-9]+$/g, '').trim();
+  cleaned = cleaned.replace(/^[^A-Za-z0-9]+/g, '').replace(/[^A-Za-z0-9)]+$/g, '').trim();
 
   if (cleaned.includes(' - ')) {
     cleaned = cleaned.split(' - ')[0].trim();
