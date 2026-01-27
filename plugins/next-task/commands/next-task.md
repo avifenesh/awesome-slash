@@ -646,20 +646,23 @@ await Promise.all([
 
 ## Phase 9: Review Loop
 
-→ **Agent**: `next-task:review-orchestrator` (opus)
+MANDATORY: Follow the orchestrate-review skill exactly. DO NOT skip. DO NOT improvise.
+
+The skill contains all implementation details:
+- Review pass definitions
+- Signal detection patterns
+- Task spawning logic
+- Finding aggregation
+- Iteration loop algorithm
+- Stall detection
 
 ```javascript
 workflowState.startPhase('review-loop');
 
-await Task({
-  subagent_type: "next-task:review-orchestrator",
-  model: "opus",
-  prompt: `Orchestrate deep review. Fix all non-false-positive issues. Max ${policy.maxReviewIterations || 5} iterations.`
-});
+// FOLLOW THE ORCHESTRATE-REVIEW SKILL EXACTLY
+// All implementation details are in: plugins/next-task/skills/orchestrate-review/SKILL.md
 
-// Runs a deslop pass after each iteration to clean fixes.
-// On Claude Code (no nested subagents), review-orchestrator performs inline passes.
-// → SubagentStop hook triggers delivery validation when approved (or returns control if blocked)
+// SubagentStop hook triggers delivery validation when approved (or returns control if blocked)
 ```
 
 ## Phase 10: Delivery Validation
