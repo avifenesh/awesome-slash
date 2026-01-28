@@ -176,6 +176,12 @@ function installForOpenCode(installDir, options = {}) {
   const configDir = path.dirname(configPath);
 
   fs.mkdirSync(configDir, { recursive: true });
+  if (fs.existsSync(commandsDir)) {
+    fs.rmSync(commandsDir, { recursive: true, force: true });
+  }
+  if (fs.existsSync(pluginDir)) {
+    fs.rmSync(pluginDir, { recursive: true, force: true });
+  }
   fs.mkdirSync(commandsDir, { recursive: true });
   fs.mkdirSync(pluginDir, { recursive: true });
 
@@ -501,6 +507,9 @@ AI_STATE_DIR = ".codex"
     const destPath = path.join(skillDir, 'SKILL.md');
 
     if (fs.existsSync(srcPath)) {
+      if (fs.existsSync(skillDir)) {
+        fs.rmSync(skillDir, { recursive: true, force: true });
+      }
       // Create skill directory
       fs.mkdirSync(skillDir, { recursive: true });
 
