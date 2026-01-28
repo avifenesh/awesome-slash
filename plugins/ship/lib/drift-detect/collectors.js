@@ -880,6 +880,11 @@ function shouldSkipFeatureDoc(filePath) {
 function shouldSkipFeatureDocPath(filePath, content) {
   const normalized = String(filePath || '').replace(/\\/g, '/').toLowerCase();
   const hasSignal = hasFeatureSignal(content);
+  if (normalized.startsWith('agent-docs/') || normalized.includes('/agent-docs/')) return true;
+  if (normalized.startsWith('plans/') || normalized.includes('/plans/')) return true;
+  if (normalized.startsWith('checklists/') || normalized.includes('/checklists/')) return true;
+  if (normalized.startsWith('references/') || normalized.includes('/references/')) return true;
+  if (normalized.startsWith('research/') || normalized.includes('/research/')) return true;
   if (normalized.startsWith('docs/internal/') || normalized.includes('/docs/internal/')) return true;
   if (normalized.startsWith('docs/specs/') || normalized.includes('/docs/specs/')) return true;
   if (normalized.startsWith('docs/archive/') || normalized.includes('/docs/archive/')) return true;

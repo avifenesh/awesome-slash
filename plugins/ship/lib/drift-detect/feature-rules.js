@@ -38,11 +38,13 @@ const GENERIC_LABELS = new Set([
   'e-mail', 'email', 'renderer', 'addons', 'architecture', 'forums', 'github issues',
   'slack', 'newsletter', 'facebook page', 'resources', 'communication', 'documentation',
   'source code', 'docs', 'dependency', 'prerequisites', 'installation', 'requirements', 'module',
-  'note', 'notes', 'reason', 'rationale', 'keybindings'
+  'note', 'notes', 'reason', 'rationale', 'keybindings',
+  'purpose', 'prerequisite', 'prerequisites',
+  'languages supported', 'language support', 'supported languages'
 ]);
 
 const LOW_SIGNAL_EXACT = new Set([
-  'windows', 'twitter', 'email', 'e-mail', 'architecture',
+  'windows', 'twitter', 'email', 'e-mail', 'architecture', 'openai',
   'experimental', 'example', 'related',
   'location', 'filename', 'reviewed',
   'short', 'tested', 'protip',
