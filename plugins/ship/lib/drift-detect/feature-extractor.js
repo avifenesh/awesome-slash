@@ -308,9 +308,13 @@ function extractFeaturesFromContent(content, filePath, options) {
         if (isCodeOptionItem(listMatch[1])) continue;
         const labeled = extractLabeledFeature(listMatch[1]);
         if (labeled && isGenericLabel(labeled)) continue;
+        const labeledDesc = labeled ? cleanupFeatureText(removeLeadingLabel(listMatch[1], labeled)) : null;
+        const preferDescription = labeled
+          && sourceType !== 'release'
+          && shouldPreferLabelDescription(labeled, labeledDesc, line);
         let candidate = (labeled && sourceType === 'release')
           ? cleanupFeatureText(removeLeadingLabel(listMatch[1], labeled))
-          : (labeled || cleanupFeatureText(listMatch[1]));
+          : (preferDescription && labeledDesc ? labeledDesc : (labeled || cleanupFeatureText(listMatch[1])));
         const modeFeature = labeled ? extractModeFeatureFromLine(line) : null;
         if (modeFeature && labeled && isLowSignalText(normalizeText(labeled))) {
           candidate = modeFeature;
@@ -443,9 +447,13 @@ function extractFeaturesFromContent(content, filePath, options) {
         if (isCodeOptionItem(listMatch[1])) continue;
         const labeled = extractLabeledFeature(listMatch[1]);
         if (labeled && isGenericLabel(labeled)) continue;
+        const labeledDesc = labeled ? cleanupFeatureText(removeLeadingLabel(listMatch[1], labeled)) : null;
+        const preferDescription = labeled
+          && sourceType !== 'release'
+          && shouldPreferLabelDescription(labeled, labeledDesc, line);
         let candidate = (labeled && sourceType === 'release')
           ? cleanupFeatureText(removeLeadingLabel(listMatch[1], labeled))
-          : (labeled || cleanupFeatureText(listMatch[1]));
+          : (preferDescription && labeledDesc ? labeledDesc : (labeled || cleanupFeatureText(listMatch[1])));
         const modeFeature = labeled ? extractModeFeatureFromLine(line) : null;
         if (modeFeature && labeled && isLowSignalText(normalizeText(labeled))) {
           candidate = modeFeature;
@@ -873,6 +881,26 @@ function extractModeFeatureFromLine(line) {
   return cleanupFeatureText(match[0]);
 }
 
+function shouldPreferLabelDescription(label, description, line) {
+  const labelNorm = normalizeText(label);
+  if (!labelNorm || !description) return false;
+  if (isLowSignalText(labelNorm, label)) return true;
+  const labelWords = labelNorm.split(' ').filter(Boolean);
+  const descNorm = normalizeText(description);
+  const descWords = descNorm.split(' ').filter(Boolean);
+  if (isInstructionalText(descNorm) && !isLowSignalText(labelNorm, label) && labelWords.length <= 4) {
+    return false;
+  }
+  if (labelWords.length <= 2 && descWords.length >= 4) return true;
+  if (/\b(one\s*click|one-click|zero|type\s*safety|type-safe|high\s+performance)\b/.test(labelNorm)) {
+    return descWords.length >= 4;
+  }
+  if (/\b(click|open|run|submit|export)\b/i.test(line || '') && descWords.length >= 4) {
+    return true;
+  }
+  return false;
+}
+
 function extractLinkedFeatureList(line) {
   const raw = String(line || '');
   if (!raw) return null;
@@ -1142,7 +1170,7 @@ function isConditionalLead(text) {
 
 function removeLeadingLabel(text, label) {
   const escaped = String(label || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return String(text || '').replace(new RegExp(`^\\s*${escaped}\\s*:\\s*`, 'i'), '');
+  return String(text || '').replace(new RegExp(`^\\s*(?:\\*\\*\\s*)?${escaped}(?:\\s*\\*\\*)?\\s*:\\s*`, 'i'), '');
 }
 
 function buildCategoryFeature(category, candidate) {
