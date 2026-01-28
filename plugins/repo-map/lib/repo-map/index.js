@@ -9,6 +9,7 @@
 
 'use strict';
 
+const path = require('path');
 const installer = require('./installer');
 const runner = require('./runner');
 const cache = require('./cache');
