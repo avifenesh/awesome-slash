@@ -881,6 +881,7 @@ function shouldMergeLines(previous, current) {
   if (isMarkdownFenceLine(prev) || isMarkdownFenceLine(curr)) return false;
   if (isAdocFenceLine(prev) || isAdocFenceLine(curr)) return false;
   if (isAdocCodeDirective(prev) || isAdocCodeDirective(curr)) return false;
+  if (/^#{1,6}\s+/.test(prev)) return false;
   if (/^#{1,6}\s+/.test(curr)) return false;
   if (/^\s*(?:[-*+]|\d+\.)\s+/.test(curr)) return false;
   if (/^```/.test(curr) || /^```/.test(prev)) return false;

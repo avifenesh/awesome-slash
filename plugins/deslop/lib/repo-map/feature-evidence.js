@@ -677,40 +677,58 @@ function matchFeatureToTextContent(basePath, map, feature, options) {
   const candidates = tokens.filter(token => token.length >= 6 && !GENERIC_TOKENS.has(token) && !excludes.has(token));
   if (candidates.length === 0) return [];
 
-  const files = Object.keys(map.files || {}).slice(0, maxFiles);
-  const matches = [];
-  const testMatches = [];
+  const scanFiles = (files) => {
+    const matches = [];
+    const testMatches = [];
+    for (const file of files) {
+      if (matches.length >= limit) break;
+      if (isDocLikePath(file)) continue;
+      const fullPath = path.join(basePath, file);
+      let content;
+      try {
+        const stat = fs.statSync(fullPath);
+        if (stat.size > 512 * 1024) continue;
+        content = fs.readFileSync(fullPath, 'utf8');
+      } catch {
+        continue;
+      }
+      const lower = content.toLowerCase();
+      const matched = [];
+      for (const token of candidates) {
+        if (lower.includes(token)) matched.push(token);
+      }
+      if (matched.length === 0) continue;
+      const strongHit = matched.some(token => token.length >= 7);
+      if (!strongHit && matched.length < 2) continue;
+      const entry = {
+        file,
+        name: matched[0],
+        kind: 'text',
+        score: matched.length + (strongHit ? 1 : 0)
+      };
+      if (isTestFile(file)) {
+        testMatches.push(entry);
+      } else {
+        matches.push(entry);
+      }
+    }
+    return { matches, testMatches };
+  };
 
-  for (const file of files) {
-    if (matches.length >= limit) break;
-    if (isDocLikePath(file)) continue;
-    const fullPath = path.join(basePath, file);
-    let content;
-    try {
-      const stat = fs.statSync(fullPath);
-      if (stat.size > 512 * 1024) continue;
-      content = fs.readFileSync(fullPath, 'utf8');
-    } catch {
-      continue;
-    }
-    const lower = content.toLowerCase();
-    const matched = [];
-    for (const token of candidates) {
-      if (lower.includes(token)) matched.push(token);
-    }
-    if (matched.length === 0) continue;
-    const strongHit = matched.some(token => token.length >= 8);
-    if (!strongHit && matched.length < 2) continue;
-    const entry = {
-      file,
-      name: matched[0],
-      kind: 'text',
-      score: matched.length + (strongHit ? 1 : 0)
-    };
-    if (isTestFile(file)) {
-      testMatches.push(entry);
-    } else {
-      matches.push(entry);
+  const files = Object.keys(map.files || {}).slice(0, maxFiles);
+  let { matches, testMatches } = scanFiles(files);
+
+  if (matches.length === 0) {
+    const hasNonTest = files.some(file => !isTestFile(file) && !isDocLikePath(file));
+    if (!hasNonTest) {
+      const fallbackFiles = listCodeFiles(basePath, maxFiles, { includeDist: true });
+      const fallback = scanFiles(fallbackFiles);
+      if (fallback.matches.length > 0) {
+        matches = fallback.matches;
+        testMatches = fallback.testMatches;
+      } else if (fallback.testMatches.length > 0) {
+        testMatches = fallback.testMatches;
+      }
     }
   }
 
@@ -814,13 +832,16 @@ function matchFeatureToDiskFiles(basePath, feature, options) {
   return testMatches.slice(0, limit).map(entry => ({ ...entry, testOnly: true }));
 }
 
-function listCodeFiles(basePath, maxFiles) {
+function listCodeFiles(basePath, maxFiles, options = {}) {
   const results = [];
   const stack = [basePath];
   const skipDirs = new Set([
     '.git', 'node_modules', 'vendor', 'dist', 'build', 'target', 'out', 'coverage',
     '.cache', '.next', 'tmp', 'temp', 'bin', 'obj', '.idea', '.vscode'
   ]);
+  if (options.includeDist) {
+    skipDirs.delete('dist');
+  }
 
   while (stack.length > 0 && results.length < maxFiles) {
     const current = stack.pop();
