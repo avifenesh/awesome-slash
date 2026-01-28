@@ -114,6 +114,8 @@ const LOW_SIGNAL_CONTAINS = [
   'svg illustration',
   'svg illustrations',
   'svg graphics',
+  'type safety',
+  'ide support',
   'for example',
   'for instance',
   'equivalent',
