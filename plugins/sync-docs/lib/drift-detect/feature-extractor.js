@@ -620,6 +620,22 @@ function extractInlineFeature(line) {
     return candidate;
   }
 
+  const useMatch = line.match(/\buse\b\s+(?:an?|the)?\s*(.+?)\s+(?:to|in order to)\s+(.+)/i);
+  if (useMatch && !/`/.test(line)) {
+    const objectPart = cleanupFeatureText(useMatch[1]);
+    const actionPart = cleanupFeatureText(useMatch[2]);
+    let candidate = [objectPart, actionPart].filter(Boolean).join(' ');
+    candidate = candidate.replace(/^(?:an?|the)\s+/i, '');
+    if (candidate.length > 120) {
+      candidate = candidate.split('.')[0].trim();
+    }
+    if (candidate.length > 120) {
+      candidate = candidate.slice(0, 120).trim();
+    }
+    if (candidate.length < 10) return null;
+    return candidate;
+  }
+
   const createMatch = line.match(/\b(?:aims?|aim|is)\s+to\s+(?:create|build|provide|deliver)\s+(.+)/i);
   if (createMatch && looksLikeFeatureSentence(line)) {
     let candidate = cleanupFeatureText(createMatch[1]);
