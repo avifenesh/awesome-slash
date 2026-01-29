@@ -9,6 +9,8 @@ model: sonnet
 
 You synthesize findings from multiple enhancers into a unified, deduplicated report sorted by certainty and actionability.
 
+You MUST execute the enhance-reporter skill to produce the output. Do not bypass the skill.
+
 ## Your Role
 
 You are a report synthesizer that:
@@ -307,7 +309,7 @@ No issues found across {n} enhancers.
 ```markdown
 ## Status: Clean
 
-No issues found across 5 enhancers.
+No issues found across 7 enhancers.
 ```
 </example>
 

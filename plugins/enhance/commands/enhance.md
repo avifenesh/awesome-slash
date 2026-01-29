@@ -1,5 +1,5 @@
 ---
-description: Analyze plugin structures, MCP tools, agent prompts, general prompts, documentation, and security patterns
+description: Analyze plugins, agents, prompts, docs, hooks, and skills for best-practice gaps
 argument-hint: "[target-path] [--apply] [--focus=TYPE] [--verbose]"
 ---
 
@@ -9,19 +9,21 @@ Run all enhancement analyzers in parallel and generate a unified report.
 
 ## Overview
 
-The master `/enhance` command orchestrates all 5 specialized enhancers:
+The master `/enhance` command orchestrates 7 specialized enhancers:
 - **plugin** - Plugin structures, MCP tools, security patterns
 - **agent** - Agent prompts, frontmatter, tool restrictions
 - **claudemd** - CLAUDE.md/AGENTS.md project memory files
 - **docs** - Documentation structure and RAG optimization
 - **prompt** - General prompt quality and clarity
+- **hooks** - Hook definitions and frontmatter quality
+- **skills** - SKILL.md structure and trigger clarity
 
 ## Arguments
 
 Parse from $ARGUMENTS:
 - **target-path**: Directory or file to analyze (default: current directory)
 - **--apply**: Apply auto-fixes for HIGH certainty issues after report
-- **--focus=TYPE**: Run only specified enhancer(s): plugin, agent, claudemd, docs, prompt
+- **--focus=TYPE**: Run only specified enhancer(s): plugin, agent, claudemd/claude-memory, docs, prompt, hooks, skills
 - **--verbose**: Include LOW certainty issues in report
 
 ## Workflow
@@ -949,3 +951,118 @@ if (applyFixes) {
 - Anti-patterns flagged
 - Clear, actionable report
 - Auto-fix available for HIGH certainty issues
+
+---
+
+# /enhance:hooks - Hook Definition Analyzer
+
+Analyze hook definitions for frontmatter completeness and safety cues.
+
+## Arguments
+
+Parse from $ARGUMENTS:
+- **hook**: Specific hook file (default: all hooks)
+- **--verbose**: Show all issues including LOW certainty
+
+## Workflow
+
+1. **Discover hooks** - Find `hooks/*.md` across the target directory
+2. **Analyze each hook**:
+   - YAML frontmatter exists
+   - `name` and `description` are present
+3. **Generate report** - Markdown table grouped by certainty
+
+## Output Format
+
+```markdown
+## Hook Analysis: {hook-name}
+
+**File**: {path}
+**Analyzed**: {timestamp}
+
+### Summary
+- HIGH: {count} issues
+- MEDIUM: {count} issues
+
+### Structure Issues ({n})
+| Issue | Fix | Certainty |
+|-------|-----|-----------|
+| Missing description | Add description to frontmatter | HIGH |
+```
+
+## Example Usage
+
+```bash
+# Analyze all hooks
+/enhance:hooks
+
+# Analyze a specific hook
+/enhance:hooks pre-commit.md
+
+# Verbose output
+/enhance:hooks --verbose
+```
+
+## Success Criteria
+
+- All hook definitions inspected
+- Frontmatter issues flagged clearly
+- Report is actionable and concise
+
+---
+
+# /enhance:skills - SKILL.md Analyzer
+
+Analyze SKILL.md files for frontmatter completeness and trigger clarity.
+
+## Arguments
+
+Parse from $ARGUMENTS:
+- **skill**: Specific skill directory or SKILL.md file (default: all)
+- **--verbose**: Show all issues including LOW certainty
+
+## Workflow
+
+1. **Discover skills** - Find `SKILL.md` files across the target directory
+2. **Analyze each skill**:
+   - YAML frontmatter exists
+   - `name` and `description` are present
+   - Description includes "Use when user asks"
+3. **Generate report** - Markdown table grouped by certainty
+
+## Output Format
+
+```markdown
+## Skill Analysis: {skill-name}
+
+**File**: {path}
+**Analyzed**: {timestamp}
+
+### Summary
+- HIGH: {count} issues
+- MEDIUM: {count} issues
+
+### Structure Issues ({n})
+| Issue | Fix | Certainty |
+|-------|-----|-----------|
+| Missing name | Add name to frontmatter | HIGH |
+```
+
+## Example Usage
+
+```bash
+# Analyze all skills
+/enhance:skills
+
+# Analyze a specific skill
+/enhance:skills enhance-docs
+
+# Verbose output
+/enhance:skills --verbose
+```
+
+## Success Criteria
+
+- All SKILL.md files inspected
+- Missing triggers are flagged
+- Reports stay short and focused

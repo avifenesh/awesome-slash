@@ -16,6 +16,8 @@ const projectmemoryAnalyzer = require('./projectmemory-analyzer');
 const projectmemoryPatterns = require('./projectmemory-patterns');
 const promptAnalyzer = require('./prompt-analyzer');
 const promptPatterns = require('./prompt-patterns');
+const hookAnalyzer = require('./hook-analyzer');
+const skillAnalyzer = require('./skill-analyzer');
 const reporter = require('./reporter');
 const fixer = require('./fixer');
 
@@ -26,6 +28,8 @@ module.exports = {
   docsAnalyzer,
   projectmemoryAnalyzer,
   promptAnalyzer,
+  hookAnalyzer,
+  skillAnalyzer,
 
   // Pattern modules
   pluginPatterns,
@@ -71,6 +75,16 @@ module.exports = {
   analyzeAllPrompts: promptAnalyzer.analyzeAllPrompts,
   promptApplyFixes: promptAnalyzer.applyFixes,
   promptGenerateReport: promptAnalyzer.generateReport,
+
+  // Convenience exports - Hooks
+  analyzeHook: hookAnalyzer.analyzeHook,
+  analyzeAllHooks: hookAnalyzer.analyzeAllHooks,
+  hooksAnalyze: hookAnalyzer.analyze,
+
+  // Convenience exports - Skills
+  analyzeSkill: skillAnalyzer.analyzeSkill,
+  analyzeAllSkills: skillAnalyzer.analyzeAllSkills,
+  skillsAnalyze: skillAnalyzer.analyze,
 
   // Convenience exports - Orchestrator
   generateOrchestratorReport: reporter.generateOrchestratorReport,

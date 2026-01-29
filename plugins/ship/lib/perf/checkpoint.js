@@ -1,0 +1,99 @@
+/**
+ * Git checkpoint helper for /perf phases.
+ *
+ * @module lib/perf/checkpoint
+ */
+
+const { execSync, execFileSync } = require('child_process');
+
+/**
+ * Check if git repo is clean.
+ * @returns {boolean}
+ */
+function isWorkingTreeClean() {
+  const output = execSync('git status --porcelain', { encoding: 'utf8' }).trim();
+  return output.length === 0;
+}
+
+/**
+ * Build checkpoint commit message.
+ * @param {object} input
+ * @param {string} input.phase
+ * @param {string} input.id
+ * @param {string} [input.baselineVersion]
+ * @param {string} [input.deltaSummary]
+ * @returns {string}
+ */
+function buildCheckpointMessage(input) {
+  if (!input || typeof input !== 'object') {
+    throw new Error('Checkpoint input must be an object');
+  }
+  const { phase, id, baselineVersion, deltaSummary } = input;
+
+  if (!phase || typeof phase !== 'string') {
+    throw new Error('phase is required');
+  }
+  if (!id || typeof id !== 'string') {
+    throw new Error('id is required');
+  }
+
+  const baseline = baselineVersion || 'n/a';
+  const delta = deltaSummary || 'n/a';
+  return `perf: phase ${phase} [${id}] baseline=${baseline} delta=${delta}`;
+}
+
+/**
+ * Get the most recent git commit message.
+ * @returns {string|null}
+ */
+function getLastCommitMessage() {
+  try {
+    return execSync('git log -1 --pretty=%B', { encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if the next checkpoint would duplicate the last commit.
+ * @param {string} message
+ * @returns {boolean}
+ */
+function isDuplicateCheckpoint(message) {
+  const last = getLastCommitMessage();
+  if (!last) return false;
+  return last.trim() === String(message || '').trim();
+}
+
+/**
+ * Commit a checkpoint for a perf phase.
+ * @param {object} input
+ * @returns {{ ok: boolean, message?: string, reason?: string }}
+ */
+function commitCheckpoint(input) {
+  try {
+    execSync('git rev-parse --is-inside-work-tree', { stdio: 'ignore' });
+  } catch {
+    return { ok: false, reason: 'not a git repo' };
+  }
+
+  if (isWorkingTreeClean()) {
+    return { ok: false, reason: 'nothing to commit' };
+  }
+
+  const message = buildCheckpointMessage(input);
+  if (isDuplicateCheckpoint(message)) {
+    return { ok: false, reason: 'duplicate checkpoint' };
+  }
+  execFileSync('git', ['add', '-A'], { stdio: 'ignore' });
+  execFileSync('git', ['commit', '-m', message], { stdio: 'ignore' });
+  return { ok: true, message };
+}
+
+module.exports = {
+  isWorkingTreeClean,
+  buildCheckpointMessage,
+  getLastCommitMessage,
+  isDuplicateCheckpoint,
+  commitCheckpoint
+};

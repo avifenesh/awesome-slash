@@ -26,6 +26,7 @@ const policyQuestions = require('./sources/policy-questions');
 const crossPlatform = require('./cross-platform');
 const enhance = require('./enhance');
 const repoMap = require('./repo-map');
+const perf = require('./perf');
 
 /**
  * Platform detection and verification utilities
@@ -228,6 +229,7 @@ module.exports = {
   xplat,
   enhance,
   repoMap,
+  perf,
 
   // Direct module access for backward compatibility
   detectPlatform,

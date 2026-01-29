@@ -135,7 +135,7 @@ function installForClaude() {
     }
 
     // PLUGINS_ARRAY - Install or update plugins
-    const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map'];
+    const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf'];
     for (const plugin of plugins) {
       console.log(`  Installing ${plugin}...`);
       try {
@@ -152,7 +152,7 @@ function installForClaude() {
     }
 
     console.log('\n✅ Claude Code installation complete!\n');
-    console.log('Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance');
+    console.log('Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf');
     return true;
   } catch (err) {
     console.log('❌ Auto-install failed. Manual installation:');
@@ -249,7 +249,8 @@ function installForOpenCode(installDir, options = {}) {
     ['audit-project.md', 'audit-project', 'audit-project.md'],
     ['ship.md', 'ship', 'ship.md'],
     ['drift-detect.md', 'drift-detect', 'drift-detect.md'],
-    ['repo-map.md', 'repo-map', 'repo-map.md']
+    ['repo-map.md', 'repo-map', 'repo-map.md'],
+    ['perf.md', 'perf', 'perf.md']
   ];
 
   // Helper function to transform content for OpenCode
@@ -311,7 +312,7 @@ function installForOpenCode(installDir, options = {}) {
   fs.mkdirSync(agentsDir, { recursive: true });
 
   console.log('  Installing agents for OpenCode...');
-  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map'];
+  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map', 'perf'];
   let agentCount = 0;
 
   for (const pluginName of pluginDirs) {
@@ -388,7 +389,7 @@ function installForOpenCode(installDir, options = {}) {
   console.log(`   Commands: ${commandsDir}`);
   console.log(`   Agents: ${agentsDir}`);
   console.log(`   Plugin: ${pluginDir}`);
-  console.log('   Access via: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /sync-docs');
+  console.log('   Access via: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /sync-docs, /perf');
   console.log('   MCP tools: workflow_status, workflow_start, workflow_resume, task_discover, review_code, slop_detect, enhance_analyze, repo_map');
   console.log('   Native features: Auto-thinking selection, workflow enforcement, session compaction\n');
   return true;
@@ -495,6 +496,8 @@ AI_STATE_DIR = ".codex"
       'Use when user asks to "check plan drift", "compare docs to code", "verify roadmap", "scan for reality gaps". Analyzes documentation vs actual code to detect drift and outdated plans.'],
     ['repo-map', 'repo-map', 'repo-map.md',
       'Use when user asks to "create repo map", "generate repo map", "update repo map", "repo map status", "map symbols". Builds and updates AST-based repo map using ast-grep.'],
+    ['perf', 'perf', 'perf.md',
+      'Use when user asks to "run perf", "performance investigation", "benchmark regression", "profiling workflow", "baseline performance". Runs structured perf investigations with baselines, profiling, hypotheses, and decisions.'],
     ['delivery-approval', 'next-task', 'delivery-approval.md',
       'Use when user asks to "validate delivery", "approve for shipping", "check if ready to ship", "verify task completion". Autonomous validation that tests pass, build succeeds, and requirements are met.'],
     ['sync-docs', 'sync-docs', 'sync-docs.md',

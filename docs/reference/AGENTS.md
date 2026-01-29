@@ -2,7 +2,7 @@
 
 Complete reference for all agents in awesome-slash.
 
-**TL;DR:** 31 agents across 5 plugins. opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 31 -->
+**TL;DR:** 39 agents across 6 plugins. opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 39 -->
 
 ---
 
@@ -12,9 +12,10 @@ Complete reference for all agents in awesome-slash.
 |--------|--------|---------|
 | next-task | 12 | [task-discoverer](#task-discoverer), [worktree-manager](#worktree-manager), [exploration-agent](#exploration-agent), [planning-agent](#planning-agent), [implementation-agent](#implementation-agent), [deslop-work](#deslop-work), [test-coverage-checker](#test-coverage-checker), [delivery-validator](#delivery-validator), [docs-updater](#docs-updater), [simple-fixer](#simple-fixer), [ci-monitor](#ci-monitor), [ci-fixer](#ci-fixer) |
 | audit-project | 10 | [code-quality-reviewer](#code-quality-reviewer), [security-expert](#security-expert), [performance-engineer](#performance-engineer), [test-quality-guardian](#test-quality-guardian), [architecture-reviewer](#architecture-reviewer), [database-specialist](#database-specialist), [api-designer](#api-designer), [frontend-specialist](#frontend-specialist), [backend-specialist](#backend-specialist), [devops-reviewer](#devops-reviewer) |
-| enhance | 7 | [enhancement-orchestrator](#enhancement-orchestrator), [plugin-enhancer](#plugin-enhancer), [agent-enhancer](#agent-enhancer), [claudemd-enhancer](#claudemd-enhancer), [docs-enhancer](#docs-enhancer), [prompt-enhancer](#prompt-enhancer), [enhancement-reporter](#enhancement-reporter) |
+| enhance | 9 | [enhancement-orchestrator](#enhancement-orchestrator), [plugin-enhancer](#plugin-enhancer), [agent-enhancer](#agent-enhancer), [claudemd-enhancer](#claudemd-enhancer), [docs-enhancer](#docs-enhancer), [prompt-enhancer](#prompt-enhancer), [hooks-enhancer](#hooks-enhancer), [skills-enhancer](#skills-enhancer), [enhancement-reporter](#enhancement-reporter) |
 | drift-detect | 1 | [plan-synthesizer](#plan-synthesizer) |
 | repo-map | 1 | [map-validator](#map-validator) |
+| perf | 6 | [perf-orchestrator](#perf-orchestrator), [perf-theory-gatherer](#perf-theory-gatherer), [perf-theory-tester](#perf-theory-tester), [perf-code-paths](#perf-code-paths), [perf-investigation-logger](#perf-investigation-logger), [perf-analyzer](#perf-analyzer) |
 
 **Design principle:** Each agent has a single responsibility. Complex work is decomposed into specialized agents that do one thing extremely well, then orchestrated together.
 
@@ -26,7 +27,7 @@ Complete reference for all agents in awesome-slash.
 
 ## Overview
 
-awesome-slash uses 31 specialized agents across 5 plugins. Each agent is optimized for a specific task and assigned a model based on complexity:
+awesome-slash uses 39 specialized agents across 6 plugins. Each agent is optimized for a specific task and assigned a model based on complexity:
 
 | Model | Use Case | Cost |
 |-------|----------|------|
@@ -35,7 +36,7 @@ awesome-slash uses 31 specialized agents across 5 plugins. Each agent is optimiz
 | haiku | Mechanical execution, no judgment | Low |
 
 **Agent types:**
-- **File-based agents** (21) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 21 -->
+- **File-based agents** (29) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 29 -->
 - **Role-based agents** (10) - Defined inline via Task tool with specialized prompts <!-- AGENT_COUNT_ROLE_BASED: 10 -->
 
 ---
@@ -419,6 +420,36 @@ awesome-slash uses 31 specialized agents across 5 plugins. Each agent is optimiz
 
 ---
 
+### hooks-enhancer
+
+**Model:** sonnet
+**Purpose:** Analyze hook definitions.
+
+**Checks:**
+- Frontmatter presence and structure
+- Required name/description fields
+- Basic formatting expectations
+
+**Tools available:**
+- Read, Glob, Grep
+
+---
+
+### skills-enhancer
+
+**Model:** sonnet
+**Purpose:** Analyze SKILL.md quality.
+
+**Checks:**
+- Frontmatter presence and structure
+- Required name/description fields
+- Trigger phrase clarity ("Use when user asks")
+
+**Tools available:**
+- Read, Glob, Grep
+
+---
+
 ### enhancement-reporter
 
 **Model:** sonnet
@@ -476,6 +507,73 @@ awesome-slash uses 31 specialized agents across 5 plugins. Each agent is optimiz
 - Read
 
 **Why haiku:** Validation is deterministic and lightweight.
+
+---
+
+## perf Plugin Agents
+
+### perf-orchestrator
+
+**Model:** opus
+**Purpose:** Coordinate /perf investigations across all phases.
+
+**What it does:**
+1. Enforces perf rules and phase order
+2. Spawns theory, profiling, and logging helpers
+3. Ensures checkpoints + evidence after each phase
+
+**Tools available:**
+- Read, Write, Edit, Task, Bash(git:*), Bash(npm:*), Bash(cargo:*), Bash(go:*), Bash(pytest:*), Bash(mvn:*), Bash(gradle:*)
+
+---
+
+### perf-theory-gatherer
+
+**Model:** opus
+**Purpose:** Generate hypotheses based on git history and evidence.
+
+**Tools available:**
+- Read, Bash(git:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(cargo:*), Bash(go:*), Bash(pytest:*), Bash(python:*), Bash(mvn:*), Bash(gradle:*)
+
+---
+
+### perf-theory-tester
+
+**Model:** opus
+**Purpose:** Validate hypotheses with controlled experiments.
+
+**Tools available:**
+- Read, Write, Edit, Bash(git:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(cargo:*), Bash(go:*), Bash(pytest:*), Bash(python:*), Bash(mvn:*), Bash(gradle:*)
+
+---
+
+### perf-code-paths
+
+**Model:** sonnet
+**Purpose:** Map entrypoints and likely hot files before profiling.
+
+**Tools available:**
+- Read, Grep, Glob
+
+---
+
+### perf-investigation-logger
+
+**Model:** sonnet
+**Purpose:** Append structured investigation logs with evidence.
+
+**Tools available:**
+- Read, Write
+
+---
+
+### perf-analyzer
+
+**Model:** opus
+**Purpose:** Synthesize findings into evidence-backed recommendations.
+
+**Tools available:**
+- Read, Write
 
 ---
 

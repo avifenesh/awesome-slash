@@ -1,13 +1,26 @@
 {
   "name": "awesome-slash",
-  "description": "8 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, documentation sync, and repo mapping",
+  "description": "9 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, documentation sync, repo mapping, and perf investigations",
   "version": "3.3.3",
   "owner": {
     "name": "Avi Fenesh",
     "url": "https://github.com/avifenesh"
   },
   "repository": "https://github.com/avifenesh/awesome-slash",
-  "keywords": ["ai", "llm", "agents", "agentic", "claude-code", "opencode", "codex", "mcp", "automation", "workflow", "code-review", "multi-agent"],
+  "keywords": [
+    "ai",
+    "llm",
+    "agents",
+    "agentic",
+    "claude-code",
+    "opencode",
+    "codex",
+    "mcp",
+    "automation",
+    "workflow",
+    "code-review",
+    "multi-agent"
+  ],
   "plugins": [
     {
       "name": "next-task",
@@ -64,12 +77,29 @@
       "description": "AST-based repository map generation using ast-grep with incremental updates for faster drift analysis",
       "version": "3.3.3",
       "category": "development"
+    },
+    {
+      "name": "perf",
+      "source": "./plugins/perf",
+      "description": "Rigorous performance investigation workflow with baselines, profiling, hypotheses, and evidence-backed decisions",
+      "version": "3.3.3",
+      "category": "development"
     }
   ],
   "mcpServer": {
     "name": "awesome-slash",
     "source": "./mcp-server",
     "description": "Cross-platform MCP server with 3-phase slop detection pipeline and enhance analyzers",
-    "tools": ["workflow_status", "workflow_start", "workflow_resume", "workflow_abort", "task_discover", "review_code", "slop_detect", "enhance_analyze", "repo_map"]
+    "tools": [
+      "workflow_status",
+      "workflow_start",
+      "workflow_resume",
+      "workflow_abort",
+      "task_discover",
+      "review_code",
+      "slop_detect",
+      "enhance_analyze",
+      "repo_map"
+    ]
   }
 }

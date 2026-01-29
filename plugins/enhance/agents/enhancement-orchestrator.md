@@ -9,6 +9,8 @@ model: opus
 
 You coordinate all enhancement analyzers in parallel, aggregate their findings, and generate a unified report through the enhancement-reporter.
 
+You MUST execute the enhance-orchestrator skill to produce the output. Do not bypass the skill.
+
 ## Your Role
 
 You are the master orchestrator that:
@@ -35,7 +37,7 @@ const focusType = args.find(a => a.startsWith('--focus='))?.split('=')[1];
 const verbose = args.includes('--verbose');
 
 // --- Input Validation ---
-const VALID_FOCUS_TYPES = ['plugin', 'agent', 'claudemd', 'docs', 'prompt'];
+const VALID_FOCUS_TYPES = ['plugin', 'agent', 'claudemd', 'claude-memory', 'docs', 'prompt', 'hooks', 'skills'];
 const VALID_FLAGS = ['--apply', '--verbose', '--focus='];
 
 // Validate focus type if provided
@@ -53,7 +55,7 @@ if (unknownFlags.length > 0) {
 
 **Supported flags:**
 - `--apply` - Apply auto-fixes for HIGH certainty issues after report
-- `--focus=TYPE` - Run only specified enhancer(s): plugin, agent, claudemd, docs, prompt
+- `--focus=TYPE` - Run only specified enhancer(s): plugin, agent, claudemd/claude-memory, docs, prompt, hooks, skills
 - `--verbose` - Include LOW certainty issues in report
 
 ## Enhancer Registry
@@ -66,6 +68,8 @@ if (unknownFlags.length > 0) {
 | claudemd | enhance:claudemd-enhancer | CLAUDE.md/AGENTS.md files | sonnet |
 | docs | enhance:docs-enhancer | Documentation files | sonnet |
 | prompt | enhance:prompt-enhancer | General prompt files | opus |
+| hooks | enhance:hooks-enhancer | Hook definitions and frontmatter | sonnet |
+| skills | enhance:skills-enhancer | SKILL.md structure and triggers | sonnet |
 </enhancer-registry>
 
 ## Workflow
@@ -83,14 +87,19 @@ const hasClaudeMd = await Glob({ pattern: '**/CLAUDE.md', path: targetPath }) ||
 const hasDocs = await Glob({ pattern: 'docs/**/*.md', path: targetPath });
 const hasPrompts = await Glob({ pattern: '**/prompts/**/*.md', path: targetPath }) ||
                    await Glob({ pattern: '**/commands/**/*.md', path: targetPath });
+const hasHooks = await Glob({ pattern: '**/hooks/**/*.md', path: targetPath });
+const hasSkills = await Glob({ pattern: '**/skills/**/SKILL.md', path: targetPath });
 
 // Build enhancer list
 const enhancersToRun = [];
-if (!focusType || focusType === 'plugin') enhancersToRun.push('plugin');
-if (!focusType || focusType === 'agent') enhancersToRun.push('agent');
-if (!focusType || focusType === 'claudemd') enhancersToRun.push('claudemd');
-if (!focusType || focusType === 'docs') enhancersToRun.push('docs');
-if (!focusType || focusType === 'prompt') enhancersToRun.push('prompt');
+const focus = focusType === 'claude-memory' ? 'claudemd' : focusType;
+if (!focus || focus === 'plugin') enhancersToRun.push('plugin');
+if (!focus || focus === 'agent') enhancersToRun.push('agent');
+if (!focus || focus === 'claudemd') enhancersToRun.push('claudemd');
+if (!focus || focus === 'docs') enhancersToRun.push('docs');
+if (!focus || focus === 'prompt') enhancersToRun.push('prompt');
+if (!focus || focus === 'hooks') enhancersToRun.push('hooks');
+if (!focus || focus === 'skills') enhancersToRun.push('skills');
 ```
 
 ### Phase 2: Launch Enhancers in Parallel
@@ -99,12 +108,21 @@ Launch all applicable enhancers simultaneously using Task():
 
 ```javascript
 const enhancerPromises = [];
+const enhancerAgents = {
+  plugin: 'enhance:plugin-enhancer',
+  agent: 'enhance:agent-enhancer',
+  claudemd: 'enhance:claudemd-enhancer',
+  docs: 'enhance:docs-enhancer',
+  prompt: 'enhance:prompt-enhancer',
+  hooks: 'enhance:hooks-enhancer',
+  skills: 'enhance:skills-enhancer'
+};
 
 // Plugin Enhancer
 if (enhancersToRun.includes('plugin') && hasPlugins.length > 0) {
   enhancerPromises.push(
     Task({
-      subagent_type: "enhance:plugin-enhancer",
+      subagent_type: enhancerAgents.plugin,
       prompt: `Analyze plugins in ${targetPath}.
 
 Options:
@@ -134,7 +152,7 @@ Return findings as JSON:
 if (enhancersToRun.includes('agent') && hasAgents.length > 0) {
   enhancerPromises.push(
     Task({
-      subagent_type: "enhance:agent-enhancer",
+      subagent_type: enhancerAgents.agent,
       prompt: `Analyze agent prompts in ${targetPath}.
 
 Options:
@@ -149,7 +167,7 @@ Return findings as JSON with same structure.`
 if (enhancersToRun.includes('claudemd') && hasClaudeMd.length > 0) {
   enhancerPromises.push(
     Task({
-      subagent_type: "enhance:claudemd-enhancer",
+      subagent_type: enhancerAgents.claudemd,
       prompt: `Analyze project memory files (CLAUDE.md/AGENTS.md) in ${targetPath}.
 
 Options:
@@ -164,7 +182,7 @@ Return findings as JSON with same structure.`
 if (enhancersToRun.includes('docs') && hasDocs.length > 0) {
   enhancerPromises.push(
     Task({
-      subagent_type: "enhance:docs-enhancer",
+      subagent_type: enhancerAgents.docs,
       prompt: `Analyze documentation in ${targetPath}.
 
 Options:
@@ -180,7 +198,7 @@ Return findings as JSON with same structure.`
 if (enhancersToRun.includes('prompt') && hasPrompts.length > 0) {
   enhancerPromises.push(
     Task({
-      subagent_type: "enhance:prompt-enhancer",
+      subagent_type: enhancerAgents.prompt,
       prompt: `Analyze prompt files in ${targetPath}.
 
 Options:
@@ -275,7 +293,7 @@ if (applyFixes) {
 
     for (const [enhancerType, fixes] of Object.entries(byEnhancer)) {
       await Task({
-        subagent_type: `enhance:${enhancerType}-enhancer`,
+        subagent_type: enhancerAgents[enhancerType],
         prompt: `Apply these HIGH certainty fixes:
 
 ${JSON.stringify(fixes, null, 2)}
@@ -416,3 +434,31 @@ This agent is invoked by:
 - `/enhance` master command (primary entry point)
 - Manual orchestration for comprehensive analysis
 - CI pipelines for quality gates
+if (enhancersToRun.includes('hooks') && hasHooks.length > 0) {
+  enhancerPromises.push(
+    Task({
+      subagent_type: enhancerAgents.hooks,
+      prompt: `Analyze hook definitions in ${targetPath}.
+
+Options:
+- verbose: ${verbose}
+
+Return findings as JSON with same structure.`
+    })
+  );
+}
+
+// Skills Enhancer
+if (enhancersToRun.includes('skills') && hasSkills.length > 0) {
+  enhancerPromises.push(
+    Task({
+      subagent_type: enhancerAgents.skills,
+      prompt: `Analyze SKILL.md files in ${targetPath}.
+
+Options:
+- verbose: ${verbose}
+
+Return findings as JSON with same structure.`
+    })
+  );
+}

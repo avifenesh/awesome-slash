@@ -38,6 +38,12 @@ All three platforms share:
 
 > **MCP is optional.** If you're running awesome-slash as native plugins/skills (Claude Code, OpenCode, Codex CLI) or invoking scripts directly, you can skip MCP. Use MCP when you want a generic tool endpoint for external clients.
 
+## Command Arguments ($ARGUMENTS)
+
+Claude Code passes a raw `$ARGUMENTS` string into commands. Commands should parse the raw string locally (including quoted values) to match Claude Code behavior.
+
+For OpenCode and Codex CLI, the installer adapts the platform argument handling to preserve `$ARGUMENTS` as a raw string. This keeps parsing consistent across platforms without changing command content.
+
 ## Claude Code (Native)
 
 ### Option 1: Marketplace (Recommended)
@@ -94,7 +100,7 @@ claude --plugin-dir /path/to/awesome-slash/plugins/next-task
 | ci-fixer | sonnet | Fix CI failures and PR comments |
 | simple-fixer | haiku | Execute pre-defined fixes |
 
-**enhance: Quality Analyzers (7 agents)**
+**enhance: Quality Analyzers (9 agents)**
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
@@ -104,6 +110,8 @@ claude --plugin-dir /path/to/awesome-slash/plugins/next-task
 | docs-enhancer | opus | Documentation quality |
 | claudemd-enhancer | opus | Project memory optimization |
 | prompt-enhancer | opus | General prompt quality |
+| hooks-enhancer | sonnet | Hook frontmatter and safety |
+| skills-enhancer | sonnet | SKILL.md structure and triggers |
 | enhancement-reporter | sonnet | Format unified reports |
 
 **drift-detect: Drift Detection (1 agent)**
@@ -286,7 +294,7 @@ When using the MCP server integration, these tools become available:
 | `task_discover` | Find and prioritize tasks from gh-issues, linear, or tasks-md |
 | `review_code` | Run pattern-based code review on changed files |
 | `slop_detect` | Detect AI slop with certainty levels (HIGH/MEDIUM/LOW) |
-| `enhance_analyze` | Analyze plugins, agents, docs, prompts for improvements |
+| `enhance_analyze` | Analyze plugins, agents, docs, prompts, hooks, skills |
 | `repo_map` | Generate or update cached AST repo map |
 
 ## Shared Libraries

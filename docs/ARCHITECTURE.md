@@ -44,7 +44,8 @@ awesome-slash/
 │   ├── cross-platform/           # Platform utilities
 │   │   ├── index.js              # Platform detection, MCP helpers
 │   │   └── RESEARCH.md           # Research documentation
-│   ├── enhance/                  # Quality analyzers (agent, plugin, docs)
+│   ├── enhance/                  # Quality analyzers (agent, plugin, docs, hooks, skills)
+│   ├── perf/                     # Performance investigation workflow
 │   ├── patterns/                 # Code analysis
 │   │   ├── pipeline.js           # 3-phase slop detection
 │   │   ├── slop-patterns.js      # Pattern definitions
@@ -60,6 +61,7 @@ awesome-slash/
 │   ├── deslop/
 │   ├── audit-project/
 │   ├── enhance/                  # Code quality analyzers
+│   ├── perf/                     # Performance investigations
 │   ├── drift-detect/
 │   ├── sync-docs/       # Documentation sync
 │   └── repo-map/        # AST repo mapping
@@ -127,7 +129,7 @@ The MCP server (`mcp-server/index.js`) exposes tools to all platforms:
 | `task_discover` | Find tasks from configured sources |
 | `review_code` | Run pipeline-based code review |
 | `slop_detect` | Detect AI slop with certainty levels |
-| `enhance_analyze` | Analyze plugins, agents, docs, prompts |
+| `enhance_analyze` | Analyze plugins, agents, docs, prompts, hooks, skills |
 | `repo_map` | Generate or update cached AST repo map |
 
 **slop_detect** uses the full 3-phase pipeline:
@@ -150,7 +152,7 @@ awesome-slash  # Select option 1
 
 **Location:** `~/.claude/plugins/awesome-slash/`
 
-**Commands:** `/next-task`, `/ship`, `/deslop`, `/audit-project`, `/drift-detect`, `/repo-map`, `/enhance`, `/sync-docs`
+**Commands:** `/next-task`, `/ship`, `/deslop`, `/audit-project`, `/drift-detect`, `/repo-map`, `/enhance`, `/perf`, `/sync-docs`
 
 ### OpenCode
 
@@ -162,7 +164,7 @@ awesome-slash  # Select option 2
 - Config: `~/.config/opencode/opencode.json`
 - Commands: `~/.opencode/commands/awesome-slash/`
 
-**Commands:** `/next-task`, `/ship`, `/deslop`, `/audit-project`, `/drift-detect`, `/repo-map`, `/enhance`, `/sync-docs`
+**Commands:** `/next-task`, `/ship`, `/deslop`, `/audit-project`, `/drift-detect`, `/repo-map`, `/enhance`, `/perf`, `/sync-docs`
 
 **MCP Config Added:**
 ```json
@@ -190,7 +192,7 @@ awesome-slash  # Select option 3
 - Config: `~/.codex/config.toml`
 - Skills: `~/.codex/skills/`
 
-**Skills:** `$next-task`, `$ship`, `$deslop`, `$audit-project`, `$drift-detect`, `$repo-map`, `$enhance`, `$sync-docs`
+**Skills:** `$next-task`, `$ship`, `$deslop`, `$audit-project`, `$drift-detect`, `$repo-map`, `$enhance`, `$perf`, `$sync-docs`
 
 **Internal skill:** `orchestrate-review` (Phase 9 review pass definitions used by /next-task and /audit-project)
 
@@ -225,6 +227,7 @@ enabled = true
 | `/drift-detect` | ✅ Full | ✅ Full | ✅ Full | JS collectors + Opus |
 | `/repo-map` | ✅ Full | ✅ Full | ✅ Full | AST map via ast-grep |
 | `/enhance` | ✅ Full | ✅ Full | ✅ Full | Orchestrates all enhancers |
+| `/perf` | ✅ Full | ✅ Full | ✅ Full | Performance investigations |
 | `/sync-docs` | ✅ Full | ✅ Full | ✅ Full | Documentation sync |
 
 ## Knowledge Base
