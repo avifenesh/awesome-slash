@@ -210,13 +210,13 @@ async function runPhase() {
         baselinePath,
         scenarios: state.scenario?.scenarios
       }, cwd);
-      state = investigationState.updateInvestigation({ phase: 'breaking-point' }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'baseline',
         id: state.id,
         baselineVersion: version,
         deltaSummary: 'n/a'
       });
+      state = investigationState.updateInvestigation({ phase: 'breaking-point' }, cwd);
       return;
     }
     case 'breaking-point': {
@@ -237,8 +237,7 @@ async function runPhase() {
         paramEnv: options.paramEnv,
         min: options.paramMin,
         max: options.paramMax,
-        breakingPoint: result.breakingPoint,
-        history: result.history
+        breakingPoint: result.breakingPoint
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'breaking-point',
@@ -271,7 +270,6 @@ async function runPhase() {
       return;
     }
     case 'hypotheses': {
-      const gitHistory = checkpoint.getRecentCommits(5);
       let hypotheses = Array.isArray(state.hypotheses) ? state.hypotheses : [];
       if (hypotheses.length === 0) {
         if (!options.hypothesesFile) {
@@ -291,9 +289,7 @@ async function runPhase() {
       investigationState.appendHypothesesLog({
         id: state.id,
         userQuote,
-        hypotheses,
-        gitHistory,
-        hypothesesFile: options.hypothesesFile || null
+        hypotheses
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'hypotheses',
@@ -308,9 +304,6 @@ async function runPhase() {
       if (!mapStatus.exists) {
         console.log('Repo map not found. Run /repo-map init for better code-path coverage.');
       }
-      const repoMapStatus = mapStatus.exists
-        ? `available (files=${mapStatus.status?.files ?? 'n/a'}, symbols=${mapStatus.status?.symbols ?? 'n/a'})`
-        : 'missing';
       const map = repoMap.load(cwd);
       const result = codePaths.collectCodePaths(map, state.scenario?.description || '');
       investigationState.updateInvestigation({ codePaths: result.paths, phase: 'profiling' }, cwd);
@@ -318,8 +311,7 @@ async function runPhase() {
         id: state.id,
         userQuote,
         keywords: result.keywords,
-        paths: result.paths,
-        repoMapStatus
+        paths: result.paths
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'code-paths',
@@ -355,7 +347,6 @@ async function runPhase() {
       return;
     }
     case 'optimization': {
-      const gitHistory = checkpoint.getRecentCommits(5);
       const result = optimizationRunner.runOptimizationExperiment({
         command,
         changeSummary: options.change
@@ -368,8 +359,7 @@ async function runPhase() {
         userQuote,
         change: options.change,
         delta: result.delta,
-        verdict: result.verdict,
-        gitHistory
+        verdict: result.verdict
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'optimization',
@@ -386,8 +376,7 @@ async function runPhase() {
         id: state.id,
         userQuote,
         verdict: options.verdict,
-        rationale: options.rationale,
-        resultsCount: Array.isArray(state.results) ? state.results.length : 0
+        rationale: options.rationale
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'decision',
@@ -410,13 +399,13 @@ async function runPhase() {
         version,
         path: result.path
       }, cwd);
-      investigationState.updateInvestigation({ phase: 'complete' }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'consolidation',
         id: state.id,
         baselineVersion: version,
         deltaSummary: 'n/a'
       });
+      investigationState.updateInvestigation({ phase: 'complete' }, cwd);
       return;
     }
     default:

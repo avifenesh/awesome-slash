@@ -66,17 +66,7 @@ This document defines how /perf investigations are executed. It complements perf
 
 ## Benchmarks Output Format
 
-Benchmarks must output PERF_METRICS markers using one of these formats:
-
-JSON block markers:
-
-```
-PERF_METRICS_START
-{"latency_ms":120.5,"throughput_rps":2400}
-PERF_METRICS_END
-```
-
-Line format markers:
+Benchmarks must output PERF_METRICS markers, e.g.:
 
 ```
 PERF_METRICS latency_ms=120.5 throughput_rps=2400
