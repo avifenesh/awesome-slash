@@ -276,15 +276,6 @@ const TOOLS = [
           enum: ['init', 'update', 'status', 'rebuild'],
           description: 'Action to perform (default: status)'
         },
-        includeDocs: {
-          type: 'boolean',
-          description: 'Include documentation analysis (default: true)'
-        },
-        docsDepth: {
-          type: 'string',
-          enum: ['quick', 'thorough'],
-          description: 'Docs analysis depth (default: thorough)'
-        },
         full: {
           type: 'boolean',
           description: 'Force full rebuild on update'
@@ -1017,7 +1008,7 @@ const toolHandlers = {
     }
   },
 
-  async repo_map({ action, includeDocs, docsDepth, full, force, cwd }) {
+  async repo_map({ action, full, force, cwd }) {
     try {
       const requestedPath = cwd || REPO_ROOT;
       const resolvedBasePath = resolveRepoPath(requestedPath);
@@ -1032,9 +1023,7 @@ const toolHandlers = {
       let result;
       if (act === 'init' || act === 'rebuild') {
         result = await repoMap.init(basePath, {
-          force: act === 'rebuild' || force === true,
-          includeDocs: includeDocs !== false,
-          docsDepth: docsDepth || 'thorough'
+          force: act === 'rebuild' || force === true
         });
       } else if (act === 'update') {
         result = await repoMap.update(basePath, { full: full === true });

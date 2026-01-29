@@ -14,7 +14,6 @@ const crypto = require('crypto');
 const installer = require('./installer');
 const queries = require('./queries');
 const slopAnalyzers = require('../patterns/slop-analyzers');
-const { analyzeDocumentation } = require('../drift-detect/collectors');
 
 // Language file extensions mapping
 const LANGUAGE_EXTENSIONS = {
@@ -152,8 +151,7 @@ async function fullScan(basePath, languages, options = {}) {
       errors: []
     },
     files: {},
-    dependencies: {},
-    docs: null
+    dependencies: {}
   };
   
   // Run queries for each language
@@ -310,14 +308,6 @@ async function fullScan(basePath, languages, options = {}) {
         (symbols.types?.length || 0) +
         (symbols.constants?.length || 0);
     }
-  }
-
-  // Optionally include documentation analysis
-  if (options.includeDocs !== false) {
-    map.docs = analyzeDocumentation({
-      cwd: basePath,
-      depth: options.docsDepth || 'thorough'
-    });
   }
 
   return map;

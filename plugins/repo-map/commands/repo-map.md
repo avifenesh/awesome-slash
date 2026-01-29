@@ -1,12 +1,12 @@
 ---
 description: Generate and maintain a cached AST repo map (symbols, imports, exports) using ast-grep for accurate drift detection and analysis
-argument-hint: "init|update|status|rebuild [--force] [--full] [--no-docs] [--docs-depth quick|thorough]"
+argument-hint: "init|update|status|rebuild [--force] [--full]"
 allowed-tools: Bash(git:*), Bash(npm:*), Read, Task, Write, AskUserQuestion
 ---
 
 # /repo-map - AST Repo Map
 
-Generate a cached repository map of symbols and imports using ast-grep. This enables faster drift detection and more accurate doc↔code matching.
+Generate a cached repository map of symbols and imports using ast-grep. This enables faster drift detection and more accurate code context.
 
 ## Arguments
 
@@ -15,8 +15,6 @@ Parse from `$ARGUMENTS`:
 - **Action**: `init` | `update` | `status` | `rebuild` (default: `status`)
 - `--force`: Force rebuild (for `init`)
 - `--full`: Force full rebuild (for `update`)
-- `--no-docs`: Skip documentation analysis
-- `--docs-depth`: `quick` or `thorough` (default: `thorough`)
 
 Examples:
 
@@ -42,9 +40,7 @@ const action = (args[0] || 'status').toLowerCase();
 
 const options = {
   force: args.includes('--force'),
-  full: args.includes('--full'),
-  includeDocs: !args.includes('--no-docs'),
-  docsDepth: (args.includes('--docs-depth') && args[args.indexOf('--docs-depth') + 1]) || 'thorough'
+  full: args.includes('--full')
 };
 ```
 
@@ -81,9 +77,7 @@ let result;
 
 if (action === 'init' || action === 'rebuild') {
   result = await repoMap.init(process.cwd(), {
-    force: action === 'rebuild' || options.force,
-    includeDocs: options.includeDocs,
-    docsDepth: options.docsDepth
+    force: action === 'rebuild' || options.force
   });
 } else if (action === 'update') {
   result = await repoMap.update(process.cwd(), { full: options.full });

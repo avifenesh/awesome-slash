@@ -87,7 +87,7 @@ describe('repo-map batch scanning', () => {
   const runTest = installed.found ? test : test.skip;
 
   runTest('fullScan matches scanSingleFile for fixtures', async () => {
-    const actual = await runner.fullScan(fixtureRoot, languages, { includeDocs: false });
+    const actual = await runner.fullScan(fixtureRoot, languages);
     const expected = buildExpectedMap(fixtureRoot, languages, installed.command);
 
     expect(Object.keys(actual.files).length).toBeGreaterThan(0);

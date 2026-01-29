@@ -301,8 +301,6 @@ Generate or update a cached AST repo map for symbol and import lookups.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | action | string | No | `init`, `update`, `status`, `rebuild` (default: status) |
-| includeDocs | boolean | No | Include docs analysis (default: true) |
-| docsDepth | string | No | `quick` or `thorough` (default: thorough) |
 | full | boolean | No | Force full rebuild on update |
 | force | boolean | No | Force rebuild on init |
 | cwd | string | No | Repository root (default: current directory) |
