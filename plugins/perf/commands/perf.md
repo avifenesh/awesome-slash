@@ -1,6 +1,6 @@
 ---
 description: Structured performance investigation with baselines, profiling, and evidence-backed decisions
-argument-hint: "[--resume] [--phase setup|baseline|breaking-point|constraints|hypotheses|code-paths|profiling|optimization|decision|consolidation] [--id <id>] [--scenario <text>] [--command <cmd>] [--version <ver>] [--quote <text>] [--hypotheses-file <path>] [--param-env <name>] [--param-min <n>] [--param-max <n>] [--cpu <limit>] [--memory <limit>] [--change <summary>] [--verdict <continue|stop>] [--rationale <text>]"
+argument-hint: "[--resume] [--phase setup|baseline|breaking-point|constraints|hypotheses|code-paths|profiling|optimization|decision|consolidation] [--id <id>] [--scenario <text>] [--command <cmd>] [--version <ver>] [--duration <seconds>] [--runs <n>] [--aggregate <median|mean|min|max>] [--quote <text>] [--hypotheses-file <path>] [--param-env <name>] [--param-min <n>] [--param-max <n>] [--cpu <limit>] [--memory <limit>] [--change <summary>] [--verdict <continue|stop>] [--rationale <text>]"
 allowed-tools: Read, Write, Edit, Task, Bash(git:*), Bash(node:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(cargo:*), Bash(go:*), Bash(pytest:*), Bash(mvn:*), Bash(gradle:*)
 ---
 
@@ -22,6 +22,9 @@ All behavior must follow:
 - `--scenario <text>`: Short scenario description
 - `--command <cmd>`: Benchmark command (prints PERF_METRICS markers)
 - `--version <ver>`: Baseline version label
+- `--duration <seconds>`: Benchmark duration override (default 60s; use smaller values for micro-benchmarks)
+- `--runs <n>`: Number of runs for start-to-end benchmarks (use with median aggregation)
+- `--aggregate <median|mean|min|max>`: Aggregation method for multi-run benchmarks (default median)
 - `--quote <text>`: User quote to record in logs
 - `--hypotheses-file <path>`: JSON file with hypothesis list (for hypotheses phase)
 - `--param-env <name>`: Env var for breaking-point value (default PERF_PARAM_VALUE)
@@ -59,6 +62,9 @@ const options = {
   scenario: '',
   command: '',
   version: '',
+  duration: null,
+  runs: null,
+  aggregate: '',
   quote: '',
   hypothesesFile: '',
   paramEnv: 'PERF_PARAM_VALUE',
@@ -79,6 +85,9 @@ for (let i = 0; i < args.length; i++) {
   else if (arg === '--scenario' && args[i + 1]) options.scenario = args[++i];
   else if (arg === '--command' && args[i + 1]) options.command = args[++i];
   else if (arg === '--version' && args[i + 1]) options.version = args[++i];
+  else if (arg === '--duration' && args[i + 1]) options.duration = Number(args[++i]);
+  else if (arg === '--runs' && args[i + 1]) options.runs = Number(args[++i]);
+  else if (arg === '--aggregate' && args[i + 1]) options.aggregate = args[++i];
   else if (arg === '--quote' && args[i + 1]) options.quote = args[++i];
   else if (arg === '--hypotheses-file' && args[i + 1]) options.hypothesesFile = args[++i];
   else if (arg === '--param-env' && args[i + 1]) options.paramEnv = args[++i];
@@ -127,7 +136,10 @@ if (options.command || options.version || options.scenario) {
     },
     benchmark: {
       command: options.command || state.benchmark?.command || '',
-      version: options.version || state.benchmark?.version || ''
+      version: options.version || state.benchmark?.version || '',
+      duration: Number.isFinite(options.duration) ? options.duration : state.benchmark?.duration,
+      runs: Number.isFinite(options.runs) ? options.runs : state.benchmark?.runs,
+      aggregate: options.aggregate || state.benchmark?.aggregate
     }
   }, cwd);
 }
@@ -183,7 +195,10 @@ async function runPhase() {
         userQuote,
         scenario: state.scenario?.description || '',
         command,
-        version
+        version,
+        duration: Number.isFinite(options.duration) ? options.duration : state.benchmark?.duration,
+        runs: Number.isFinite(options.runs) ? options.runs : state.benchmark?.runs,
+        aggregate: options.aggregate || state.benchmark?.aggregate
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'setup',
@@ -194,29 +209,33 @@ async function runPhase() {
       return;
     }
     case 'baseline': {
-      const result = benchmarkRunner.runBenchmark(command);
-      const parsed = benchmarkRunner.parseMetrics(result.output);
-      if (!parsed.ok) {
-        console.error(`Baseline metrics parse failed: ${parsed.error}`);
-        process.exit(1);
-      }
-      baselineStore.writeBaseline(version, { command, metrics: parsed.metrics }, cwd);
+      const runs = Number.isFinite(options.runs) ? options.runs : state.benchmark?.runs;
+      const aggregate = options.aggregate || state.benchmark?.aggregate;
+      const result = benchmarkRunner.runBenchmarkSeries(command, {
+        duration: Number.isFinite(options.duration) ? options.duration : undefined,
+        runs,
+        aggregate
+      });
+      baselineStore.writeBaseline(version, { command, metrics: result.metrics }, cwd);
       const baselinePath = baselineStore.getBaselinePath(version, cwd);
       investigationState.appendBaselineLog({
         id: state.id,
         userQuote,
         command,
-        metrics: parsed.metrics,
+        metrics: result.metrics,
         baselinePath,
+        duration: Number.isFinite(options.duration) ? options.duration : state.benchmark?.duration,
+        runs,
+        aggregate: aggregate || (runs ? 'median' : undefined),
         scenarios: state.scenario?.scenarios
       }, cwd);
+      state = investigationState.updateInvestigation({ phase: 'breaking-point' }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'baseline',
         id: state.id,
         baselineVersion: version,
         deltaSummary: 'n/a'
       });
-      state = investigationState.updateInvestigation({ phase: 'breaking-point' }, cwd);
       return;
     }
     case 'breaking-point': {
@@ -237,7 +256,8 @@ async function runPhase() {
         paramEnv: options.paramEnv,
         min: options.paramMin,
         max: options.paramMax,
-        breakingPoint: result.breakingPoint
+        breakingPoint: result.breakingPoint,
+        history: result.history
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'breaking-point',
@@ -248,9 +268,14 @@ async function runPhase() {
       return;
     }
     case 'constraints': {
+      const runs = Number.isFinite(options.runs) ? options.runs : state.benchmark?.runs;
+      const aggregate = options.aggregate || state.benchmark?.aggregate;
       const results = constraintRunner.runConstraintTest({
         command,
-        constraints: { cpu: options.cpu, memory: options.memory }
+        constraints: { cpu: options.cpu, memory: options.memory },
+        duration: Number.isFinite(options.duration) ? options.duration : undefined,
+        runs,
+        aggregate
       });
       const nextResults = Array.isArray(state.constraintResults) ? state.constraintResults : [];
       nextResults.push(results);
@@ -270,6 +295,7 @@ async function runPhase() {
       return;
     }
     case 'hypotheses': {
+      const gitHistory = checkpoint.getRecentCommits(5);
       let hypotheses = Array.isArray(state.hypotheses) ? state.hypotheses : [];
       if (hypotheses.length === 0) {
         if (!options.hypothesesFile) {
@@ -289,7 +315,9 @@ async function runPhase() {
       investigationState.appendHypothesesLog({
         id: state.id,
         userQuote,
-        hypotheses
+        hypotheses,
+        gitHistory,
+        hypothesesFile: options.hypothesesFile || null
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'hypotheses',
@@ -304,6 +332,9 @@ async function runPhase() {
       if (!mapStatus.exists) {
         console.log('Repo map not found. Run /repo-map init for better code-path coverage.');
       }
+      const repoMapStatus = mapStatus.exists
+        ? `available (files=${mapStatus.status?.files ?? 'n/a'}, symbols=${mapStatus.status?.symbols ?? 'n/a'})`
+        : 'missing';
       const map = repoMap.load(cwd);
       const result = codePaths.collectCodePaths(map, state.scenario?.description || '');
       investigationState.updateInvestigation({ codePaths: result.paths, phase: 'profiling' }, cwd);
@@ -311,7 +342,8 @@ async function runPhase() {
         id: state.id,
         userQuote,
         keywords: result.keywords,
-        paths: result.paths
+        paths: result.paths,
+        repoMapStatus
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'code-paths',
@@ -322,7 +354,7 @@ async function runPhase() {
       return;
     }
     case 'profiling': {
-      const result = profilingRunner.runProfiling({ repoPath: cwd });
+      const result = profilingRunner.runProfiling({ repoPath: cwd, command });
       if (!result.ok) {
         console.error(`Profiling failed: ${result.error}`);
         process.exit(1);
@@ -347,9 +379,15 @@ async function runPhase() {
       return;
     }
     case 'optimization': {
+      const gitHistory = checkpoint.getRecentCommits(5);
+      const runs = Number.isFinite(options.runs) ? options.runs : state.benchmark?.runs;
+      const aggregate = options.aggregate || state.benchmark?.aggregate;
       const result = optimizationRunner.runOptimizationExperiment({
         command,
-        changeSummary: options.change
+        changeSummary: options.change,
+        duration: Number.isFinite(options.duration) ? options.duration : undefined,
+        runs,
+        aggregate
       });
       const nextResults = Array.isArray(state.results) ? state.results : [];
       nextResults.push(result);
@@ -359,7 +397,10 @@ async function runPhase() {
         userQuote,
         change: options.change,
         delta: result.delta,
-        verdict: result.verdict
+        verdict: result.verdict,
+        gitHistory,
+        runs,
+        aggregate: aggregate || (runs ? 'median' : undefined)
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'optimization',
@@ -376,7 +417,8 @@ async function runPhase() {
         id: state.id,
         userQuote,
         verdict: options.verdict,
-        rationale: options.rationale
+        rationale: options.rationale,
+        resultsCount: Array.isArray(state.results) ? state.results.length : 0
       }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'decision',
@@ -399,13 +441,13 @@ async function runPhase() {
         version,
         path: result.path
       }, cwd);
+      investigationState.updateInvestigation({ phase: 'complete' }, cwd);
       checkpoint.commitCheckpoint({
         phase: 'consolidation',
         id: state.id,
         baselineVersion: version,
         deltaSummary: 'n/a'
       });
-      investigationState.updateInvestigation({ phase: 'complete' }, cwd);
       return;
     }
     default:

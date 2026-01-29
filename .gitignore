@@ -37,6 +37,7 @@ Desktop.ini
 # Logs
 logs/
 *.log
+*.cpuprofile
 
 # Temporary files
 *.tmp
@@ -45,6 +46,8 @@ logs/
 
 # Claude Code local files
 .claude/
+.opencode/
+.codex/
 settings.local.json
 tasks.json
 workflow-state.json

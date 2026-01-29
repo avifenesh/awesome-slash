@@ -10,7 +10,9 @@ This document defines how /perf investigations are executed. It complements perf
 
 ## 2. Baseline
 
-- Run the benchmark for at least 60s.
+- Run the benchmark for at least 60s by default.
+- For micro-benchmarks, use a shorter duration (for example 1–10s) only with explicit approval and record the duration in the log.
+- For single-run (start-to-end) benchmarks, use multiple runs (for example 3) and record the median in the log.
 - Require PERF_METRICS markers in output.
 - Parse metrics and store baseline JSON.
 - Re-run if results look anomalous.
@@ -54,6 +56,11 @@ This document defines how /perf investigations are executed. It complements perf
 - Run 2+ validation passes per change.
 - Revert to baseline before next change.
 
+## Run Modes
+
+- Duration mode (default): runner sets `PERF_RUN_DURATION` and benchmarks may pad to the target time.
+- One-shot mode: runner sets `PERF_RUN_MODE=oneshot` and benchmarks should emit metrics immediately after completion (no padding).
+
 ## 9. Decision
 
 - If improvement is not measurable, recommend stop.
@@ -66,7 +73,17 @@ This document defines how /perf investigations are executed. It complements perf
 
 ## Benchmarks Output Format
 
-Benchmarks must output PERF_METRICS markers, e.g.:
+Benchmarks must output PERF_METRICS markers using one of these formats:
+
+JSON block markers:
+
+```
+PERF_METRICS_START
+{"latency_ms":120.5,"throughput_rps":2400}
+PERF_METRICS_END
+```
+
+Line format markers:
 
 ```
 PERF_METRICS latency_ms=120.5 throughput_rps=2400

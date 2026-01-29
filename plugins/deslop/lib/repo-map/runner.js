@@ -14,7 +14,6 @@ const crypto = require('crypto');
 const installer = require('./installer');
 const queries = require('./queries');
 const slopAnalyzers = require('../patterns/slop-analyzers');
-const { analyzeDocumentation } = require('../drift-detect/collectors');
 
 // Language file extensions mapping
 const LANGUAGE_EXTENSIONS = {
@@ -130,6 +129,10 @@ async function fullScan(basePath, languages, options = {}) {
   if (!cmd) {
     throw new Error('ast-grep not found');
   }
+  const fileLimit = Number.isFinite(options.fileLimit) ? Math.max(0, Math.floor(options.fileLimit)) : null;
+  const filesByLanguage = collectFilesByLanguage(basePath, languages, {
+    maxFiles: fileLimit
+  });
   
   const map = {
     version: '1.0.0',
@@ -148,8 +151,7 @@ async function fullScan(basePath, languages, options = {}) {
       errors: []
     },
     files: {},
-    dependencies: {},
-    docs: null
+    dependencies: {}
   };
   
   // Run queries for each language
@@ -157,7 +159,7 @@ async function fullScan(basePath, languages, options = {}) {
     const langQueries = queries.getQueriesForLanguage(lang);
     if (!langQueries) continue;
 
-    const files = findFilesForLanguage(basePath, lang);
+    const files = filesByLanguage.get(lang) || [];
     if (files.length === 0) continue;
 
     const fileEntries = [];
@@ -215,7 +217,15 @@ async function fullScan(basePath, languages, options = {}) {
 
     for (const [sgLang, entries] of filesBySgLang) {
       const filePaths = entries.map(entry => entry.file);
-      const chunks = chunkArray(filePaths, AST_GREP_BATCH_SIZE);
+      const experimentBatchSize = process.env.PERF_EXPERIMENT === '1'
+        ? Number(process.env.REPO_MAP_AST_GREP_BATCH_SIZE)
+        : null;
+      const batchSize = Number.isFinite(options.astGrepBatchSize)
+        ? Math.max(1, Math.floor(options.astGrepBatchSize))
+        : Number.isFinite(experimentBatchSize) && experimentBatchSize > 0
+          ? Math.max(1, Math.floor(experimentBatchSize))
+          : AST_GREP_BATCH_SIZE;
+      const chunks = chunkArray(filePaths, batchSize);
 
       const patternGroups = [
         { category: 'exports', patterns: langQueries.exports, defaultKind: 'export' },
@@ -308,14 +318,6 @@ async function fullScan(basePath, languages, options = {}) {
     }
   }
 
-  // Optionally include documentation analysis
-  if (options.includeDocs !== false) {
-    map.docs = analyzeDocumentation({
-      cwd: basePath,
-      depth: options.docsDepth || 'thorough'
-    });
-  }
-
   return map;
 }
 
@@ -325,15 +327,18 @@ async function fullScan(basePath, languages, options = {}) {
  * @param {string} language - Language name
  * @returns {string[]} - Array of file paths
  */
-function findFilesForLanguage(basePath, language) {
+function findFilesForLanguage(basePath, language, options = {}) {
   const extensions = LANGUAGE_EXTENSIONS[language] || [];
   const files = [];
   const isIgnored = slopAnalyzers.parseGitignore(basePath, fs, path);
+  const maxFiles = Number.isFinite(options.maxFiles) ? Math.max(0, Math.floor(options.maxFiles)) : null;
   
   function scan(dir) {
+    if (maxFiles !== null && files.length >= maxFiles) return;
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
+        if (maxFiles !== null && files.length >= maxFiles) break;
         const fullPath = path.join(dir, entry.name);
         
         if (entry.isDirectory()) {
@@ -350,6 +355,7 @@ function findFilesForLanguage(basePath, language) {
           const ext = path.extname(entry.name).toLowerCase();
           if (extensions.includes(ext)) {
             files.push(fullPath);
+            if (maxFiles !== null && files.length >= maxFiles) break;
           }
         }
       }
@@ -360,6 +366,74 @@ function findFilesForLanguage(basePath, language) {
   
   scan(basePath);
   return files;
+}
+
+/**
+ * Collect files for all languages in a single walk.
+ * @param {string} basePath - Repository root
+ * @param {string[]} languages - Languages to collect
+ * @param {Object} options
+ * @param {number} [options.maxFiles] - Global file limit
+ * @returns {Map<string, string[]>} - Map of language -> file paths
+ */
+function collectFilesByLanguage(basePath, languages, options = {}) {
+  const langList = Array.isArray(languages) ? languages : [];
+  const filesByLanguage = new Map();
+  for (const lang of langList) {
+    filesByLanguage.set(lang, []);
+  }
+
+  const extensionToLang = new Map();
+  for (const lang of langList) {
+    const extensions = LANGUAGE_EXTENSIONS[lang] || [];
+    for (const ext of extensions) {
+      if (!extensionToLang.has(ext)) {
+        extensionToLang.set(ext, lang);
+      }
+    }
+  }
+
+  const isIgnored = slopAnalyzers.parseGitignore(basePath, fs, path);
+  const maxFiles = Number.isFinite(options.maxFiles) ? Math.max(0, Math.floor(options.maxFiles)) : null;
+  let count = 0;
+
+  function scan(dir) {
+    if (maxFiles !== null && count >= maxFiles) return;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (maxFiles !== null && count >= maxFiles) break;
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          const relativePath = path.relative(basePath, fullPath);
+          if (slopAnalyzers.shouldExclude(relativePath, EXCLUDE_DIRS)) continue;
+          if (isIgnored && isIgnored(relativePath, true)) continue;
+          if (!entry.name.startsWith('.')) {
+            scan(fullPath);
+          }
+        } else if (entry.isFile()) {
+          const relativePath = path.relative(basePath, fullPath);
+          if (slopAnalyzers.shouldExclude(relativePath, EXCLUDE_DIRS)) continue;
+          if (isIgnored && isIgnored(relativePath, false)) continue;
+          const ext = path.extname(entry.name).toLowerCase();
+          const lang = extensionToLang.get(ext);
+          if (lang) {
+            const bucket = filesByLanguage.get(lang);
+            if (bucket) {
+              bucket.push(fullPath);
+              count++;
+            }
+          }
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
+
+  scan(basePath);
+  return filesByLanguage;
 }
 
 function createSymbolMaps() {
@@ -996,6 +1070,7 @@ module.exports = {
   detectLanguages,
   fullScan,
   findFilesForLanguage,
+  collectFilesByLanguage,
   scanSingleFile,
   runAstGrep,
   getGitInfo,

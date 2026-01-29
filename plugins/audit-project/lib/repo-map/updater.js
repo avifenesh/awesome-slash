@@ -13,7 +13,6 @@ const { execSync } = require('child_process');
 const runner = require('./runner');
 const cache = require('./cache');
 const installer = require('./installer');
-const { analyzeDocumentation } = require('../drift-detect/collectors');
 
 /**
  * Perform incremental update based on git diff
@@ -46,6 +45,9 @@ async function incrementalUpdate(basePath, map) {
       error: 'Invalid repo map',
       needsFullRebuild: true
     };
+  }
+  if (map.docs) {
+    delete map.docs;
   }
 
   // Try git-based update first
@@ -116,11 +118,6 @@ async function incrementalUpdate(basePath, map) {
     }
   }
 
-  // Update docs if markdown changed and docs exist in map
-  if (map.docs && changes.docsChanged) {
-    map.docs = analyzeDocumentation({ cwd: basePath, depth: 'thorough' });
-  }
-
   // Recalculate stats
   recalculateStats(map);
 
@@ -151,6 +148,9 @@ async function incrementalUpdate(basePath, map) {
 async function updateWithoutGit(basePath, map, cmd) {
   const currentFiles = new Set();
   const languages = map.project?.languages || [];
+  if (map.docs) {
+    delete map.docs;
+  }
 
   for (const lang of languages) {
     const files = runner.findFilesForLanguage(basePath, lang);
@@ -164,7 +164,6 @@ async function updateWithoutGit(basePath, map, cmd) {
     modified: [],
     deleted: [],
     renamed: [],
-    docsChanged: false,
     total: 0
   };
 
@@ -201,11 +200,6 @@ async function updateWithoutGit(basePath, map, cmd) {
       }
       changes.added.push(file);
     }
-  }
-
-  // Update docs if map has docs
-  if (map.docs) {
-    map.docs = analyzeDocumentation({ cwd: basePath, depth: 'thorough' });
   }
 
   changes.total = changes.added.length + changes.modified.length + changes.deleted.length;
@@ -289,7 +283,6 @@ function parseDiff(diff) {
     modified: [],
     deleted: [],
     renamed: [],
-    docsChanged: false,
     total: 0
   };
 
@@ -302,9 +295,6 @@ function parseDiff(diff) {
       const from = normalizePath(parts[1]);
       const to = normalizePath(parts[2]);
       changes.renamed.push({ from, to });
-      if ((from && from.endsWith('.md')) || (to && to.endsWith('.md'))) {
-        changes.docsChanged = true;
-      }
       const renameScore = Number(status.slice(1));
       if (!Number.isNaN(renameScore) && renameScore < 100 && to) {
         changes.modified.push(to);
@@ -319,7 +309,6 @@ function parseDiff(diff) {
     else if (status === 'M') changes.modified.push(file);
     else if (status === 'D') changes.deleted.push(file);
 
-    if (file.endsWith('.md')) changes.docsChanged = true;
   }
 
   changes.total = changes.added.length + changes.modified.length + changes.deleted.length + changes.renamed.length;

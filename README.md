@@ -443,7 +443,6 @@ Multi-agent collection wastes tokens on coordination. JavaScript collectors are 
 
 - Cached file→symbols map (exports, functions, classes)
 - Import graph for dependency hints
-- Optional docs analysis (features, checkboxes)
 
 Output is cached at `{state-dir}/repo-map.json` and exposed via the MCP `repo_map` tool.
 

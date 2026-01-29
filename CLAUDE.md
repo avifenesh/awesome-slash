@@ -2,7 +2,7 @@
 
 > **Cross-tool compatible**: This file works as CLAUDE.md (Claude Code) and can be copied to AGENTS.md for OpenCode, Codex, and other AI tools.
 
-Quick reference for AI assistants. Follow links for details.
+<project-memory>
 
 <critical-rules>
 ## Critical Rules (Priority Order)
@@ -32,13 +32,14 @@ Quick reference for AI assistants. Follow links for details.
 6. **Before delivering ANY work** - Check the relevant checklist for completion requirements:
    - Identify which checklist applies to your work (see rule #5)
    - Go through EVERY item in that checklist
-   - Run `/enhance` on new/modified commands, agents, or prompts
+   - Run the `enhance` command on new or modified commands, agents, or prompts
    - Verify cross-platform compatibility (OpenCode + Codex)
    - Update `bin/cli.js` mappings if new command/agent added
    - Don't mark complete until ALL checklist items are done
    *WHY: Checklists exist because we kept missing things. They are the definition of "done".*
 </critical-rules>
 
+<architecture>
 ## Architecture
 
 ```
@@ -66,7 +67,9 @@ checklists/             # Action checklists
 agent-docs/             # Knowledge base
 docs/                   # User documentation
 ```
+</architecture>
 
+<commands>
 ## Key Commands
 
 ```bash
@@ -75,7 +78,9 @@ npm test                     # Run tests (do before commits)
 npm pack                     # Build package
 awesome-slash                # Run installer
 ```
+</commands>
 
+<state-files>
 ## State Files
 
 | File | Location | Purpose |
@@ -85,7 +90,9 @@ awesome-slash                # Run installer
 | `preference.json` | `.claude/sources/` | Cached task source |
 
 Platform-aware: `.claude/` (Claude), `.opencode/` (OpenCode), `.codex/` (Codex)
+</state-files>
 
+<workflow-agents>
 ## Workflow Agents (MUST-CALL)
 
 Cannot skip in /next-task:
@@ -93,7 +100,9 @@ Cannot skip in /next-task:
 - `planning-agent` → before implementation
 - **Phase 9 review loop** → MUST use orchestrate-review skill, spawns parallel reviewers, iterates until clean
 - `delivery-validator` → before /ship
+</workflow-agents>
 
+<pr-auto-review>
 ## PR Auto-Review
 
 4 reviewers: Copilot, Claude, Gemini, Codex
@@ -103,7 +112,9 @@ Cannot skip in /next-task:
 3. Read ALL comments
 4. Address EVERY comment
 5. Iterate until zero unresolved
+</pr-auto-review>
 
+<priorities>
 ## Core Priorities
 
 1. User DX (plugin users)
@@ -111,16 +122,17 @@ Cannot skip in /next-task:
 3. Token efficiency
 4. Quality output
 5. Simplicity
+</priorities>
 
 <end-reminder>
 **REMEMBER**:
 - No summary files (`*_AUDIT.md`, `*_SUMMARY.md`) - use CHANGELOG.md
 - BEFORE starting → Read the relevant checklist (`checklists/*.md`)
 - BEFORE delivering → Go through that checklist item by item
-- Run `/enhance` on new/modified commands, agents, prompts
 - 3 platforms: Claude Code + OpenCode + Codex - ALL must work
 </end-reminder>
 
+<model-selection>
 ## Model Selection Guidelines
 
 Choose the appropriate model based on task complexity and quality multiplier effects:
@@ -139,4 +151,6 @@ Choose the appropriate model based on task complexity and quality multiplier eff
 - `simple-fixer` uses haiku - mechanically applies pre-defined fixes with no judgment
 - Phase 9 review loop spawns sonnet reviewers - multiple focused agents reduce rubber-stamping
 - `worktree-manager` uses haiku - scripted git commands with no decision-making
+</model-selection>
 
+</project-memory>
