@@ -2,6 +2,8 @@
 
 > Extracted from real Java GLIDE performance investigation sessions.
 > Use this to inform `/perf` agent behavior and skill design.
+>
+> **Canonical requirements live in:** `docs/perf-requirements.md`
 
 ---
 
