@@ -37,6 +37,7 @@ Desktop.ini
 # Logs
 logs/
 *.log
+*.cpuprofile
 
 # Temporary files
 *.tmp
