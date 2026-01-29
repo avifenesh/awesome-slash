@@ -62,11 +62,13 @@ Always update the investigation state and log after every phase.
 Use subagents/skills for focused work:
 
 - `perf:perf-theory-gatherer` for hypotheses
+- `perf:perf-code-paths` agent for code-path discovery
 - `perf:perf-theory-tester` for controlled experiments
 - `perf:perf-profiler` skill for profiling
 - `perf:perf-benchmarker` skill for benchmark runs
 - `perf:perf-baseline-manager` skill for baseline management
 - `perf:perf-investigation-logger` for structured logs
+- `perf:perf-analyzer` for synthesis recommendations
 
 ## Phase Execution Checklist
 

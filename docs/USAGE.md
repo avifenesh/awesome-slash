@@ -29,7 +29,7 @@ You shouldn't have to repeat the same requests every session. These commands han
 | `/audit-project` | Multi-agent code review | Thorough analysis |
 | `/drift-detect` | Compare docs to actual code | Plan drift detection |
 | `/repo-map` | Build cached AST repo map | Faster analysis & symbol lookup |
-| `/enhance` | Analyze prompts, plugins, docs | Quality improvement |
+| `/enhance` | Analyze prompts, plugins, agents, docs, hooks, skills | Quality improvement |
 | `/sync-docs` | Sync docs with code changes | Documentation sync |
 | `/perf` | Performance investigation workflow | Baselines, profiling, evidence |
 
@@ -206,6 +206,8 @@ Structured performance investigation with baselines, profiling, and evidence‑b
 /perf --phase baseline --command "npm run bench" --version v1.2.0
 /perf --phase breaking-point --command "npm run bench" --param-min 1 --param-max 500
 /perf --phase constraints --command "npm run bench" --cpu 1 --memory 1GB
+/perf --phase hypotheses --hypotheses-file perf-hypotheses.json
+/perf --phase code-paths
 /perf --phase optimization --change "reduce allocations"
 /perf --phase decision --verdict stop --rationale "no measurable improvement"
 /perf --phase consolidation --version v1.2.0

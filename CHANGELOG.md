@@ -7,16 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [3.3.3] - 2026-01-29
+### Added
+- **/enhance Hooks Analyzer** - New hook checks for frontmatter completeness and basic safety cues
+- **/enhance Skills Analyzer** - New SKILL.md checks for frontmatter and trigger phrase clarity
+- **Enhance MCP Tool** - `enhance_analyze` now supports `hooks` and `skills` focus targets
 
-### Fixed
-- **Windows Path Template Substitution** - Fixed plugin path template substitution across 18 command/agent files
-  - Replaced `'${CLAUDE_PLUGIN_ROOT}'.replace()` with runtime `process.env` access
-  - Pattern: `(process.env.CLAUDE_PLUGIN_ROOT || process.env.PLUGIN_ROOT || '').replace(/\/g, '/')`
-  - Supports both CLAUDE_PLUGIN_ROOT and PLUGIN_ROOT for cross-platform compatibility
-  - Added validation for missing environment variables in bash sections
-  - Bash pattern: `${CLAUDE_PLUGIN_ROOT:-$PLUGIN_ROOT}` with explicit error handling
-  - Fixes: Template strings in require() paths were not being substituted at runtime on Windows
+### Changed
+- **Enhance Orchestrator** - Expanded to run hooks/skills analyzers alongside existing enhancers
 
 ## [3.3.2] - 2026-01-29
 

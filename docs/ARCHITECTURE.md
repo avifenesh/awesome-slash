@@ -44,7 +44,7 @@ awesome-slash/
 │   ├── cross-platform/           # Platform utilities
 │   │   ├── index.js              # Platform detection, MCP helpers
 │   │   └── RESEARCH.md           # Research documentation
-│   ├── enhance/                  # Quality analyzers (agent, plugin, docs)
+│   ├── enhance/                  # Quality analyzers (agent, plugin, docs, hooks, skills)
 │   ├── patterns/                 # Code analysis
 │   │   ├── pipeline.js           # 3-phase slop detection
 │   │   ├── slop-patterns.js      # Pattern definitions
@@ -127,7 +127,7 @@ The MCP server (`mcp-server/index.js`) exposes tools to all platforms:
 | `task_discover` | Find tasks from configured sources |
 | `review_code` | Run pipeline-based code review |
 | `slop_detect` | Detect AI slop with certainty levels |
-| `enhance_analyze` | Analyze plugins, agents, docs, prompts |
+| `enhance_analyze` | Analyze plugins, agents, docs, prompts, hooks, skills |
 | `repo_map` | Generate or update cached AST repo map |
 
 **slop_detect** uses the full 3-phase pipeline:

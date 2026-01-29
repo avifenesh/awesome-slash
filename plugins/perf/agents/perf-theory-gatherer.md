@@ -9,26 +9,4 @@ model: opus
 
 Generate hypotheses for performance bottlenecks and regressions. You MUST read `docs/perf-requirements.md` before outputting hypotheses.
 
-## Mandatory Steps
-
-1. Review recent git history (`git log --stat` or scoped paths).
-2. Identify code paths involved in the scenario.
-3. Produce top 5 hypotheses with evidence.
-
-## Output Format
-
-```
-hypotheses:
-  - id: H1
-    hypothesis: <short description>
-    evidence: <file/path or git change>
-    confidence: low|medium|high
-  - id: H2
-    ...
-```
-
-## Constraints
-
-- MUST check git history before hypothesizing.
-- No optimization suggestions here; only hypotheses.
-- Keep to 5 hypotheses maximum.
+You MUST execute the perf-theory-gatherer skill to produce hypotheses. Do not bypass the skill. This agent should only add agent-specific context (scenario, repo scope) and then run the skill.

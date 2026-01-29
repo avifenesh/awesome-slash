@@ -254,14 +254,14 @@ Detect AI slop patterns with certainty-based findings.
 
 ### enhance_analyze
 
-Analyze plugins, agents, docs, or prompts for enhancement opportunities.
+Analyze plugins, agents, docs, prompts, hooks, or skills for enhancement opportunities.
 
 **Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | path | string | No | Directory to analyze (default: current directory) |
-| focus | string | No | Which analyzer: `all`, `plugin`, `agent`, `docs`, `claudemd`, `prompt` |
+| focus | string | No | Which analyzer: `all`, `plugin`, `agent`, `docs`, `claudemd`, `claude-memory`, `prompt`, `hooks`, `skills` |
 | mode | string | No | `report` (default) or `apply` HIGH certainty fixes |
 | compact | boolean | No | Use compact output format (default: true) |
 

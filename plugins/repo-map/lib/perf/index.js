@@ -18,6 +18,8 @@ const optimizationRunner = require('./optimization-runner');
 const consolidation = require('./consolidation');
 const profilers = require('./profilers');
 const analyzer = require('./analyzer');
+const argumentParser = require('./argument-parser');
+const codePaths = require('./code-paths');
 
 module.exports = {
   investigationState,
@@ -33,5 +35,7 @@ module.exports = {
   optimizationRunner,
   consolidation,
   profilers,
-  analyzer
+  analyzer,
+  argumentParser,
+  codePaths
 };

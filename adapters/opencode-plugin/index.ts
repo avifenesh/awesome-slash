@@ -45,6 +45,8 @@ const AGENT_THINKING_CONFIG: Record<string, { budget: number; description: strin
   "docs-enhancer": { budget: 16000, description: "Docs improvement" },
   "claudemd-enhancer": { budget: 16000, description: "Project memory optimization" },
   "prompt-enhancer": { budget: 16000, description: "Prompt quality analysis" },
+  "hooks-enhancer": { budget: 16000, description: "Hook best-practices review" },
+  "skills-enhancer": { budget: 16000, description: "Skill prompt review" },
 }
 
 // Workflow phases where certain actions are blocked

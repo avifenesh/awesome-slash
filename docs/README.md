@@ -14,6 +14,7 @@ AI models can write code. The bottleneck is everything else—picking tasks, man
 | See examples and workflows | [USAGE.md](./USAGE.md) |
 | Understand how /next-task works | [workflows/NEXT-TASK.md](./workflows/NEXT-TASK.md) |
 | Understand how /ship works | [workflows/SHIP.md](./workflows/SHIP.md) |
+| Run /perf investigations | [perf-requirements.md](./perf-requirements.md) |
 | Use with OpenCode or Codex | [CROSS_PLATFORM.md](./CROSS_PLATFORM.md) |
 | See all slop patterns | [reference/SLOP-PATTERNS.md](./reference/SLOP-PATTERNS.md) |
 | See all agents | [reference/AGENTS.md](./reference/AGENTS.md) |
@@ -37,12 +38,14 @@ AI models can write code. The bottleneck is everything else—picking tasks, man
 |----------|-------------|
 | [workflows/NEXT-TASK.md](./workflows/NEXT-TASK.md) | Complete /next-task flow: phases, agents, state management, resume. |
 | [workflows/SHIP.md](./workflows/SHIP.md) | Complete /ship flow: CI monitoring, review handling, merge, deploy. |
+| [perf-requirements.md](./perf-requirements.md) | /perf rules and required phases. |
+| [perf-research-methodology.md](./perf-research-methodology.md) | /perf process details, benchmarking method. |
 
 ### Reference
 
 | Document | Description |
 |----------|-------------|
-| [reference/AGENTS.md](./reference/AGENTS.md) | All 31 agents: purpose, model, tools, restrictions. <!-- AGENT_COUNT_TOTAL: 31 --> |
+| [reference/AGENTS.md](./reference/AGENTS.md) | All 39 agents: purpose, model, tools, restrictions. <!-- AGENT_COUNT_TOTAL: 39 --> |
 | [reference/SLOP-PATTERNS.md](./reference/SLOP-PATTERNS.md) | All detection patterns by language, severity, auto-fix. |
 | [reference/MCP-TOOLS.md](./reference/MCP-TOOLS.md) | MCP server tools: parameters, returns, platform config. |
 
@@ -67,7 +70,8 @@ AI models can write code. The bottleneck is everything else—picking tasks, man
 | `/audit-project` | Multi-agent code review |
 | `/drift-detect` | Compare docs to actual code |
 | `/repo-map` | Build cached AST repo map |
-| `/enhance` | Analyze prompts, plugins, docs |
+| `/perf` | Performance investigation workflow |
+| `/enhance` | Analyze prompts, plugins, agents, docs, hooks, skills |
 | `/sync-docs` | Sync docs with code changes |
 
 ### Internal Skills

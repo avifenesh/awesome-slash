@@ -1,6 +1,6 @@
 ---
 description: Structured performance investigation with baselines, profiling, and evidence-backed decisions
-argument-hint: "[--resume] [--phase setup|baseline|breaking-point|constraints|hypotheses|code-paths|profiling|optimization|decision|consolidation] [--id <id>] [--scenario <text>] [--command <cmd>] [--version <ver>] [--quote <text>] [--param-env <name>] [--param-min <n>] [--param-max <n>] [--cpu <limit>] [--memory <limit>] [--change <summary>] [--verdict <continue|stop>] [--rationale <text>]"
+argument-hint: "[--resume] [--phase setup|baseline|breaking-point|constraints|hypotheses|code-paths|profiling|optimization|decision|consolidation] [--id <id>] [--scenario <text>] [--command <cmd>] [--version <ver>] [--quote <text>] [--hypotheses-file <path>] [--param-env <name>] [--param-min <n>] [--param-max <n>] [--cpu <limit>] [--memory <limit>] [--change <summary>] [--verdict <continue|stop>] [--rationale <text>]"
 allowed-tools: Read, Write, Edit, Task, Bash(git:*), Bash(node:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(cargo:*), Bash(go:*), Bash(pytest:*), Bash(mvn:*), Bash(gradle:*)
 ---
 
@@ -23,6 +23,7 @@ All behavior must follow:
 - `--command <cmd>`: Benchmark command (prints PERF_METRICS markers)
 - `--version <ver>`: Baseline version label
 - `--quote <text>`: User quote to record in logs
+- `--hypotheses-file <path>`: JSON file with hypothesis list (for hypotheses phase)
 - `--param-env <name>`: Env var for breaking-point value (default PERF_PARAM_VALUE)
 - `--param-min <n>`: Breaking-point min value (default 1)
 - `--param-max <n>`: Breaking-point max value (default 500)
@@ -45,8 +46,12 @@ const profilingRunner = require(`${pluginRoot}/lib/perf/profiling-runner.js`);
 const optimizationRunner = require(`${pluginRoot}/lib/perf/optimization-runner.js`);
 const consolidation = require(`${pluginRoot}/lib/perf/consolidation.js`);
 const checkpoint = require(`${pluginRoot}/lib/perf/checkpoint.js`);
+const argumentParser = require(`${pluginRoot}/lib/perf/argument-parser.js`);
+const codePaths = require(`${pluginRoot}/lib/perf/code-paths.js`);
+const repoMap = require(`${pluginRoot}/lib/repo-map`);
+const fs = require('fs');
 
-const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const args = argumentParser.parseArguments('$ARGUMENTS');
 const options = {
   resume: false,
   phase: null,
@@ -55,6 +60,7 @@ const options = {
   command: '',
   version: '',
   quote: '',
+  hypothesesFile: '',
   paramEnv: 'PERF_PARAM_VALUE',
   paramMin: 1,
   paramMax: 500,
@@ -74,6 +80,7 @@ for (let i = 0; i < args.length; i++) {
   else if (arg === '--command' && args[i + 1]) options.command = args[++i];
   else if (arg === '--version' && args[i + 1]) options.version = args[++i];
   else if (arg === '--quote' && args[i + 1]) options.quote = args[++i];
+  else if (arg === '--hypotheses-file' && args[i + 1]) options.hypothesesFile = args[++i];
   else if (arg === '--param-env' && args[i + 1]) options.paramEnv = args[++i];
   else if (arg === '--param-min' && args[i + 1]) options.paramMin = Number(args[++i]);
   else if (arg === '--param-max' && args[i + 1]) options.paramMax = Number(args[++i]);
@@ -156,6 +163,8 @@ const phaseRequirements = {
   baseline: () => requireFields([command ? '' : '--command', version ? '' : '--version']),
   'breaking-point': () => requireFields([command ? '' : '--command']),
   constraints: () => requireFields([command ? '' : '--command']),
+  hypotheses: () => requireFields([state.scenario?.description ? '' : '--scenario']),
+  'code-paths': () => requireFields([state.scenario?.description ? '' : '--scenario']),
   profiling: () => requireFields([]),
   optimization: () => requireFields([options.change ? '' : '--change']),
   decision: () => requireFields([options.verdict ? '' : '--verdict', options.rationale ? '' : '--rationale']),
@@ -245,7 +254,7 @@ async function runPhase() {
       });
       const nextResults = Array.isArray(state.constraintResults) ? state.constraintResults : [];
       nextResults.push(results);
-      investigationState.updateInvestigation({ constraintResults: nextResults, phase: 'profiling' }, cwd);
+      investigationState.updateInvestigation({ constraintResults: nextResults, phase: 'hypotheses' }, cwd);
       investigationState.appendConstraintLog({
         id: state.id,
         userQuote,
@@ -257,6 +266,58 @@ async function runPhase() {
         id: state.id,
         baselineVersion: version || 'n/a',
         deltaSummary: 'constraints'
+      });
+      return;
+    }
+    case 'hypotheses': {
+      let hypotheses = Array.isArray(state.hypotheses) ? state.hypotheses : [];
+      if (hypotheses.length === 0) {
+        if (!options.hypothesesFile) {
+          console.error('Missing hypotheses. Run perf-theory-gatherer or provide --hypotheses-file.');
+          process.exit(1);
+        }
+        try {
+          const raw = fs.readFileSync(options.hypothesesFile, 'utf8');
+          const parsed = JSON.parse(raw);
+          hypotheses = Array.isArray(parsed.hypotheses) ? parsed.hypotheses : parsed;
+        } catch (error) {
+          console.error(`Failed to load hypotheses file: ${error.message}`);
+          process.exit(1);
+        }
+      }
+      investigationState.updateInvestigation({ hypotheses, phase: 'code-paths' }, cwd);
+      investigationState.appendHypothesesLog({
+        id: state.id,
+        userQuote,
+        hypotheses
+      }, cwd);
+      checkpoint.commitCheckpoint({
+        phase: 'hypotheses',
+        id: state.id,
+        baselineVersion: version || 'n/a',
+        deltaSummary: 'n/a'
+      });
+      return;
+    }
+    case 'code-paths': {
+      const mapStatus = repoMap.status(cwd);
+      if (!mapStatus.exists) {
+        console.log('Repo map not found. Run /repo-map init for better code-path coverage.');
+      }
+      const map = repoMap.load(cwd);
+      const result = codePaths.collectCodePaths(map, state.scenario?.description || '');
+      investigationState.updateInvestigation({ codePaths: result.paths, phase: 'profiling' }, cwd);
+      investigationState.appendCodePathsLog({
+        id: state.id,
+        userQuote,
+        keywords: result.keywords,
+        paths: result.paths
+      }, cwd);
+      checkpoint.commitCheckpoint({
+        phase: 'code-paths',
+        id: state.id,
+        baselineVersion: version || 'n/a',
+        deltaSummary: `paths=${result.paths.length}`
       });
       return;
     }

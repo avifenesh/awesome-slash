@@ -1091,7 +1091,7 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
   lines.push('| Enhancer | HIGH | MEDIUM | LOW | Auto-Fixable |');
   lines.push('|----------|------|--------|-----|--------------|');
 
-  const enhancerTypes = ['plugin', 'agent', 'claudemd', 'docs', 'prompt'];
+  const enhancerTypes = ['plugin', 'agent', 'claudemd', 'docs', 'prompt', 'hooks', 'skills'];
   let totalHigh = 0, totalMedium = 0, totalLow = 0, totalAutoFix = 0;
 
   for (const enhancer of enhancerTypes) {

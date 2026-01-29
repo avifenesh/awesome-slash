@@ -227,6 +227,7 @@ function initializeInvestigation(options = {}, basePath = process.cwd()) {
     },
     baselines: [],
     hypotheses: [],
+    codePaths: [],
     experiments: [],
     results: [],
     breakingPoint: null,
@@ -557,6 +558,104 @@ function appendConstraintLog(input, basePath = process.cwd()) {
 }
 
 /**
+ * Append a hypotheses section to the investigation log
+ * @param {object} input
+ * @param {string} input.id
+ * @param {string} input.userQuote
+ * @param {Array} input.hypotheses
+ * @param {string} [input.date]
+ * @param {string} basePath
+ */
+function appendHypothesesLog(input, basePath = process.cwd()) {
+  if (!input || typeof input !== 'object') {
+    throw new Error('appendHypothesesLog requires an input object');
+  }
+  const { id, userQuote, hypotheses, date } = input;
+
+  if (!id || typeof id !== 'string') {
+    throw new Error('appendHypothesesLog requires a valid investigation id');
+  }
+  if (!userQuote || typeof userQuote !== 'string') {
+    throw new Error('appendHypothesesLog requires a non-empty userQuote');
+  }
+  if (!Array.isArray(hypotheses)) {
+    throw new Error('appendHypothesesLog requires hypotheses array');
+  }
+
+  const logDate = date || new Date().toISOString().slice(0, 10);
+  const lines = hypotheses.map((item) => {
+    if (!item) return null;
+    const label = item.id ? `${item.id}: ` : '';
+    const evidence = item.evidence ? ` (evidence: ${item.evidence})` : '';
+    const confidence = item.confidence ? ` [${item.confidence}]` : '';
+    return `- ${label}${item.hypothesis || 'n/a'}${confidence}${evidence}`;
+  }).filter(Boolean);
+
+  const entry = [
+    `## Hypotheses - ${logDate}`,
+    '',
+    `**User Quote:** "${userQuote}"`,
+    '',
+    '**Summary**',
+    lines.length > 0 ? lines.join('\n') : '- n/a',
+    ''
+  ].join('\n');
+
+  appendInvestigationLog(id, entry, basePath);
+}
+
+/**
+ * Append a code-paths section to the investigation log
+ * @param {object} input
+ * @param {string} input.id
+ * @param {string} input.userQuote
+ * @param {string[]} input.keywords
+ * @param {Array} input.paths
+ * @param {string} [input.date]
+ * @param {string} basePath
+ */
+function appendCodePathsLog(input, basePath = process.cwd()) {
+  if (!input || typeof input !== 'object') {
+    throw new Error('appendCodePathsLog requires an input object');
+  }
+  const { id, userQuote, keywords, paths, date } = input;
+
+  if (!id || typeof id !== 'string') {
+    throw new Error('appendCodePathsLog requires a valid investigation id');
+  }
+  if (!userQuote || typeof userQuote !== 'string') {
+    throw new Error('appendCodePathsLog requires a non-empty userQuote');
+  }
+  if (!Array.isArray(paths)) {
+    throw new Error('appendCodePathsLog requires paths array');
+  }
+
+  const logDate = date || new Date().toISOString().slice(0, 10);
+  const keywordText = Array.isArray(keywords) && keywords.length > 0 ? keywords.join(', ') : 'n/a';
+  const pathLines = paths.map((pathEntry) => {
+    const file = pathEntry.file || 'n/a';
+    const score = typeof pathEntry.score === 'number' ? ` (score: ${pathEntry.score})` : '';
+    const symbols = Array.isArray(pathEntry.symbols) && pathEntry.symbols.length > 0
+      ? ` [${pathEntry.symbols.join(', ')}]`
+      : '';
+    return `- ${file}${score}${symbols}`;
+  });
+
+  const entry = [
+    `## Code Paths - ${logDate}`,
+    '',
+    `**User Quote:** "${userQuote}"`,
+    '',
+    '**Summary**',
+    `- Keywords: ${keywordText}`,
+    pathLines.length > 0 ? pathLines.join('\n') : '- n/a',
+    ''
+  ].join('\n');
+
+  appendInvestigationLog(id, entry, basePath);
+}
+
+/**
  * Append an optimization section to the investigation log
  * @param {object} input
  * @param {string} input.id
@@ -671,6 +770,8 @@ module.exports = {
   appendSetupLog,
   appendBreakingPointLog,
   appendConstraintLog,
+  appendHypothesesLog,
+  appendCodePathsLog,
   appendOptimizationLog,
   appendConsolidationLog
 };

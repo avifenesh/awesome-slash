@@ -239,7 +239,7 @@ const TOOLS = [
   },
   {
     name: 'enhance_analyze',
-    description: 'Analyze plugins, agents, docs, or prompts for enhancement opportunities',
+      description: 'Analyze plugins, agents, docs, prompts, hooks, or skills for enhancement opportunities',
     inputSchema: {
       type: 'object',
       properties: {
@@ -249,7 +249,7 @@ const TOOLS = [
         },
         focus: {
           type: 'string',
-          enum: ['all', 'plugin', 'agent', 'docs', 'claudemd', 'prompt'],
+            enum: ['all', 'plugin', 'agent', 'docs', 'claudemd', 'claude-memory', 'prompt', 'hooks', 'skills'],
           description: 'Which analyzer to run (default: all)'
         },
         mode: {
@@ -823,10 +823,10 @@ const toolHandlers = {
   },
 
   async enhance_analyze({ path: scanPath, focus, mode, compact }) {
-    try {
-      const targetPath = scanPath || process.cwd();
-      const analyzerFocus = focus || 'all';
-      const analyzeMode = mode || 'report';
+      try {
+        const targetPath = scanPath || process.cwd();
+        const analyzerFocus = (focus === 'claude-memory') ? 'claudemd' : (focus || 'all');
+        const analyzeMode = mode || 'report';
 
       // Validate path exists
       try {
@@ -835,69 +835,125 @@ const toolHandlers = {
         return crossPlatform.errorResponse(`Path not found: ${targetPath}`);
       }
 
-      const allFindings = [];
-      const summary = { plugin: 0, agent: 0, docs: 0, claudemd: 0, prompt: 0 };
+        const allFindings = [];
+        const summary = { plugin: 0, agent: 0, docs: 0, claudemd: 0, prompt: 0, hooks: 0, skills: 0 };
+
+        function normalizeFindings(result, analyzer) {
+          if (!result) return [];
+
+          if (Array.isArray(result.findings)) {
+            return result.findings.map(finding => ({
+              ...finding,
+              analyzer: finding.analyzer || analyzer
+            }));
+          }
+
+          const findings = [];
+          const resultsArray = Array.isArray(result) ? result : [result];
+          for (const entry of resultsArray) {
+            if (!entry || typeof entry !== 'object') continue;
+            for (const value of Object.values(entry)) {
+              if (!Array.isArray(value)) continue;
+              for (const issue of value) {
+                if (!issue || typeof issue.issue !== 'string') continue;
+                findings.push({ ...issue, analyzer });
+              }
+            }
+          }
+          return findings;
+        }
 
       // Run analyzers based on focus
       if (analyzerFocus === 'all' || analyzerFocus === 'plugin') {
         try {
-          const result = enhance.analyzeAllPlugins(targetPath);
-          if (result && result.findings) {
-            allFindings.push(...result.findings.map(f => ({ ...f, analyzer: 'plugin' })));
-            summary.plugin = result.findings.length;
+            const result = enhance.analyzeAllPlugins(targetPath);
+            const findings = normalizeFindings(result, 'plugin');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.plugin = findings.length;
+            }
+          } catch (e) {
+            console.error('Plugin analyzer error:', e.message);
           }
-        } catch (e) {
-          console.error('Plugin analyzer error:', e.message);
         }
-      }
 
       if (analyzerFocus === 'all' || analyzerFocus === 'agent') {
         try {
-          const result = enhance.analyzeAllAgents(targetPath);
-          if (result && result.findings) {
-            allFindings.push(...result.findings.map(f => ({ ...f, analyzer: 'agent' })));
-            summary.agent = result.findings.length;
+            const result = enhance.analyzeAllAgents(targetPath);
+            const findings = normalizeFindings(result, 'agent');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.agent = findings.length;
+            }
+          } catch (e) {
+            console.error('Agent analyzer error:', e.message);
           }
-        } catch (e) {
-          console.error('Agent analyzer error:', e.message);
         }
-      }
 
       if (analyzerFocus === 'all' || analyzerFocus === 'docs') {
         try {
-          const result = enhance.analyzeAllDocs(targetPath);
-          if (result && result.findings) {
-            allFindings.push(...result.findings.map(f => ({ ...f, analyzer: 'docs' })));
-            summary.docs = result.findings.length;
+            const result = enhance.analyzeAllDocs(targetPath);
+            const findings = normalizeFindings(result, 'docs');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.docs = findings.length;
+            }
+          } catch (e) {
+            console.error('Docs analyzer error:', e.message);
           }
-        } catch (e) {
-          console.error('Docs analyzer error:', e.message);
         }
-      }
 
       if (analyzerFocus === 'all' || analyzerFocus === 'claudemd') {
         try {
-          const result = enhance.analyzeProjectMemory(targetPath);
-          if (result && result.findings) {
-            allFindings.push(...result.findings.map(f => ({ ...f, analyzer: 'claudemd' })));
-            summary.claudemd = result.findings.length;
+            const result = enhance.analyzeProjectMemory(targetPath);
+            const findings = normalizeFindings(result, 'claudemd');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.claudemd = findings.length;
+            }
+          } catch (e) {
+            console.error('Project memory analyzer error:', e.message);
           }
-        } catch (e) {
-          console.error('Project memory analyzer error:', e.message);
         }
-      }
 
-      if (analyzerFocus === 'all' || analyzerFocus === 'prompt') {
-        try {
-          const result = enhance.analyzeAllPrompts(targetPath);
-          if (result && result.findings) {
-            allFindings.push(...result.findings.map(f => ({ ...f, analyzer: 'prompt' })));
-            summary.prompt = result.findings.length;
+        if (analyzerFocus === 'all' || analyzerFocus === 'prompt') {
+          try {
+            const result = enhance.analyzeAllPrompts(targetPath);
+            const findings = normalizeFindings(result, 'prompt');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.prompt = findings.length;
+            }
+          } catch (e) {
+            console.error('Prompt analyzer error:', e.message);
           }
-        } catch (e) {
-          console.error('Prompt analyzer error:', e.message);
         }
-      }
+
+        if (analyzerFocus === 'all' || analyzerFocus === 'hooks') {
+          try {
+            const result = enhance.analyzeAllHooks(targetPath);
+            const findings = normalizeFindings(result, 'hooks');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.hooks = findings.length;
+            }
+          } catch (e) {
+            console.error('Hook analyzer error:', e.message);
+          }
+        }
+
+        if (analyzerFocus === 'all' || analyzerFocus === 'skills') {
+          try {
+            const result = enhance.analyzeAllSkills(targetPath);
+            const findings = normalizeFindings(result, 'skills');
+            if (findings.length > 0) {
+              allFindings.push(...findings);
+              summary.skills = findings.length;
+            }
+          } catch (e) {
+            console.error('Skills analyzer error:', e.message);
+          }
+        }
 
       // Deduplicate if running all analyzers
       let findings = allFindings;
@@ -921,7 +977,7 @@ const toolHandlers = {
               else if (fix.analyzer === 'agent') enhance.agentApplyFixes([fix]);
               else if (fix.analyzer === 'docs') enhance.docsApplyFixes([fix]);
               else if (fix.analyzer === 'claudemd') enhance.projectMemoryApplyFixes([fix]);
-              else if (fix.analyzer === 'prompt') enhance.promptApplyFixes([fix]);
+                else if (fix.analyzer === 'prompt') enhance.promptApplyFixes([fix]);
               fixResults.applied++;
             } catch (e) {
               console.error(`Fix failed for ${fix.file}:`, e.message);

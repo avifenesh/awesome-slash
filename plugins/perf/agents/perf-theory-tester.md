@@ -9,6 +9,8 @@ model: opus
 
 Test hypotheses using controlled experiments. You MUST follow `docs/perf-requirements.md`.
 
+You MUST execute the perf-theory-tester skill to produce the output. Do not bypass the skill.
+
 ## Rules
 
 - One change per experiment.

@@ -43,6 +43,29 @@ function buildCheckpointMessage(input) {
 }
 
 /**
+ * Get the most recent git commit message.
+ * @returns {string|null}
+ */
+function getLastCommitMessage() {
+  try {
+    return execSync('git log -1 --pretty=%B', { encoding: 'utf8' }).trim();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Check if the next checkpoint would duplicate the last commit.
+ * @param {string} message
+ * @returns {boolean}
+ */
+function isDuplicateCheckpoint(message) {
+  const last = getLastCommitMessage();
+  if (!last) return false;
+  return last.trim() === String(message || '').trim();
+}
+
+/**
  * Commit a checkpoint for a perf phase.
  * @param {object} input
  * @returns {{ ok: boolean, message?: string, reason?: string }}
@@ -59,6 +82,9 @@ function commitCheckpoint(input) {
   }
 
   const message = buildCheckpointMessage(input);
+  if (isDuplicateCheckpoint(message)) {
+    return { ok: false, reason: 'duplicate checkpoint' };
+  }
   execSync('git add -A', { stdio: 'ignore' });
   execSync(`git commit -m "${message.replace(/"/g, '\\"')}"`, { stdio: 'ignore' });
   return { ok: true, message };
@@ -67,5 +93,7 @@ function commitCheckpoint(input) {
 module.exports = {
   isWorkingTreeClean,
   buildCheckpointMessage,
+  getLastCommitMessage,
+  isDuplicateCheckpoint,
   commitCheckpoint
 };

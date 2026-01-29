@@ -40,3 +40,5 @@ Append structured investigation notes to `{state-dir}/perf/investigations/<id>.m
 
 - Use `AI_STATE_DIR` for state path (default `.claude`).
 - Do not paraphrase user quotes.
+
+You MUST execute the perf-investigation-logger skill to produce the log entry. Do not bypass the skill.

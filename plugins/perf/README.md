@@ -21,6 +21,18 @@ All behavior is governed by:
 - `docs/perf-requirements.md`
 - `docs/perf-research-methodology.md`
 
+## Inputs
+
+- Hypotheses can be supplied via `--hypotheses-file <path>` during the hypotheses phase.
+
+## Skills
+
+- `perf-theory-gatherer` - Hypothesis generation (git history + evidence)
+- `perf-code-paths` - Code-path discovery before profiling
+- `perf-theory-tester` - Controlled experiments for hypotheses
+- `perf-analyzer` - Evidence-backed perf recommendations
+- `perf-investigation-logger` - Structured log entries with evidence
+
 ## Artifacts
 
 - `{state-dir}/perf/investigation.json`

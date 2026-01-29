@@ -346,6 +346,95 @@ function validateAgentCounts() {
   }
 }
 
+function validatePerfDocs() {
+  const requiredDocs = [
+    path.join(ROOT_DIR, 'docs', 'perf-requirements.md'),
+    path.join(ROOT_DIR, 'docs', 'perf-research-methodology.md')
+  ];
+
+  for (const docPath of requiredDocs) {
+    if (!fs.existsSync(docPath)) {
+      errors.push(`Missing perf doc: ${path.relative(ROOT_DIR, docPath)}`);
+    }
+  }
+}
+
+function validatePerfAgentSkillUsage() {
+  const perfDir = path.join(PLUGINS_DIR, 'perf');
+  const agentsDir = path.join(perfDir, 'agents');
+  const skillsDir = path.join(perfDir, 'skills');
+
+  if (!fs.existsSync(agentsDir) || !fs.existsSync(skillsDir)) return;
+
+  const skillNames = new Set();
+  const skillDirs = fs.readdirSync(skillsDir)
+    .filter(name => fs.statSync(path.join(skillsDir, name)).isDirectory());
+
+  for (const dir of skillDirs) {
+    const skillPath = path.join(skillsDir, dir, 'SKILL.md');
+    if (!fs.existsSync(skillPath)) continue;
+    const skillContent = fs.readFileSync(skillPath, 'utf8');
+    const skillMatch = skillContent.match(/^name:\s*([^\s]+)\s*$/m);
+    if (skillMatch) {
+      skillNames.add(skillMatch[1].trim());
+    }
+  }
+
+  const agentFiles = fs.readdirSync(agentsDir).filter(file => file.endsWith('.md'));
+  for (const file of agentFiles) {
+    const filePath = path.join(agentsDir, file);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const nameMatch = content.match(/^name:\s*([^\s]+)\s*$/m);
+    if (!nameMatch) continue;
+
+    const agentName = nameMatch[1].trim();
+    if (!skillNames.has(agentName)) continue;
+
+    const requiredLine = `MUST execute the ${agentName} skill`;
+    if (!content.includes(requiredLine)) {
+      errors.push(`perf agent ${file} must require skill usage: "${requiredLine}"`);
+    }
+  }
+}
+
+function validateEnhanceAgentSkillUsage() {
+  const enhanceDir = path.join(PLUGINS_DIR, 'enhance');
+  const agentsDir = path.join(enhanceDir, 'agents');
+  const skillsDir = path.join(enhanceDir, 'skills');
+
+  if (!fs.existsSync(agentsDir) || !fs.existsSync(skillsDir)) return;
+
+  const skillNames = new Set();
+  const skillDirs = fs.readdirSync(skillsDir)
+    .filter(name => fs.statSync(path.join(skillsDir, name)).isDirectory());
+
+  for (const dir of skillDirs) {
+    const skillPath = path.join(skillsDir, dir, 'SKILL.md');
+    if (!fs.existsSync(skillPath)) continue;
+    const skillContent = fs.readFileSync(skillPath, 'utf8');
+    const skillMatch = skillContent.match(/^name:\s*([^\s]+)\s*$/m);
+    if (skillMatch) {
+      skillNames.add(skillMatch[1].trim());
+    }
+  }
+
+  const agentFiles = fs.readdirSync(agentsDir).filter(file => file.endsWith('.md'));
+  for (const file of agentFiles) {
+    const filePath = path.join(agentsDir, file);
+    const content = fs.readFileSync(filePath, 'utf8');
+    const usageMatch = content.match(/MUST execute the ([^\s]+) skill/);
+    if (!usageMatch) {
+      errors.push(`enhance agent ${file} must require skill usage with "MUST execute the <skill> skill"`);
+      continue;
+    }
+
+    const skillName = usageMatch[1].trim();
+    if (!skillNames.has(skillName)) {
+      errors.push(`enhance agent ${file} references missing skill: ${skillName}`);
+    }
+  }
+}
+
 function main() {
   console.log('Repository Consistency Validator');
   console.log('===============================\n');
@@ -353,6 +442,9 @@ function main() {
   validateVersions();
   validateMappings();
   validateAgentCounts();
+  validatePerfDocs();
+  validatePerfAgentSkillUsage();
+  validateEnhanceAgentSkillUsage();
 
   if (errors.length > 0) {
     console.log('❌ Consistency checks failed:\n');

@@ -11,6 +11,8 @@ You MUST follow `docs/perf-requirements.md` as the canonical contract.
 
 Synthesize investigation outputs into clear, evidence-backed recommendations.
 
+You MUST execute the perf-analyzer skill to produce the output. Do not bypass the skill.
+
 ## Inputs
 
 - Baseline data

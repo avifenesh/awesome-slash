@@ -20,7 +20,7 @@ describe('perf log helpers', () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('appends setup, breaking-point, constraints, optimization logs', () => {
+  it('appends setup, breaking-point, constraints, hypotheses, code-paths, optimization logs', () => {
     const state = investigationState.initializeInvestigation({
       scenario: 'Test scenario'
     }, tempDir);
@@ -49,6 +49,23 @@ describe('perf log helpers', () => {
       delta: { metrics: { latency_ms: { delta: 10 } } }
     }, tempDir);
 
+    investigationState.appendHypothesesLog({
+      id: state.id,
+      userQuote: 'Generate hypotheses.',
+      hypotheses: [
+        { id: 'H1', hypothesis: 'N+1 queries', evidence: 'src/db.js', confidence: 'medium' }
+      ]
+    }, tempDir);
+
+    investigationState.appendCodePathsLog({
+      id: state.id,
+      userQuote: 'Map code paths.',
+      keywords: ['auth', 'session'],
+      paths: [
+        { file: 'src/auth/index.js', score: 2, symbols: ['login', 'logout'] }
+      ]
+    }, tempDir);
+
     investigationState.appendOptimizationLog({
       id: state.id,
       userQuote: 'Try optimization.',
@@ -62,6 +79,8 @@ describe('perf log helpers', () => {
     expect(contents).toContain('Setup -');
     expect(contents).toContain('Breaking Point -');
     expect(contents).toContain('Constraints -');
+    expect(contents).toContain('Hypotheses -');
+    expect(contents).toContain('Code Paths -');
     expect(contents).toContain('Optimization -');
   });
 });

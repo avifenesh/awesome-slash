@@ -34,7 +34,7 @@ AI models can write code. That's not the hard part anymore. The hard part is eve
 | [`/audit-project`](#audit-project) | Multi-agent code review until issues resolved | [→](#audit-project) |
 | [`/drift-detect`](#drift-detect) | Compares your docs to actual code state | [→](#drift-detect) |
 | [`/repo-map`](#repo-map) | Builds a cached AST repo map for fast analysis | [→](#repo-map) |
-| [`/enhance`](#enhance) | Analyzes prompts, plugins, docs for improvements | [→](#enhance) |
+| [`/enhance`](#enhance) | Analyzes prompts, plugins, agents, docs, hooks, skills | [→](#enhance) |
 | [`/sync-docs`](#sync-docs) | Syncs documentation with code changes | [→](#sync-docs) |
 | [`/perf`](#perf) | Runs structured performance investigations | [→](#perf) |
 
@@ -456,9 +456,9 @@ Tools like `/drift-detect` and planners can use the map instead of re-scanning t
 
 ### /enhance
 
-**Purpose:** Analyzes your prompts, plugins, agents, and docs for improvement opportunities.
+**Purpose:** Analyzes your prompts, plugins, agents, docs, hooks, and skills for improvement opportunities.
 
-**Five analyzers run in parallel:**
+**Seven analyzers run in parallel:**
 
 | Analyzer | What it checks |
 |----------|----------------|
@@ -467,6 +467,8 @@ Tools like `/drift-detect` and planners can use the map instead of re-scanning t
 | claudemd-enhancer | CLAUDE.md/AGENTS.md structure, token efficiency |
 | docs-enhancer | Documentation readability, RAG optimization |
 | prompt-enhancer | Prompt engineering patterns, clarity, examples |
+| hooks-enhancer | Hook frontmatter, structure, safety |
+| skills-enhancer | SKILL.md structure, trigger phrases |
 
 **Each finding includes:**
 - Certainty level (HIGH/MEDIUM/LOW)
@@ -502,6 +504,8 @@ Tools like `/drift-detect` and planners can use the map instead of re-scanning t
 /perf --phase baseline --command "npm run bench" --version v1.2.0
 /perf --phase breaking-point --command "npm run bench" --param-min 1 --param-max 500
 /perf --phase constraints --command "npm run bench" --cpu 1 --memory 1GB
+/perf --phase hypotheses --hypotheses-file perf-hypotheses.json
+/perf --phase code-paths
 /perf --phase optimization --change "reduce allocations"
 /perf --phase decision --verdict stop --rationale "no measurable improvement"
 /perf --phase consolidation --version v1.2.0

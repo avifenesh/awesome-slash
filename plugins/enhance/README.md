@@ -1,6 +1,6 @@
 # enhance
 
-Master enhancement orchestrator for plugins, agents, prompts, and documentation.
+Master enhancement orchestrator for plugins, agents, prompts, docs, hooks, and skills.
 
 ## Overview
 
@@ -15,7 +15,9 @@ The enhance plugin provides specialized analyzers for different content types, i
     ├─→ /enhance:prompt  → General prompt patterns (clarity, structure, examples)
     ├─→ /enhance:docs    → Documentation analysis (RAG optimization, readability)
     ├─→ /enhance:plugin  → Plugin structure (MCP tools, security patterns)
-    └─→ /enhance:claudemd → Project memory optimization (CLAUDE.md/AGENTS.md)
+    ├─→ /enhance:claudemd → Project memory optimization (CLAUDE.md/AGENTS.md)
+    ├─→ /enhance:hooks   → Hook definitions (frontmatter, safety)
+    └─→ /enhance:skills  → SKILL.md structure and triggers
 ```
 
 **Analysis depth**: Certainty-based findings (HIGH, MEDIUM, LOW)
@@ -93,6 +95,28 @@ Analyze project memory files (CLAUDE.md, AGENTS.md).
 
 **Detects**: Missing sections, broken references, README duplication, cross-platform issues
 
+### `/enhance:hooks`
+
+Analyze hook definitions for frontmatter quality.
+
+```
+/enhance:hooks                     # All hook definitions
+/enhance:hooks pre-commit.md        # Specific hook
+```
+
+**Detects**: Missing frontmatter, missing name/description
+
+### `/enhance:skills`
+
+Analyze SKILL.md files for required metadata and trigger clarity.
+
+```
+/enhance:skills                     # All SKILL.md files
+/enhance:skills enhance-docs         # Specific skill
+```
+
+**Detects**: Missing frontmatter, missing name/description, missing trigger phrase
+
 ## Agents
 
 | Agent | Purpose | Model |
@@ -102,6 +126,8 @@ Analyze project memory files (CLAUDE.md, AGENTS.md).
 | `docs-enhancer` | RAG optimization, readability, token efficiency | opus |
 | `plugin-enhancer` | MCP schemas, security patterns, structure | sonnet |
 | `claudemd-enhancer` | Project memory validation, cross-platform | opus |
+| `hooks-enhancer` | Hook frontmatter, structure, safety | sonnet |
+| `skills-enhancer` | SKILL.md structure, trigger phrases | sonnet |
 
 ## Certainty Levels
 
