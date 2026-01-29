@@ -131,7 +131,9 @@ async function fullScan(basePath, languages, options = {}) {
     throw new Error('ast-grep not found');
   }
   const fileLimit = Number.isFinite(options.fileLimit) ? Math.max(0, Math.floor(options.fileLimit)) : null;
-  let remainingLimit = fileLimit;
+  const filesByLanguage = collectFilesByLanguage(basePath, languages, {
+    maxFiles: fileLimit
+  });
   
   const map = {
     version: '1.0.0',
@@ -156,17 +158,11 @@ async function fullScan(basePath, languages, options = {}) {
   
   // Run queries for each language
   for (const lang of languages) {
-    if (remainingLimit !== null && remainingLimit <= 0) break;
     const langQueries = queries.getQueriesForLanguage(lang);
     if (!langQueries) continue;
 
-    const files = findFilesForLanguage(basePath, lang, {
-      maxFiles: remainingLimit !== null ? remainingLimit : undefined
-    });
+    const files = filesByLanguage.get(lang) || [];
     if (files.length === 0) continue;
-    if (remainingLimit !== null) {
-      remainingLimit = Math.max(0, remainingLimit - files.length);
-    }
 
     const fileEntries = [];
     const symbolMapsByFile = new Map();
@@ -372,6 +368,74 @@ function findFilesForLanguage(basePath, language, options = {}) {
   
   scan(basePath);
   return files;
+}
+
+/**
+ * Collect files for all languages in a single walk.
+ * @param {string} basePath - Repository root
+ * @param {string[]} languages - Languages to collect
+ * @param {Object} options
+ * @param {number} [options.maxFiles] - Global file limit
+ * @returns {Map<string, string[]>} - Map of language -> file paths
+ */
+function collectFilesByLanguage(basePath, languages, options = {}) {
+  const langList = Array.isArray(languages) ? languages : [];
+  const filesByLanguage = new Map();
+  for (const lang of langList) {
+    filesByLanguage.set(lang, []);
+  }
+
+  const extensionToLang = new Map();
+  for (const lang of langList) {
+    const extensions = LANGUAGE_EXTENSIONS[lang] || [];
+    for (const ext of extensions) {
+      if (!extensionToLang.has(ext)) {
+        extensionToLang.set(ext, lang);
+      }
+    }
+  }
+
+  const isIgnored = slopAnalyzers.parseGitignore(basePath, fs, path);
+  const maxFiles = Number.isFinite(options.maxFiles) ? Math.max(0, Math.floor(options.maxFiles)) : null;
+  let count = 0;
+
+  function scan(dir) {
+    if (maxFiles !== null && count >= maxFiles) return;
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (maxFiles !== null && count >= maxFiles) break;
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+          const relativePath = path.relative(basePath, fullPath);
+          if (slopAnalyzers.shouldExclude(relativePath, EXCLUDE_DIRS)) continue;
+          if (isIgnored && isIgnored(relativePath, true)) continue;
+          if (!entry.name.startsWith('.')) {
+            scan(fullPath);
+          }
+        } else if (entry.isFile()) {
+          const relativePath = path.relative(basePath, fullPath);
+          if (slopAnalyzers.shouldExclude(relativePath, EXCLUDE_DIRS)) continue;
+          if (isIgnored && isIgnored(relativePath, false)) continue;
+          const ext = path.extname(entry.name).toLowerCase();
+          const lang = extensionToLang.get(ext);
+          if (lang) {
+            const bucket = filesByLanguage.get(lang);
+            if (bucket) {
+              bucket.push(fullPath);
+              count++;
+            }
+          }
+        }
+      }
+    } catch {
+      // Skip directories we can't read
+    }
+  }
+
+  scan(basePath);
+  return filesByLanguage;
 }
 
 function createSymbolMaps() {
@@ -1008,6 +1072,7 @@ module.exports = {
   detectLanguages,
   fullScan,
   findFilesForLanguage,
+  collectFilesByLanguage,
   scanSingleFile,
   runAstGrep,
   getGitInfo,

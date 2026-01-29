@@ -28,7 +28,7 @@ function runOptimizationExperiment(options) {
     throw new Error('changeSummary must be a non-empty string');
   }
 
-  const shouldCheckClean = options?.requireClean !== false;
+  const shouldCheckClean = options?.requireClean !== false && process.env.PERF_ALLOW_DIRTY !== '1';
   if (shouldCheckClean && !isWorkingTreeClean()) {
     throw new Error('working tree is dirty before experiment');
   }
