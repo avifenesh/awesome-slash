@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-01-29
+
+### Added
+- **Repo-map perf script** - Reusable benchmark runner for repo-map creation
+
+### Changed
+- **/perf benchmarking** - Added oneshot mode plus multi-run aggregation with duration/runs controls
+
+### Removed
+- **Repo-map docs analysis** - Dropped documentation scanning and legacy docs fields from repo-map output
+
 ## [3.4.0-rc.1] - 2026-01-29
 
 ### Added
