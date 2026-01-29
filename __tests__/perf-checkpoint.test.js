@@ -33,17 +33,19 @@ describe('perf checkpoint', () => {
   });
 
   it('detects duplicate checkpoint messages', () => {
-    const childProcess = require('child_process');
-    const execSpy = jest.spyOn(childProcess, 'execSync').mockReturnValue(
-      'perf: phase baseline [perf-123] baseline=n/a delta=n/a\n'
-    );
+    jest.resetModules();
+    jest.doMock('child_process', () => ({
+      execSync: jest.fn(() => 'perf: phase baseline [perf-123] baseline=n/a delta=n/a\n'),
+      execFileSync: jest.fn()
+    }));
 
-    const message = checkpoint.buildCheckpointMessage({
+    const freshCheckpoint = require('../lib/perf/checkpoint');
+    const message = freshCheckpoint.buildCheckpointMessage({
       phase: 'baseline',
       id: 'perf-123'
     });
 
-    expect(checkpoint.isDuplicateCheckpoint(message)).toBe(true);
-    execSpy.mockRestore();
+    expect(freshCheckpoint.isDuplicateCheckpoint(message)).toBe(true);
+    jest.dontMock('child_process');
   });
 });
