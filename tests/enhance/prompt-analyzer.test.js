@@ -147,10 +147,11 @@ describe('Prompt Patterns', () => {
 
     it('should detect aggressive CAPS', () => {
       const content = `
-        CRITICAL: You MUST follow these rules.
+        ABSOLUTELY critical: You MUST follow these rules.
         ALWAYS validate input.
-        This is IMPORTANT and ESSENTIAL.
+        This is IMPORTANT and ESSENTIAL and EXTREMELY IMPORTANT.
         NEVER skip this step.
+        This is TOTALLY REQUIRED and DEFINITELY NECESSARY.
       `;
 
       const result = pattern.check(content);
