@@ -4,7 +4,8 @@ const {
   runPatternBenchmarks,
   runFixBenchmarks,
   generateReport,
-  assertThresholds
+  assertThresholds,
+  toPascalCase
 } = require('../lib/enhance/benchmark');
 const { analyzeAgent } = require('../lib/enhance/agent-analyzer');
 const { analyzePrompt } = require('../lib/enhance/prompt-analyzer');
@@ -208,10 +209,3 @@ describe('Pattern Validation Benchmarks', () => {
     });
   });
 });
-
-function toPascalCase(str) {
-  return str
-    .split('_')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join('');
-}
