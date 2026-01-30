@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **/enhance Auto-Learning Suppression** - Smart false positive detection reduces noise over time (#154)
+  - New lib/enhance/auto-suppression.js: Pattern-specific heuristics with 0.90+ confidence threshold
+  - Automatically saves obvious false positives for future runs (up to 100 per project)
+  - New flags: --show-suppressed, --no-learn, --reset-learned, --export-learned
+  - Pattern heuristics: vague_instructions (pattern docs), aggressive_emphasis (workflow gates), missing_examples (orchestrators)
+  - Cross-platform storage with 6-month expiry
+  - Backward compatible with manual suppression.js
+
 - **Pattern Validation Benchmarks** - Manifest-driven testing system for enhance module pattern accuracy (#157)
   - New lib/enhance/benchmark.js: runPatternBenchmarks, runFixBenchmarks, generateReport, assertThresholds
   - Precision/recall/F1 metrics for pattern detection quality

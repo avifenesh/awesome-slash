@@ -386,12 +386,16 @@ Findings are collected and categorized by severity (critical/high/medium/low). A
 - How to fix it
 - Whether it can be auto-fixed
 
+**Auto-learning:** Detects obvious false positives (pattern docs, workflow gates) and saves them for future runs. Reduces noise over time without manual suppression files.
+
 **Usage:**
 
 ```bash
 /enhance                    # Run all analyzers
 /enhance --focus=agent      # Just agent prompts
 /enhance --apply            # Apply HIGH certainty fixes
+/enhance --show-suppressed  # Show what's being filtered
+/enhance --no-learn         # Analyze but don't save false positives
 ```
 
 ---
