@@ -24,8 +24,44 @@ fi
 `;
 
 const prePushHook = `#!/bin/sh
-# Block version tag pushes until release checklist validation passes
-# See: checklists/release.md
+# Pre-push validations:
+# 1. Warn if agents/skills/hooks/prompts modified (run /enhance)
+# 2. Block version tag pushes until release checklist passes
+# See: CLAUDE.md Critical Rule #7, checklists/release.md
+
+# Check for modified agents/skills/hooks/prompts
+modified_files=$(git diff --name-only origin/\$(git remote show origin | grep "HEAD branch" | cut -d' ' -f5)..HEAD 2>/dev/null || git diff --name-only HEAD~1..HEAD)
+
+agents_modified=$(echo "$modified_files" | grep -E "agents/.*\\.md$" || true)
+skills_modified=$(echo "$modified_files" | grep -E "skills/.*/SKILL\\.md$" || true)
+hooks_modified=$(echo "$modified_files" | grep -E "hooks/.*\\.md$" || true)
+prompts_modified=$(echo "$modified_files" | grep -E "prompts/.*\\.md$" || true)
+
+if [ -n "$agents_modified" ] || [ -n "$skills_modified" ] || [ -n "$hooks_modified" ] || [ -n "$prompts_modified" ]; then
+  echo ""
+  echo "=============================================="
+  echo "  [WARN] Enhanced content modified"
+  echo "=============================================="
+  echo ""
+  echo "CLAUDE.md Critical Rule #7 requires running /enhance"
+  echo "on modified agents, skills, hooks, or prompts."
+  echo ""
+  echo "Modified files:"
+  echo "$agents_modified$skills_modified$hooks_modified$prompts_modified"
+  echo ""
+  echo "ACTION REQUIRED:"
+  echo "  1. Run: /enhance"
+  echo "  2. Address any HIGH certainty findings"
+  echo "  3. Push again"
+  echo ""
+  echo "Skip this check: git push --no-verify"
+  echo ""
+  read -p "Have you run /enhance? (y/N) " response
+  if [ "$response" != "y" ] && [ "$response" != "Y" ]; then
+    echo "[BLOCKED] Run /enhance first"
+    exit 1
+  fi
+fi
 
 # Check if pushing a version tag (v*)
 pushing_tag=false
