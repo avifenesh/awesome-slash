@@ -1,12 +1,81 @@
 # awesome-slash
 
 [![npm version](https://img.shields.io/npm/v/awesome-slash.svg)](https://www.npmjs.com/package/awesome-slash)
+[![npm downloads](https://img.shields.io/npm/dm/awesome-slash.svg)](https://www.npmjs.com/package/awesome-slash)
 [![CI](https://github.com/avifenesh/awesome-slash/actions/workflows/ci.yml/badge.svg)](https://github.com/avifenesh/awesome-slash/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/avifenesh/awesome-slash?style=social)](https://github.com/avifenesh/awesome-slash/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-AI models can write code. That's not the hard part anymore. The hard part is everything else—picking what to work on, managing branches, reviewing output, cleaning up artifacts, handling CI, addressing comments, deploying. **awesome-slash automates the entire workflow**, not just the coding.
+Skills and workflow automation for AI coding assistants.
 
-**Works with:** Claude Code | OpenCode | Codex CLI
+**9 plugins · 29 agents · 20 skills · 22k lines of lib code · 1,348 tests · 3 platforms**
+
+---
+
+## What This Is
+
+Production-ready skills, agents, and commands for Claude Code, OpenCode, and Codex CLI.
+
+Install the plugins → get the skills → your agents become more capable. Each piece was built to work with the others. The whole system is E2E tested.
+
+From messy project to clean codebase. From drifted plan to focused execution. From task to merged PR.
+
+**Works with:** Claude Code · OpenCode · Codex CLI
+
+If you find this useful: [⭐ Star the repo](https://github.com/avifenesh/awesome-slash)
+
+---
+
+## The Approach
+
+**Code does code work. AI does AI work.**
+
+- **Detection**: regex, AST analysis, static analysis—fast, deterministic, no tokens wasted
+- **Judgment**: LLM calls for synthesis, planning, review—where reasoning matters
+- **Result**: 77% fewer tokens for drift-detect vs multi-agent approaches, certainty-graded findings throughout
+
+**Certainty levels exist because not all findings are equal:**
+
+| Level | Meaning | Action |
+|-------|---------|--------|
+| HIGH | Definitely a problem | Safe to auto-fix |
+| MEDIUM | Probably a problem | Needs context |
+| LOW | Might be a problem | Needs human judgment |
+
+This came from testing on 1,000+ repositories.
+
+---
+
+## Commands
+
+| Command | What it does |
+|---------|--------------|
+| [`/next-task`](#next-task) | Task → exploration → plan → implementation → review → ship |
+| [`/ship`](#ship) | Branch → PR → CI → reviews addressed → merge → cleanup |
+| [`/deslop`](#deslop) | 3-phase detection pipeline, certainty-graded findings |
+| [`/perf`](#perf) | 10-phase performance investigation with baselines and profiling |
+| [`/drift-detect`](#drift-detect) | AST-based plan vs code analysis, finds what's documented but not built |
+| [`/audit-project`](#audit-project) | Multi-agent code review, iterates until issues resolved |
+| [`/enhance`](#enhance) | Analyzes prompts, agents, plugins, docs, hooks, skills |
+| [`/repo-map`](#repo-map) | AST symbol and import mapping via ast-grep |
+| [`/sync-docs`](#sync-docs) | Finds outdated references, stale examples, missing CHANGELOG entries |
+
+Each command works standalone. Together, they form complete workflows.
+
+---
+
+## Skills
+
+20 skills included across the plugins:
+
+| Category | Skills |
+|----------|--------|
+| **Performance** | `perf:analyzer`, `perf:baseline`, `perf:benchmark`, `perf:code-paths`, `perf:investigation-logger`, `perf:profile`, `perf:theory`, `perf:theory-tester` |
+| **Enhancement** | `enhance:agent-prompts`, `enhance:claude-memory`, `enhance:docs`, `enhance:hooks`, `enhance:orchestrator`, `enhance:plugins`, `enhance:prompts`, `enhance:reporter`, `enhance:skills` |
+| **Workflow** | `next-task:orchestrate-review`, `next-task:delivery-approval`, `next-task:update-docs-around` |
+| **Analysis** | `drift-detect:drift-analysis`, `repo-map:repo-mapping` |
+
+Skills give your agents specialized capabilities. When you install a plugin, its skills become available to all agents in that session.
 
 ---
 
@@ -14,198 +83,15 @@ AI models can write code. That's not the hard part anymore. The hard part is eve
 
 | Section | What's there |
 |---------|--------------|
-| [Commands](#commands) | All 9 commands with jump links |
-| [What This Does](#what-this-project-does) | The problem and how this solves it |
-| [What's Different](#what-makes-this-different) | Why this isn't just another AI tool |
-| [What's New](#whats-new-in-v340) | Latest release highlights |
-| [Design Philosophy](#design-philosophy) | The thinking behind the architecture |
+| [The Approach](#the-approach) | Why it's built this way |
+| [Commands](#commands) | All 9 commands overview |
+| [Skills](#skills) | 20 skills across plugins |
 | [Command Details](#command-details) | Deep dive into each command |
-| [Installation](#installation) | Get started in 2 commands |
+| [How Commands Work Together](#how-commands-work-together) | Standalone vs integrated |
+| [Design Philosophy](#design-philosophy) | The thinking behind the architecture |
+| [Installation](#installation) | Get started |
+| [Research & Testing](#research--testing) | What went into building this |
 | [Documentation](#documentation) | Links to detailed docs |
-
----
-
-## Commands
-
-| Command | What it does | Details |
-|---------|--------------|---------|
-| [`/next-task`](#next-task) | Picks a task, implements it, reviews it, ships it | [→](#next-task) |
-| [`/ship`](#ship) | Creates PR, monitors CI, addresses reviews, merges | [→](#ship) |
-| [`/deslop`](#deslop) | Finds and removes debug code, TODOs, AI artifacts | [→](#deslop) |
-| [`/audit-project`](#audit-project) | Multi-agent code review until issues resolved | [→](#audit-project) |
-| [`/drift-detect`](#drift-detect) | Compares your docs to actual code state | [→](#drift-detect) |
-| [`/repo-map`](#repo-map) | Builds a cached AST repo map for fast analysis | [→](#repo-map) |
-| [`/enhance`](#enhance) | Analyzes prompts, plugins, agents, docs, hooks, skills | [→](#enhance) |
-| [`/sync-docs`](#sync-docs) | Syncs documentation with code changes | [→](#sync-docs) |
-| [`/perf`](#perf) | Runs structured performance investigations | [→](#perf) |
-
----
-
-## What This Project Does
-
-You have AI coding assistants. They can write code. But the full workflow—picking what to work on, setting up branches, implementing, reviewing, fixing issues, creating PRs, monitoring CI, addressing reviewer comments, merging—still requires you to babysit every step.
-
-**awesome-slash automates the entire workflow.** Not just code generation, but the complete process from "I have 50 issues" to "PR merged and deployed."
-
-### The Core Idea
-
-Most AI tools generate code and stop. You still have to:
-- Decide what to work on
-- Create branches
-- Run the implementation
-- Review the output
-- Clean up AI artifacts
-- Create PRs
-- Wait for CI
-- Address review comments
-- Merge and deploy
-
-This plugin handles all of that. You approve a plan, then it runs autonomously until there's a merged PR (or until something genuinely needs your input).
-
----
-
-## What Makes This Different
-
-### 1. Certainty-Based Detection
-
-Every finding is tagged with a certainty level:
-- **HIGH** - Definitely a problem. Safe to auto-fix.
-- **MEDIUM** - Probably a problem. Needs context.
-- **LOW** - Might be a problem. Needs human judgment.
-
-This means you can run `/deslop apply` and trust that it won't break things.
-
-### 2. Review Loops With Safeguards
-
-The Phase 9 review loop spawns parallel reviewer agents (code quality, security, performance, test coverage) plus conditional specialists, iterating until no open issues remain. It runs deslop-work after each iteration to catch any AI artifacts.
-
-### 3. Workflow Enforcement
-
-A SubagentStop hook prevents agents from skipping phases. You can't push to remote before `/ship` is invoked. You can't skip the review loop. The workflow literally enforces the quality gates.
-
-### 4. Resume From Any Point
-
-State is tracked in two files:
-- `tasks.json` - Which task you're working on (in your main repo)
-- `flow.json` - Which phase you're in (in your worktree)
-
-If your session dies, `/next-task --resume` picks up exactly where you left off.
-
-### 5. Token Efficiency
-
-- Compact output modes reduce tokens by 60-70%
-- `/drift-detect` uses JavaScript collectors + a single LLM call (77% reduction vs multi-agent approaches)
-- Pre-indexed pattern maps give O(1) lookups instead of scanning
-
-### 6. Cross-Platform
-
-Same workflows work on Claude Code, OpenCode, and Codex CLI. State directories adapt automatically (`.claude/`, `.opencode/`, `.codex/`).
-
----
-
-## Design Philosophy
-
-<details>
-<summary><strong>Why build this? What's the thinking?</strong> (click to expand)</summary>
-
-### The Actual Problem
-
-Frontier models write good code. That's solved. What's not solved:
-
-- **Context management** - Models forget what they're doing mid-session
-- **Compaction amnesia** - Long sessions get summarized, losing critical state
-- **Task drift** - Without structure, agents wander from the actual goal
-- **Skipped steps** - Agents skip reviews, tests, or cleanup when not enforced
-- **Token waste** - Using LLM calls for work that static analysis can do faster
-- **Babysitting** - Manually orchestrating each phase of development
-- **Repetitive requests** - Asking for the same workflow every single session
-
-### How This Addresses It
-
-**1. One agent, one job, done extremely well**
-
-Same principle as good code: single responsibility. The exploration-agent explores. The implementation-agent implements. Phase 9 spawns multiple focused reviewers. No agent tries to do everything. 28 specialized agents, each with narrow scope and clear success criteria.
-
-**2. Pipeline with gates, not a monolith**
-
-Same principle as DevOps. Each step must pass before the next begins. Can't push before review. Can't merge before CI passes. Hooks enforce this—agents literally cannot skip phases.
-
-**3. Tools do tool work, agents do agent work**
-
-If static analysis, regex, or a shell command can do it, don't ask an LLM. Pattern detection uses pre-indexed regex. File discovery uses glob. Platform detection uses file existence checks. The LLM only handles what requires judgment. Finding console.log statements? Code does it better and faster.
-
-**4. Agents don't need to know how tools work**
-
-The slop detector returns findings with certainty levels. The agent doesn't need to understand the three-phase pipeline, the regex patterns, or the analyzer heuristics. Good tool design means the consumer doesn't need implementation details.
-
-**5. Build tools where tools don't exist**
-
-Many tasks lack existing tools. JavaScript collectors for drift-detect. Multi-pass analyzers for slop detection. The result: agents receive structured data, not raw problems to figure out.
-
-**6. Research-backed prompt engineering**
-
-Documented techniques that measurably improve results:
-- **Progressive disclosure** - Agents see only what's needed for the current step
-- **Structured output** - JSON between delimiters, XML tags for sections
-- **Explicit constraints** - What agents MUST NOT do matters as much as what they do
-- **Few-shot examples** - Where patterns aren't obvious
-- **Tool calling over generation** - Let the model use tools rather than generate tool-like output
-
-**7. Validate plan and results, not every step**
-
-Approve the plan. See the results. The middle is automated. One plan approval unlocks autonomous execution through implementation, review, cleanup, and shipping.
-
-**8. Right model for the task**
-
-opus for everything wastes money. haiku for everything produces poor results. Match model capability to task complexity:
-- **opus** - Exploration, planning, implementation, review orchestration
-- **sonnet** - Pattern matching, validation, discovery
-- **haiku** - Git operations, file moves, CI polling
-
-Quality compounds. Poor exploration → poor plan → poor implementation → review cycles. Early phases deserve the best model.
-
-**9. Persistent state survives sessions**
-
-Two JSON files track everything: what task, what phase. Sessions can die and resume. Multiple sessions run in parallel on different tasks using separate worktrees. State files prevent collisions.
-
-**10. Delegate everything automatable**
-
-Agents don't just write code. They:
-- Clean their own output (deslop-work)
-- Update documentation (docs-updater)
-- Fix CI failures (ci-fixer)
-- Respond to review comments
-- Check for plan drift (drift-detect)
-- Analyze their own prompts (/enhance)
-
-If it can be specified, it can be delegated.
-
-**11. Orchestrator stays high-level**
-
-The main workflow orchestrator doesn't read files, search code, or write implementations. It launches specialized agents and receives their outputs. Keeps the orchestrator's context window available for coordination rather than filled with file contents.
-
-**12. Leverage existing platforms**
-
-Claude Code, OpenCode, and Codex CLI have excellent built-in tooling. Read, Write, Edit, Glob, Grep, Bash, Task. The platforms handle file operations, terminal access, sub-agent coordination. This project adds workflow logic on top.
-
-**13. Composable, not monolithic**
-
-Every command works standalone. `/deslop` cleans code without needing `/next-task`. `/ship` merges PRs without needing the full workflow. Pieces compose together, but each piece is useful on its own.
-
-### What This Gets You
-
-- **Run multiple sessions** - Different tasks in different worktrees, no interference
-- **Fast iteration** - Approve plan, check results, repeat
-- **Stay in the interesting parts** - Policy decisions, architecture choices, edge cases
-- **Minimal review burden** - Most issues caught and fixed before you see the output
-- **No repetitive requests** - The workflow you want, without asking each time
-- **Scale horizontally** - More sessions, more tasks, same oversight level
-
-### The Bet
-
-With proper workflow structure, context management, and quality gates, AI agents can handle the complete development cycle autonomously—from task selection through merged PR. The limiting factor isn't model capability. It's orchestration.
-
-</details>
 
 ---
 
@@ -217,10 +103,10 @@ With proper workflow structure, context management, and quality gates, AI agents
 
 **What happens when you run it:**
 
-1. **Policy Selection** - You choose task source (GitHub issues, GitLab, local file), priority filter, and stopping point
+1. **Policy Selection** - Choose task source (GitHub issues, GitLab, local file), priority filter, stopping point
 2. **Task Discovery** - Shows top 5 prioritized tasks, you pick one
 3. **Worktree Setup** - Creates isolated branch and working directory
-4. **Exploration** - Analyzes codebase to understand context
+4. **Exploration** - Deep codebase analysis to understand context
 5. **Planning** - Designs implementation approach
 6. **User Approval** - You review and approve the plan (last human interaction)
 7. **Implementation** - Executes the plan
@@ -230,7 +116,7 @@ With proper workflow structure, context management, and quality gates, AI agents
 11. **Docs Update** - Updates CHANGELOG and related documentation
 12. **Ship** - Creates PR, monitors CI, addresses comments, merges
 
-Phase 9 uses the `orchestrate-review` skill to define review passes and signal thresholds.
+Phase 9 uses the `orchestrate-review` skill to spawn parallel reviewers (code quality, security, performance, test coverage) plus conditional specialists.
 
 **Agents involved:**
 
@@ -348,11 +234,95 @@ Three phases run in sequence:
 
 **Thoroughness levels:**
 
-- `quick` - Phase 1 only
+- `quick` - Phase 1 only (fastest)
 - `normal` - Phase 1 + Phase 2 (default)
 - `deep` - All phases if tools available
 
 [Pattern reference →](./docs/reference/SLOP-PATTERNS.md)
+
+---
+
+### /perf
+
+**Purpose:** Structured performance investigation with baselines, profiling, and evidence-backed decisions.
+
+**10-phase methodology** (based on recorded real performance investigation sessions):
+
+1. **Setup** - Confirm scenario, success criteria, benchmark command
+2. **Baseline** - 60s minimum runs, PERF_METRICS markers required
+3. **Breaking Point** - Binary search to find failure threshold
+4. **Constraints** - CPU/memory limits, measure delta vs baseline
+5. **Hypotheses** - Generate up to 5 hypotheses with evidence and confidence
+6. **Code Paths** - Use repo-map to identify entrypoints and hot files
+7. **Profiling** - Language-specific tools (--cpu-prof, JFR, cProfile, pprof)
+8. **Optimization** - One change per experiment, 2+ validation passes
+9. **Decision** - Continue or stop based on measurable improvement
+10. **Consolidation** - Final baseline, evidence log, investigation complete
+
+**Agents and skills:**
+
+| Component | Role |
+|-----------|------|
+| perf-orchestrator | Coordinates all phases |
+| perf-theory-gatherer | Generates hypotheses from git history and code |
+| perf-theory-tester | Validates hypotheses with controlled experiments |
+| perf-analyzer | Synthesizes findings into recommendations |
+| perf-code-paths | Maps entrypoints and likely hot paths |
+| perf-investigation-logger | Structured evidence logging |
+
+**Usage:**
+
+```bash
+/perf                 # Start new investigation
+/perf --resume        # Resume previous investigation
+```
+
+**Phase flags (advanced):**
+
+```bash
+/perf --phase baseline --command "npm run bench" --version v1.2.0
+/perf --phase breaking-point --param-min 1 --param-max 500
+/perf --phase constraints --cpu 1 --memory 1GB
+/perf --phase hypotheses --hypotheses-file perf-hypotheses.json
+/perf --phase optimization --change "reduce allocations"
+/perf --phase decision --verdict stop --rationale "no measurable improvement"
+```
+
+---
+
+### /drift-detect
+
+**Purpose:** Compares your documentation and plans to what's actually in the code.
+
+**The problem it solves:**
+
+Your roadmap says "user authentication: done." But is it actually implemented? Your GitHub issue says "add dark mode." Is it already in the codebase? Plans drift from reality. This command finds the drift.
+
+**How it works:**
+
+1. **JavaScript collectors** gather data (fast, token-efficient)
+   - GitHub issues and their labels
+   - Documentation files
+   - Actual code exports and implementations
+
+2. **Single Opus call** performs semantic analysis
+   - Matches concepts, not strings ("user auth" matches `auth/`, `login.js`, `session.ts`)
+   - Identifies implemented but not documented
+   - Identifies documented but not implemented
+   - Finds stale issues that should be closed
+
+**Why this approach:**
+
+Multi-agent collection wastes tokens on coordination. JavaScript collectors are fast and deterministic. One well-prompted LLM call does the actual analysis. Result: 77% token reduction vs multi-agent approaches.
+
+**Tested on 1,000+ repositories** before release.
+
+**Usage:**
+
+```bash
+/drift-detect              # Full analysis
+/drift-detect --depth quick  # Quick scan
+```
 
 ---
 
@@ -362,7 +332,7 @@ Three phases run in sequence:
 
 **What happens when you run it:**
 
-Up to 10 specialized role-based agents run based on your project: <!-- AGENT_COUNT_ROLE_BASED: 10 -->
+Up to 10 specialized role-based agents run based on your project:
 
 | Agent | When Active | Focus Area |
 |-------|-------------|------------|
@@ -390,67 +360,6 @@ Findings are collected and categorized by severity (critical/high/medium/low). A
 ```
 
 [Agent reference →](./docs/reference/AGENTS.md#audit-project-plugin-agents)
-
----
-
-### /drift-detect
-
-**Purpose:** Compares your documentation and plans to what's actually in the code.
-
-**The problem it solves:**
-
-Your roadmap says "user authentication: done." But is it actually implemented? Your GitHub issue says "add dark mode." Is it already in the codebase? Plans drift from reality. This command finds the drift.
-
-**How it works:**
-
-1. **JavaScript collectors** gather data (fast, token-efficient)
-   - GitHub issues and their labels
-   - Documentation files
-   - Actual code exports and implementations
-
-2. **Single Opus call** performs semantic analysis
-   - Matches concepts, not strings ("user auth" matches `auth/`, `login.js`, `session.ts`)
-   - Identifies implemented but not documented
-   - Identifies documented but not implemented
-   - Finds stale issues that should be closed
-
-**Why this approach:**
-
-Multi-agent collection wastes tokens on coordination. JavaScript collectors are fast and deterministic. One well-prompted LLM call does the actual analysis. Result: 77% token reduction.
-
-**Usage:**
-
-```bash
-/drift-detect              # Full analysis
-/drift-detect --depth quick  # Quick scan
-```
-
----
-
-### /repo-map
-
-**Purpose:** Builds an AST-based map of symbols and imports for fast repo analysis.
-
-**What it generates:**
-
-- Cached file→symbols map (exports, functions, classes)
-- Import graph for dependency hints
-
-Output is cached at `{state-dir}/repo-map.json` and exposed via the MCP `repo_map` tool.
-
-**Why it matters:**
-
-Tools like `/drift-detect` and planners can use the map instead of re-scanning the repo every time.
-
-**Usage:**
-
-```bash
-/repo-map init        # First-time map generation
-/repo-map update      # Incremental update
-/repo-map status      # Check freshness
-```
-
-**Recommended:** Install ast-grep (`sg`) before using `/repo-map` for fastest setup. It is required for repo-map generation.
 
 ---
 
@@ -487,29 +396,30 @@ Tools like `/drift-detect` and planners can use the map instead of re-scanning t
 
 ---
 
-### /perf
+### /repo-map
 
-**Purpose:** Run structured performance investigations with baselines, profiling, and evidence‑backed decisions.
+**Purpose:** Builds an AST-based map of symbols and imports for fast repo analysis.
+
+**What it generates:**
+
+- Cached file→symbols map (exports, functions, classes)
+- Import graph for dependency hints
+
+Output is cached at `{state-dir}/repo-map.json` and exposed via the MCP `repo_map` tool.
+
+**Why it matters:**
+
+Tools like `/drift-detect` and planners can use the map instead of re-scanning the repo every time.
 
 **Usage:**
 
 ```bash
-/perf                 # Start new investigation
-/perf --resume        # Resume previous investigation
+/repo-map init        # First-time map generation
+/repo-map update      # Incremental update
+/repo-map status      # Check freshness
 ```
 
-**Phase flags (advanced):**
-
-```bash
-/perf --phase baseline --command "npm run bench" --version v1.2.0
-/perf --phase breaking-point --command "npm run bench" --param-min 1 --param-max 500
-/perf --phase constraints --command "npm run bench" --cpu 1 --memory 1GB
-/perf --phase hypotheses --hypotheses-file perf-hypotheses.json
-/perf --phase code-paths
-/perf --phase optimization --change "reduce allocations"
-/perf --phase decision --verdict stop --rationale "no measurable improvement"
-/perf --phase consolidation --version v1.2.0
-```
+**Required:** ast-grep (`sg`) must be installed.
 
 ---
 
@@ -520,14 +430,6 @@ Tools like `/drift-detect` and planners can use the map instead of re-scanning t
 **The problem it solves:**
 
 You refactor `auth.js` into `auth/index.js`. Your README still says `import from './auth'`. You rename a function. Three docs still reference the old name. You ship a feature. CHANGELOG doesn't mention it. Documentation drifts from code. This command finds the drift.
-
-**What happens when you run it:**
-
-1. **Get Changed Files** - Finds files changed since last commit to main (or use `--all` for full scan)
-2. **Find Related Docs** - Searches docs that reference changed files (imports, filenames, paths)
-3. **Analyze Issues** - Checks for outdated imports, removed exports, version mismatches
-4. **Check CHANGELOG** - Identifies commits that may need CHANGELOG entries
-5. **Report/Apply** - Shows findings (report mode) or fixes safe issues (apply mode)
 
 **What it detects:**
 
@@ -555,12 +457,6 @@ You refactor `auth.js` into `auth/index.js`. Your README still says `import from
 /sync-docs --all        # Full codebase scan
 ```
 
-**Scope options:**
-
-- `--recent` (default) - Files changed since last commit to main
-- `--all` - Scan all docs against all code
-- `path` - Specific file or directory
-
 ---
 
 ## How Commands Work Together
@@ -568,9 +464,10 @@ You refactor `auth.js` into `auth/index.js`. Your README still says `import from
 **Standalone use:**
 
 ```bash
-/deslop apply       # Just clean up your code
-/sync-docs        # Just check if docs need updates
-/ship                      # Just ship this branch
+/deslop apply          # Just clean up your code
+/sync-docs             # Just check if docs need updates
+/ship                  # Just ship this branch
+/audit-project         # Just review the codebase
 ```
 
 **Integrated workflow:**
@@ -594,6 +491,104 @@ docs-updater syncs documentation
 ```
 
 The workflow tracks state so you can resume from any point.
+
+---
+
+## Design Philosophy
+
+<details>
+<summary><strong>Why build this? What's the thinking?</strong> (click to expand)</summary>
+
+### The Actual Problem
+
+Frontier models write good code. That's solved. What's not solved:
+
+- **Context management** - Models forget what they're doing mid-session
+- **Compaction amnesia** - Long sessions get summarized, losing critical state
+- **Task drift** - Without structure, agents wander from the actual goal
+- **Skipped steps** - Agents skip reviews, tests, or cleanup when not enforced
+- **Token waste** - Using LLM calls for work that static analysis can do faster
+- **Babysitting** - Manually orchestrating each phase of development
+- **Repetitive requests** - Asking for the same workflow every single session
+
+### How This Addresses It
+
+**1. One agent, one job, done extremely well**
+
+Same principle as good code: single responsibility. The exploration-agent explores. The implementation-agent implements. Phase 9 spawns multiple focused reviewers. No agent tries to do everything. 29 specialized agents, each with narrow scope and clear success criteria.
+
+**2. Pipeline with gates, not a monolith**
+
+Same principle as DevOps. Each step must pass before the next begins. Can't push before review. Can't merge before CI passes. Hooks enforce this—agents literally cannot skip phases.
+
+**3. Tools do tool work, agents do agent work**
+
+If static analysis, regex, or a shell command can do it, don't ask an LLM. Pattern detection uses pre-indexed regex. File discovery uses glob. Platform detection uses file existence checks. The LLM only handles what requires judgment.
+
+**4. Agents don't need to know how tools work**
+
+The slop detector returns findings with certainty levels. The agent doesn't need to understand the three-phase pipeline, the regex patterns, or the analyzer heuristics. Good tool design means the consumer doesn't need implementation details.
+
+**5. Build tools where tools don't exist**
+
+Many tasks lack existing tools. JavaScript collectors for drift-detect. Multi-pass analyzers for slop detection. The result: agents receive structured data, not raw problems to figure out.
+
+**6. Research-backed prompt engineering**
+
+Documented techniques that measurably improve results:
+- **Progressive disclosure** - Agents see only what's needed for the current step
+- **Structured output** - JSON between delimiters, XML tags for sections
+- **Explicit constraints** - What agents MUST NOT do matters as much as what they do
+- **Few-shot examples** - Where patterns aren't obvious
+- **Tool calling over generation** - Let the model use tools rather than generate tool-like output
+
+**7. Validate plan and results, not every step**
+
+Approve the plan. See the results. The middle is automated. One plan approval unlocks autonomous execution through implementation, review, cleanup, and shipping.
+
+**8. Right model for the task**
+
+Match model capability to task complexity:
+- **opus** - Exploration, planning, implementation, review orchestration
+- **sonnet** - Pattern matching, validation, discovery
+- **haiku** - Git operations, file moves, CI polling
+
+Quality compounds. Poor exploration → poor plan → poor implementation → review cycles. Early phases deserve the best model.
+
+**9. Persistent state survives sessions**
+
+Two JSON files track everything: what task, what phase. Sessions can die and resume. Multiple sessions run in parallel on different tasks using separate worktrees.
+
+**10. Delegate everything automatable**
+
+Agents don't just write code. They:
+- Clean their own output (deslop-work)
+- Update documentation (docs-updater)
+- Fix CI failures (ci-fixer)
+- Respond to review comments
+- Check for plan drift (drift-detect)
+- Analyze their own prompts (/enhance)
+
+If it can be specified, it can be delegated.
+
+**11. Orchestrator stays high-level**
+
+The main workflow orchestrator doesn't read files, search code, or write implementations. It launches specialized agents and receives their outputs. Keeps the orchestrator's context window available for coordination rather than filled with file contents.
+
+**12. Composable, not monolithic**
+
+Every command works standalone. `/deslop` cleans code without needing `/next-task`. `/ship` merges PRs without needing the full workflow. Pieces compose together, but each piece is useful on its own.
+
+### What This Gets You
+
+- **Run multiple sessions** - Different tasks in different worktrees, no interference
+- **Fast iteration** - Approve plan, check results, repeat
+- **Stay in the interesting parts** - Policy decisions, architecture choices, edge cases
+- **Minimal review burden** - Most issues caught and fixed before you see the output
+- **No repetitive requests** - The workflow you want, without asking each time
+- **Scale horizontally** - More sessions, more tasks, same oversight level
+
+</details>
 
 ---
 
@@ -631,14 +626,39 @@ Interactive installer for Claude Code, OpenCode, and Codex CLI.
 **For GitLab workflows:**
 - GitLab CLI (`glab`) authenticated
 
-**Recommended for repo-map:**
-- ast-grep (`sg`) installed (required for `/repo-map` generation)
+**For /repo-map:**
+- ast-grep (`sg`) installed
 
 **Local diagnostics (optional):**
 ```bash
 npm run detect   # Platform detection (CI, deploy, project type)
 npm run verify   # Tool availability + versions
 ```
+
+---
+
+## Research & Testing
+
+This project is built on research, not guesswork.
+
+**Knowledge base** (`agent-docs/`): 9,500 lines of curated documentation from Anthropic, OpenAI, Google, and Microsoft covering:
+- Agent architecture and design patterns
+- Prompt engineering techniques
+- Function calling and tool use
+- Context efficiency and token optimization
+- Multi-agent systems and orchestration
+- Instruction following reliability
+
+**Testing:**
+- 1,348 tests passing
+- Drift-detect validated on 1,000+ repositories
+- E2E workflow testing across all commands
+- Cross-platform validation (Claude Code, OpenCode, Codex CLI)
+
+**Methodology:**
+- `/perf` investigation phases based on recorded real performance investigation sessions
+- Certainty levels derived from pattern analysis across repositories
+- Token optimization measured and validated (77% reduction in drift-detect)
 
 ---
 
