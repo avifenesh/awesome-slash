@@ -320,4 +320,46 @@ describe('Orchestrator Reporter', () => {
       expect(result.length).toBe(1);
     });
   });
+
+  describe('Auto-Learning Integration', () => {
+    it('should include auto-learned suppressions section when provided', () => {
+      const results = {
+        findings: [],
+        byEnhancer: {},
+        totals: { high: 0, medium: 0, low: 0 }
+      };
+
+      const options = {
+        autoLearned: [
+          { patternId: 'vague_instructions', file: 'a.md', confidence: 0.95, reason: 'Pattern docs' },
+          { patternId: 'vague_instructions', file: 'b.md', confidence: 0.92, reason: 'Pattern docs' },
+          { patternId: 'aggressive_emphasis', file: 'c.md', confidence: 0.93, reason: 'Workflow gates' }
+        ]
+      };
+
+      const report = reporter.generateOrchestratorReport(results, options);
+
+      expect(report).toContain('Auto-Learned Suppressions');
+      expect(report).toContain('Learned 3 new false positives');
+      expect(report).toContain('vague_instructions');
+      expect(report).toContain('2 file(s)');
+    });
+
+    it('should omit auto-learned section when none provided', () => {
+      const results = {
+        findings: [],
+        byEnhancer: {},
+        totals: { high: 0, medium: 0, low: 0 }
+      };
+
+      const report = reporter.generateOrchestratorReport(results, { autoLearned: [] });
+
+      expect(report).not.toContain('Auto-Learned Suppressions');
+    });
+
+    it('should handle null aggregatedResults gracefully', () => {
+      const report = reporter.generateOrchestratorReport(null, {});
+      expect(report).toContain('Enhancement Analysis Report');
+    });
+  });
 });

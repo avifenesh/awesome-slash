@@ -1075,7 +1075,7 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
   lines.push('');
   lines.push(`**Target**: ${targetPath}`);
   lines.push(`**Analyzed**: ${new Date().toISOString()}`);
-  lines.push(`**Enhancers Run**: ${Object.keys(aggregatedResults.byEnhancer || {}).join(', ') || 'none'}`);
+  lines.push(`**Enhancers Run**: ${Object.keys(aggregatedResults?.byEnhancer || {}).join(', ') || 'none'}`);
   lines.push('');
 
   // Deduplicate findings - ensure array input
@@ -1112,6 +1112,29 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
 
   lines.push(`| **Total** | **${totalHigh}** | **${totalMedium}** | **${totalLow}** | **${totalAutoFix}** |`);
   lines.push('');
+
+  // Auto-Learned Suppressions Section (before "Clean" status)
+  if (options.autoLearned && options.autoLearned.length > 0) {
+    lines.push('## Auto-Learned Suppressions');
+    lines.push('');
+    lines.push(`Learned ${options.autoLearned.length} new false positives:`);
+    lines.push('');
+
+    // Group by pattern
+    const byPattern = {};
+    options.autoLearned.forEach(s => {
+      if (!byPattern[s.patternId]) {
+        byPattern[s.patternId] = [];
+      }
+      byPattern[s.patternId].push(s);
+    });
+
+    for (const [patternId, items] of Object.entries(byPattern)) {
+      const maxConf = Math.max(...items.map(i => i.confidence || 0));
+      lines.push(`- **${patternId}**: ${items.length} file(s) (confidence: ${(maxConf * 100).toFixed(0)}%)`);
+    }
+    lines.push('');
+  }
 
   // No issues case
   if (dedupedFindings.length === 0) {
@@ -1228,42 +1251,6 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
     lines.push(`| **Total** | | **${autoFixableCount}** |`);
     lines.push('');
     lines.push('Run `/enhance --apply` to fix these automatically.');
-    lines.push('');
-  }
-
-  // Auto-Learning Summary (if enabled and suppressions learned)
-  if (options.autoLearned && options.autoLearned.length > 0) {
-    lines.push('## Auto-Learned Suppressions');
-    lines.push('');
-    lines.push(`Learned ${options.autoLearned.length} new false positives:`);
-    lines.push('');
-
-    // Group by pattern
-    const byPattern = {};
-    for (const s of options.autoLearned) {
-      const patternId = s.patternId || s.id || 'unknown';
-      if (!byPattern[patternId]) {
-        byPattern[patternId] = { count: 0, files: [], confidence: 0 };
-      }
-      byPattern[patternId].count++;
-      if (s.file && !byPattern[patternId].files.includes(s.file)) {
-        byPattern[patternId].files.push(s.file);
-      }
-      if (s.confidence > byPattern[patternId].confidence) {
-        byPattern[patternId].confidence = s.confidence;
-      }
-    }
-
-    lines.push('| Pattern | Files | Confidence |');
-    lines.push('|---------|-------|------------|');
-    for (const [patternId, data] of Object.entries(byPattern)) {
-      const fileCount = data.files.length;
-      const confidenceStr = `${(data.confidence * 100).toFixed(0)}%`;
-      lines.push(`| ${patternId} | ${fileCount} file(s) | ${confidenceStr} |`);
-    }
-    lines.push('');
-    lines.push('*These findings will be auto-suppressed in future runs.*');
-    lines.push('*Use `--show-suppressed` to see what was filtered.*');
     lines.push('');
   }
 
