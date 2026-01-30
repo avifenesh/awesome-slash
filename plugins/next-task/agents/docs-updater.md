@@ -68,7 +68,7 @@ After docs update completes:
 ```javascript
 await Task({
   subagent_type: "ship:ship",
-  prompt: "Execute ship workflow for completed task. State file: .claude/flow.json"
+  prompt: "Execute ship workflow for completed task. State file: ${STATE_DIR}/flow.json"
 });
 ```
 

@@ -72,7 +72,7 @@ Each command works standalone. Together, they form complete workflows.
 |----------|--------|
 | **Performance** | `perf:analyzer`, `perf:baseline`, `perf:benchmark`, `perf:code-paths`, `perf:investigation-logger`, `perf:profile`, `perf:theory`, `perf:theory-tester` |
 | **Enhancement** | `enhance:agent-prompts`, `enhance:claude-memory`, `enhance:docs`, `enhance:hooks`, `enhance:orchestrator`, `enhance:plugins`, `enhance:prompts`, `enhance:reporter`, `enhance:skills` |
-| **Workflow** | `next-task:orchestrate-review`, `next-task:discover-tasks`, `next-task:delivery-approval`, `next-task:update-docs-around` |
+| **Workflow** | `next-task:orchestrate-review`, `next-task:discover-tasks`, `next-task:validate-delivery`, `next-task:update-docs` |
 | **Analysis** | `drift-detect:drift-analysis`, `repo-map:repo-mapping` |
 
 Skills give your agents specialized capabilities. When you install a plugin, its skills become available to all agents in that session.
