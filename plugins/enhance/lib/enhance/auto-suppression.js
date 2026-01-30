@@ -290,7 +290,7 @@ function isPatternDocumentation(filePath, content, patternId) {
 function getProjectId(projectRoot = process.cwd()) {
   try {
     // Try to get git remote
-    const remote = execSync('git remote get-url origin 2>/dev/null', {
+    const remote = execSync('git remote get-url origin', {
       cwd: projectRoot,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']

@@ -1079,7 +1079,7 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
   lines.push('');
 
   // Deduplicate findings - ensure array input
-  const rawFindings = Array.isArray(aggregatedResults.findings) ? aggregatedResults.findings : [];
+  const rawFindings = Array.isArray(aggregatedResults?.findings) ? aggregatedResults.findings : [];
   const dedupedFindings = deduplicateOrchestratorFindings(rawFindings);
 
   // Count auto-fixable
