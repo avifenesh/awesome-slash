@@ -13,7 +13,7 @@ Analyze skill definitions for trigger quality, structure, and discoverability.
 
 1. **Discover** - Find all SKILL.md files
 2. **Parse** - Extract frontmatter and content
-3. **Check** - Run all pattern checks (21 patterns)
+3. **Check** - Run all pattern checks (24 patterns)
 4. **Filter** - Apply certainty filtering
 5. **Report** - Generate markdown output
 6. **Fix** - Apply auto-fixes if --fix flag present
@@ -31,6 +31,7 @@ Analyze skill definitions for trigger quality, structure, and discoverability.
 - `version` field for tracking
 - `argument-hint` for user guidance
 - `allowed-tools` for security
+- `model` field when skill requires specific model (opus, sonnet, haiku)
 
 ### 2. Trigger Quality (HIGH Certainty)
 
@@ -73,6 +74,22 @@ description: "Useful tool"   # Too vague
 - SKILL.md should be under 500 lines
 - Large content should move to `references/` subdirectory
 
+#### Directory Structure
+```
+skills/my-skill/
+├── SKILL.md           # Core definition (under 500 lines)
+├── references/        # Extended documentation
+│   ├── patterns.md    # Detailed patterns
+│   └── examples.md    # Additional examples
+└── scripts/           # Helper scripts (optional)
+```
+
+#### Dynamic Injections
+Skills can inject dynamic content using backtick syntax:
+- `!`\`command\`` - Inject command output into skill
+- Limit to 3 injections per skill
+- Each injection adds to context budget
+
 #### Flag Issues
 - SKILL.md over 500 lines
 - More than 3 dynamic injections
@@ -93,6 +110,12 @@ description: "Useful tool"   # Too vague
 | `context: fork` | Isolated context for verbose work |
 | `agent: Explore` | Read-only exploration |
 | `agent: Plan` | Planning-focused reasoning |
+| `agent: general-purpose` | Full tool access for complex tasks |
+
+#### Context Budget
+- Skill descriptions have ~15,000 character limit
+- Content beyond limit is truncated
+- Use `references/` subdirectory for large content
 
 ### 8. Anti-Patterns (LOW Certainty)
 
@@ -148,15 +171,15 @@ Replace `Bash` with `Bash(git:*)` or appropriate scope
 
 | Category | Patterns | Auto-Fixable |
 |----------|----------|--------------|
-| Frontmatter | 4 | 2 |
+| Frontmatter | 5 | 2 |
 | Trigger | 2 | 1 |
 | Invocation | 3 | 1 |
 | Tool | 2 | 1 |
-| Scope | 2 | 0 |
+| Scope | 3 | 0 |
 | Structure | 2 | 0 |
-| Context | 3 | 0 |
+| Context | 4 | 0 |
 | Anti-Pattern | 3 | 0 |
-| **Total** | **21** | **5** |
+| **Total** | **24** | **5** |
 
 <examples>
 ### Example: Missing Trigger Phrase
