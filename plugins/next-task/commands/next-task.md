@@ -8,44 +8,83 @@ allowed-tools: Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(node:*), Read, Write, 
 
 Discover what to work on next and execute the complete implementation workflow.
 
+---
+
+<no-shortcuts-policy>
+## No Shortcuts Policy
+
+This workflow exists because each step serves a purpose. Taking shortcuts defeats the purpose of automation.
+
+| Step | Purpose | What Happens If Skipped |
+|------|---------|------------------------|
+| Worktree creation | Parallel task isolation | Conflicts, lost work |
+| Review loop (3 iterations) | Catches bugs humans miss | Bugs ship to production |
+| 3-minute CI wait | Auto-reviewers need time | Miss critical feedback |
+| Address all PR comments | Quality gate | Merge blocked, trust lost |
+
+### Enforcement Rules
+
+1. Every step is mandatory - not suggestions, not guidelines, requirements
+2. Use the specified agents - do not substitute with manual commands
+3. Output verification blocks - prove each step completed
+4. If you think a step is unnecessary, you are wrong
+
+### Forbidden Actions
+
+- Using `git checkout -b` instead of `worktree-manager` agent
+- Skipping review loop iterations
+- Checking CI once and moving to merge
+- Skipping the 3-minute wait for auto-reviewers
+- Leaving PR comments unaddressed
+- Rationalizing shortcuts ("it's faster", "not needed this time")
+</no-shortcuts-policy>
+
+---
+
 ## Workflow Overview
 
-```
-Policy Selection → Task Discovery → Worktree Setup → Exploration → Planning
-       ↓                                                              ↓
-   (User input)                                              (User approval)
-                                                                      ↓
-                    ← ← ← AUTONOMOUS FROM HERE → → →
-                                                                      ↓
-Implementation → Pre-Review Gates → Review Loop → Delivery Validation
-                                                                      ↓
-                                                        Docs Update → /ship
-```
+**Phases 1-6 (User Interaction):**
+1. Policy Selection
+2. Task Discovery
+3. Worktree Setup
+4. Exploration
+5. Planning
+6. User Approval
+
+**Phases 7-12 (Autonomous):**
+7. Implementation
+8. Pre-Review Gates
+9. Review Loop
+10. Delivery Validation
+11. Docs Update
+12. /ship
 
 **Human interaction points (ONLY THESE):**
 1. Policy selection via checkboxes
 2. Task selection from ranked list
 3. Plan approval (EnterPlanMode/ExitPlanMode)
 
-## [CRITICAL] Workflow Gates
+<workflow-gates>
+## Workflow Gates
 
-Each phase MUST complete before the next starts:
+Each phase must complete before the next starts:
 
 | Gate | Requirement |
 |------|-------------|
 | Implementation | Agent completes all plan steps |
 | Pre-Review | deslop-work + test-coverage-checker (parallel) |
-| Review Loop | MUST approve (no open issues or override) |
+| Review Loop | Must approve (no open issues or override) |
 | Delivery | Tests pass, build passes |
 | Docs | Documentation updated |
-| Ship | EXPLICIT /ship invocation (not hook-only) |
+| Ship | Explicit /ship invocation (not hook-only) |
 
 **Forbidden actions for agents:**
-- NO agent may create PRs (only /ship)
-- NO agent may push to remote (only /ship)
-- NO agent may skip Phase 9 review loop
-- NO agent may skip delivery-validator
-- NO agent may skip docs-updater
+- No agent may create PRs (only /ship)
+- No agent may push to remote (only /ship)
+- No agent may skip Phase 9 review loop
+- No agent may skip delivery-validator
+- No agent may skip docs-updater
+</workflow-gates>
 
 ## Arguments
 
@@ -72,11 +111,13 @@ Parse from $ARGUMENTS:
 3. If existing tasks found, **ASKS USER** what to do
 4. Then continues with normal policy configuration
 
-**CRITICAL**: The workflow NEVER auto-resumes. It ALWAYS asks first.
+The workflow never auto-resumes. It always asks first.
 
-## [WARN] OpenCode Label Limit
+<opencode-constraint>
+## OpenCode Label Limit
 
-All AskUserQuestion option labels MUST be ≤30 characters. Put details in `description`, not `label`.
+All AskUserQuestion option labels must be ≤30 characters. Put details in `description`, not `label`.
+</opencode-constraint>
 
 ## State Management
 
@@ -143,7 +184,7 @@ workflowState.updateFlow({ policy, phase: 'task-discovery' });
 
 ## Phase 2: Task Discovery
 
-→ **Agent**: `next-task:task-discoverer` (sonnet)
+**Agent**: `next-task:task-discoverer` (sonnet)
 
 ```javascript
 workflowState.startPhase('task-discovery');
@@ -153,21 +194,39 @@ await Task({
 });
 ```
 
+<phase-3>
 ## Phase 3: Worktree Setup
 
-→ **Agent**: `next-task:worktree-manager` (haiku)
+**Blocking gate** - Cannot proceed to Phase 4 without completing this.
+
+Spawn: `next-task:worktree-manager` (haiku)
 
 ```javascript
 workflowState.startPhase('worktree-setup');
-await Task({
+
+// Required - use this agent, not manual git commands
+const worktreeResult = await Task({
   subagent_type: "next-task:worktree-manager",
   prompt: `Create worktree for task #${state.task.id}. Anchor pwd to worktree.`
 });
+
+// Verification - mandatory before proceeding
+if (!worktreeResult.worktreePath) {
+  throw new Error('[BLOCKED] Worktree creation failed - STOP');
+}
+console.log(`[VERIFIED] Worktree: ${worktreeResult.worktreePath}`);
 ```
+
+### Forbidden Actions for Phase 3
+- `git checkout -b <branch>` (use worktree-manager agent)
+- `git branch <branch>` (use worktree-manager agent)
+- Proceeding to Phase 4 without worktree verification output
+- Skipping worktree "because branching is faster"
+</phase-3>
 
 ## Phase 4: Exploration
 
-→ **Agent**: `next-task:exploration-agent` (opus)
+**Agent**: `next-task:exploration-agent` (opus)
 
 ```javascript
 workflowState.startPhase('exploration');
@@ -180,7 +239,7 @@ await Task({
 
 ## Phase 5: Planning
 
-→ **Agent**: `next-task:planning-agent` (opus)
+**Agent**: `next-task:planning-agent` (opus)
 
 ```javascript
 workflowState.startPhase('planning');
@@ -203,7 +262,7 @@ workflowState.completePhase({ planApproved: true, plan });
 
 ## Phase 7: Implementation
 
-→ **Agent**: `next-task:implementation-agent` (opus)
+**Agent**: `next-task:implementation-agent` (opus)
 
 ```javascript
 workflowState.startPhase('implementation');
@@ -227,28 +286,74 @@ await Promise.all([
 ]);
 ```
 
+<phase-9>
 ## Phase 9: Review Loop
 
-MANDATORY: Follow the `orchestrate-review` skill exactly.
+**Blocking gate** - Must run iterations before delivery validation.
+
+Follow the `orchestrate-review` skill exactly.
 
 ```javascript
 workflowState.startPhase('review-loop');
-// Implementation in: plugins/next-task/skills/orchestrate-review/SKILL.md
-// Contains: pass definitions, signal detection, iteration algorithm, stall detection
+
+// REQUIRED: Run the review loop with MINIMUM 1 iteration
+// Orchestrator may override after 3+ iterations if issues are non-blocking
+let iteration = 0;
+const MAX_ITERATIONS = 5;
+const MIN_ITERATIONS = 1;
+
+while (iteration < MAX_ITERATIONS) {
+  iteration++;
+  console.log(`[REVIEW] Iteration ${iteration}`);
+
+  // Run review passes (see orchestrate-review skill)
+  const findings = await runReviewPasses();
+
+  if (findings.openCount === 0) {
+    workflowState.updateFlow({
+      reviewResult: { approved: true, iterations: iteration }
+    });
+    break;
+  }
+
+  // Fix issues, commit, run deslop
+  await fixIssues(findings);
+
+  // After 3 iterations, orchestrator MAY override if only low/medium issues remain
+  if (iteration >= 3 && findings.bySeverity.critical.length === 0
+      && findings.bySeverity.high.length === 0) {
+    console.log('[ORCHESTRATOR] 3+ iterations with no critical/high issues');
+    console.log('[ORCHESTRATOR] May proceed with override');
+    workflowState.updateFlow({
+      reviewResult: { approved: true, iterations: iteration, orchestratorOverride: true }
+    });
+    break;
+  }
+}
+
+// VERIFICATION OUTPUT - MANDATORY
+console.log(`[VERIFIED] Review: ${iteration} iterations, approved: ${reviewResult.approved}`);
 ```
+
+### Review Iteration Rules
+- Must run at least 1 iteration (never 0)
+- Orchestrator may override after 3+ iterations if only medium/low issues remain
+- Do not skip directly to delivery validation
+- Do not claim "review passed" without running iterations
 
 ### Review Decision Gate
 
 If review exits with `blocked: true`:
-1. **Critical/high issues OR security/performance/architecture** → re-run review
-2. **Medium/low code-quality only** → may override if non-blocking
-3. **Unclear** → re-run review
+1. **Critical/high issues OR security/performance/architecture** -> re-run review
+2. **Medium/low code-quality only after 3+ iterations** -> may override
+3. **Unclear** -> re-run review
 
-Override via `workflowState.updateFlow({ reviewResult: { approved: true, override: true } })`.
+Override only via `workflowState.updateFlow({ reviewResult: { approved: true, orchestratorOverride: true, iterations: N } })`.
+</phase-9>
 
 ## Phase 10: Delivery Validation
 
-→ **Agent**: `next-task:delivery-validator` (sonnet)
+**Agent**: `next-task:delivery-validator` (sonnet)
 
 ```javascript
 workflowState.startPhase('delivery-validation');
@@ -264,7 +369,7 @@ if (!result.approved) {
 
 ## Phase 11: Docs Update
 
-→ **Agent**: `next-task:docs-updater` (sonnet)
+**Agent**: `next-task:docs-updater` (sonnet)
 
 ```javascript
 workflowState.startPhase('docs-update');
@@ -274,9 +379,10 @@ await Task({
 });
 ```
 
-## [CRITICAL] Handoff to /ship
+<ship-handoff>
+## Handoff to /ship
 
-After docs-updater completes, EXPLICITLY invoke /ship:
+After docs-updater completes, invoke /ship explicitly:
 
 ```javascript
 console.log(`Task #${state.task.id} passed all validation. Invoking /ship...`);
@@ -289,6 +395,7 @@ await Task({ subagent_type: "ship:ship", prompt: `Ship the task. State file: ${s
 - Monitor CI and review comments
 - Merge when approved
 - Cleanup worktree and tasks.json
+</ship-handoff>
 
 ## Error Handling
 

@@ -6,9 +6,39 @@ allowed-tools: Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(node:*), Read, Write, 
 
 # /ship - Complete PR Workflow
 
-End-to-end workflow: commit → PR → CI → review → merge → deploy → validate → production.
+End-to-end workflow: commit - PR - CI - review - merge - deploy - validate - production.
 
 Auto-adapts to your project's CI platform, deployment platform, and branch strategy.
+
+---
+
+<mandatory-steps>
+## Mandatory Steps - No Shortcuts
+
+Phase 4 (CI & Review Monitor Loop) is mandatory even when called from /next-task.
+
+| Step | Requirement | Why It Matters |
+|------|-------------|----------------|
+| 3-minute initial wait | Must wait after PR creation | Auto-reviewers need time to analyze |
+| Monitor loop iterations | Must run the full loop | Catches issues humans miss |
+| Address all comments | Zero unresolved threads | Quality gate, blocks merge otherwise |
+
+### Forbidden Actions
+- Checking CI once and proceeding to merge
+- Skipping the 3-minute initial wait for auto-reviewers
+- Ignoring "minor" or "nit" comments
+- Merging with unresolved comment threads
+- Rationalizing "no comments yet means ready to merge"
+
+### Required Verification Output
+
+Before proceeding to merge, output:
+```
+[VERIFIED] Phase 4: wait=180s, iterations=N, unresolved=0
+```
+</mandatory-steps>
+
+---
 
 ## Quick Reference
 
@@ -166,53 +196,83 @@ PR_NUMBER=$(echo $PR_URL | grep -oP '/pull/\K\d+')
 echo "[OK] Created PR #$PR_NUMBER: $PR_URL"
 ```
 
+<phase-4>
 ## Phase 4: CI & Review Monitor Loop
 
-**This is the most critical phase.** See `ship-ci-review-loop.md` for full details.
+**Blocking gate** - This phase is mandatory. Cannot proceed to merge without completing.
+
+See `ship-ci-review-loop.md` for full implementation details.
 
 ### Summary
 
-The monitor loop waits for:
-1. CI to pass
-2. ALL comments resolved (addressed or replied to)
-3. No "changes requested" reviews remain
+The monitor loop must:
+1. Wait for CI to pass
+2. Wait 3 minutes for auto-reviewers (mandatory on first iteration)
+3. Address all comments (zero unresolved threads)
+4. Iterate until clean
 
-```
+**Every comment must be addressed:**
+- Critical/High issues: Fix immediately
+- Medium/Minor issues: Fix (shows quality)
+- Questions: Answer with explanation
+- False positives: Reply explaining why, then resolve
 
-                    EVERY COMMENT MUST BE ADDRESSED
-
-  • Critical/High issues → Fix immediately
-  • Medium/Minor issues → Fix (shows quality)
-  • Questions → Answer with explanation
-  • False positives → Reply explaining why, then resolve
-  NEVER ignore a comment. NEVER leave comments unresolved.
-
-```
+Do not ignore comments. Do not leave comments unresolved.
+Do not skip the 3-minute wait. Do not check CI once and merge.
 
 ### Loop Structure
 
 ```bash
 MAX_ITERATIONS=10
-INITIAL_WAIT=${SHIP_INITIAL_WAIT:-180}  # 3 min for auto-reviews
+INITIAL_WAIT=180  # 3 minutes - do not reduce or skip
 
+iteration=0
 while [ $iteration -lt $MAX_ITERATIONS ]; do
-  # 1. Wait for CI
+  iteration=$((iteration + 1))
+  echo "[CI Monitor] Iteration $iteration"
+
+  # 1. Wait for CI to complete
   wait_for_ci || { fix_ci_failures; continue; }
 
-  # 2. First iteration: wait for auto-reviews
-  [ $iteration -eq 1 ] && sleep $INITIAL_WAIT
+  # 2. First iteration must wait for auto-reviews
+  if [ $iteration -eq 1 ]; then
+    echo "Waiting ${INITIAL_WAIT}s for auto-reviewers..."
+    sleep $INITIAL_WAIT
+    echo "[DONE] Initial wait complete"
+  fi
 
   # 3. Check feedback
   FEEDBACK=$(check_pr_feedback $PR_NUMBER)
   UNRESOLVED=$(echo "$FEEDBACK" | jq -r '.unresolvedThreads')
 
-  [ "$UNRESOLVED" -eq 0 ] && break  # Ready to merge!
+  echo "Unresolved threads: $UNRESOLVED"
 
-  # 4. Address all feedback (see ship-ci-review-loop.md)
-  # 5. Commit and push fixes
-  # 6. Sleep before next check
+  # 4. Exit only if zero unresolved
+  if [ "$UNRESOLVED" -eq 0 ]; then
+    echo "[OK] All comments resolved - ready to merge"
+    break
+  fi
+
+  # 5. Address all feedback (see ship-ci-review-loop.md)
+  address_all_feedback $PR_NUMBER
+
+  # 6. Commit and push fixes
+  commit_and_push_fixes "fix: address review feedback (iteration $iteration)"
+
+  # 7. Wait before next iteration
+  sleep 30
 done
+
+# Verification output - mandatory
+echo "[VERIFIED] Phase 4: wait=180s, iterations=$iteration, unresolved=0"
 ```
+
+### Forbidden Actions in Phase 4
+- `sleep 0` or removing the initial wait
+- Checking CI once without running the loop
+- Breaking out of loop with unresolved comments
+- Skipping to Phase 6 (merge) without verification output
+</phase-4>
 
 ## Phase 5: Review Loop (Standalone Only)
 
@@ -248,16 +308,17 @@ reviewPasses.map(pass => Task({
 
 Iterate until no open (non-false-positive) issues remain (max 3 iterations if running standalone).
 
+<phase-6>
 ## Phase 6: Merge PR
 
-**MANDATORY PRE-MERGE CHECKS** - Do NOT skip these:
+Pre-merge checks (do not skip):
 
 ```bash
 # 1. Verify mergeable status
 MERGEABLE=$(gh pr view $PR_NUMBER --json mergeable --jq '.mergeable')
 [ "$MERGEABLE" != "MERGEABLE" ] && { echo "[ERROR] PR not mergeable"; exit 1; }
 
-# 2. MANDATORY: Verify ALL comments resolved (zero unresolved threads)
+# 2. Verify all comments resolved (zero unresolved threads)
 # Use separate gh calls for cleaner extraction (avoids cut parsing issues)
 OWNER=$(gh repo view --json owner --jq '.owner.login')
 REPO=$(gh repo view --json name --jq '.name')
@@ -279,8 +340,8 @@ UNRESOLVED=$(gh api graphql -f query='
   --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false)] | length')
 
 if [ "$UNRESOLVED" -gt 0 ]; then
-  echo "[ERROR] CANNOT MERGE: $UNRESOLVED unresolved comment threads"
-  echo "Go back to Phase 4 and address ALL comments"
+  echo "[ERROR] Cannot merge: $UNRESOLVED unresolved comment threads"
+  echo "Go back to Phase 4 and address all comments"
   exit 1
 fi
 
@@ -299,6 +360,7 @@ node -e "const { getPluginRoot } = require('@awesome-slash/lib/cross-platform');
 MERGE_SHA=$(git rev-parse HEAD)
 echo "[OK] Merged PR #$PR_NUMBER at $MERGE_SHA"
 ```
+</phase-6>
 
 ## Phases 7-10: Deploy & Validate
 

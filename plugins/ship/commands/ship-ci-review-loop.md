@@ -1,53 +1,63 @@
+<ci-review-loop>
 # Phase 4: CI & Review Monitor Loop - Reference
 
 This file contains detailed implementation for the CI & Review Monitor Loop phase of `/ship`.
 
 **Parent document**: `ship.md`
 
+---
+
+<mandatory-requirements>
+## This Phase Is Mandatory
+
+This is not optional. You must:
+1. Wait the full 3 minutes for auto-reviewers
+2. Run the monitor loop (not just check once)
+3. Address all comments before merge
+</mandatory-requirements>
+
+---
+
+<pr-auto-review>
 ## PR Auto-Review Process
 
-> **CRITICAL**: Every PR receives automatic reviews from **4 agents**:
-> - **Copilot** - GitHub's AI reviewer
-> - **Claude** - Anthropic's AI reviewer
-> - **Gemini** - Google's AI reviewer
-> - **Codex** - OpenAI's AI reviewer
+PRs receive automatic reviews from configured auto-reviewers (Copilot, Gemini, CodeRabbit, etc.).
 
 **Mandatory workflow:**
 1. After PR creation, wait **at least 3 minutes** for first review round
-2. Read **ALL comments** from all 4 reviewers
-3. Address **EVERY comment** - no exceptions
+2. Read **all comments** from all reviewers
+3. Address **every comment** - no exceptions
 4. Iterate until **zero unresolved threads** (typically 2-4 rounds)
 
 **Rules:**
-- ALWAYS address all comments, including "minor" or "nit" suggestions
-- NEVER skip a comment unless factually wrong or user-approved
+- Always address all comments, including "minor" or "nit" suggestions
+- Do not skip a comment unless factually wrong or user-approved
 - Treat all feedback as **required changes**, not suggestions
+</pr-auto-review>
 
+---
+
+<overview>
 ## Overview
 
-The monitor loop waits for:
+The monitor loop must wait for:
 1. CI to pass
-2. ALL comments resolved (addressed or replied to)
+2. All comments resolved (addressed or replied to)
 3. No "changes requested" reviews remain
 
-## Why ALL Comments Matter
+## Why All Comments Matter
 
-```
+**Every comment must be addressed:**
+- Critical/High issues: Fix immediately
+- Medium issues: Fix (don't defer)
+- Minor/Nit issues: Fix (shows attention to quality)
+- Style suggestions: Fix (maintains codebase consistency)
+- Questions: Answer with explanation
+- False positives: Reply explaining why, then resolve
+- Not relevant: Reply explaining why, then resolve
 
-                    EVERY COMMENT MUST BE ADDRESSED
-
-  • Critical/High issues → Fix immediately
-  • Medium issues → Fix (don't defer)
-  • Minor/Nit issues → Fix (shows attention to quality)
-  • Style suggestions → Fix (maintains codebase consistency)
-  • Questions → Answer with explanation
-  • False positives → Reply explaining why, then resolve
-  • Not relevant → Reply explaining why, then resolve
-
-  NEVER ignore a comment. NEVER leave comments unresolved.
-  A clean PR has ZERO unresolved conversations.
-
-```
+Do not ignore comments. Do not leave comments unresolved. A clean PR has zero unresolved conversations.
+</overview>
 
 ## The Monitor Loop Algorithm
 
@@ -395,10 +405,7 @@ iteration=0
 
 while [ $iteration -lt $MAX_ITERATIONS ]; do
   iteration=$((iteration + 1))
-  echo ""
-  echo "========================================"
-  echo "CI & Review Monitor - Iteration $iteration"
-  echo "========================================"
+  echo "[CI Monitor] Iteration $iteration"
 
   # Step 1: Wait for CI
   if ! wait_for_ci; then
@@ -418,12 +425,9 @@ while [ $iteration -lt $MAX_ITERATIONS ]; do
   CHANGES_REQ=$(echo "$FEEDBACK" | jq -r '.changesRequested')
 
   if [ "$UNRESOLVED" -eq 0 ] && [ "$CHANGES_REQ" -eq 0 ]; then
-    echo ""
-    echo ""
-    echo "  [OK] ALL CHECKS PASSED                 "
-    echo "  [OK] ALL COMMENTS RESOLVED             "
-    echo "  Ready to merge!                     "
-    echo ""
+    echo "[OK] ALL CHECKS PASSED"
+    echo "[OK] ALL COMMENTS RESOLVED"
+    echo "Ready to merge!"
     break
   fi
 
@@ -444,6 +448,7 @@ if [ $iteration -ge $MAX_ITERATIONS ]; then
 fi
 ```
 
+<iteration-summary>
 ## Iteration Summary Output
 
 ```markdown
@@ -458,3 +463,5 @@ fi
 
 ${remainingCount > 0 ? 'Continuing...' : 'Ready to merge!'}
 ```
+</iteration-summary>
+</ci-review-loop>
