@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.6.1] - 2026-01-31
+
+### Added
+- **Workflow Verification Gates** - Mandatory checkpoints in SubagentStop hook
+  - Gate 1: Worktree must exist before exploration (prevents `git checkout -b` shortcuts)
+  - Gate 2: Review loop must complete with 1+ iterations before delivery
+  - Gate 3: All PR comments must be addressed before merge
+- **No Shortcuts Policy** - Explicit enforcement rules in /next-task and /ship commands
+  - Decision tree for agent transitions
+  - Forbidden actions list with consequences
+
+### Changed
+- **Prompt Enhancement** - Reduced aggressive emphasis (CAPS, !!) in workflow commands for cleaner prompts
+  - next-task.md: 58 → 0 aggressive emphasis instances
+  - ship.md: 88 → 0 aggressive emphasis instances
+  - ship-ci-review-loop.md: 63 → 0 aggressive emphasis instances
+- **XML Structure Tags** - Added semantic XML tags for better prompt parsing
+  - `<no-shortcuts-policy>`, `<workflow-gates>`, `<phase-3>`, `<phase-9>`, `<ship-handoff>`
+  - hooks.json: `<subagent-stop-hook>`, `<verification-gates>`, `<decision-tree>`, `<enforcement>`
+- **Tone Normalization** - Consistent lowercase for rules while maintaining clarity
+  - "MUST" → "must", "FORBIDDEN" → "Forbidden", "NEVER" → "Do not"
+
 ## [3.6.0-rc.1] - 2026-01-30
 
 ### Added
