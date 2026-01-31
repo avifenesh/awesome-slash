@@ -79,17 +79,31 @@ function cleanAll() {
     fs.rmSync(opencodePluginDir, { recursive: true, force: true });
     log('  Removed OpenCode plugin');
   }
-  // Clean agent files installed by us
+  // Clean agent files installed by us - only known awesome-slash agents
   if (fs.existsSync(opencodeAgentsDir)) {
-    const agentFiles = fs.readdirSync(opencodeAgentsDir);
-    for (const file of agentFiles) {
-      // Only remove files that came from awesome-slash plugins
+    // List of agent filenames we install (from plugins/*/agents/*.md)
+    const knownAgents = [
+      'plan-synthesizer.md', 'enhancement-reporter.md', 'ci-fixer.md',
+      'deslop-work.md', 'simple-fixer.md', 'perf-analyzer.md', 'perf-code-paths.md',
+      'perf-investigation-logger.md', 'perf-theory-gatherer.md', 'perf-theory-tester.md',
+      'map-validator.md', 'exploration-agent.md', 'perf-orchestrator.md', 'ci-monitor.md',
+      'implementation-agent.md', 'planning-agent.md', 'test-coverage-checker.md',
+      'plugin-enhancer.md', 'agent-enhancer.md', 'docs-enhancer.md', 'claudemd-enhancer.md',
+      'prompt-enhancer.md', 'hooks-enhancer.md', 'skills-enhancer.md', 'enhancement-orchestrator.md',
+      'task-discoverer.md', 'delivery-validator.md', 'docs-updater.md', 'worktree-manager.md',
+      'deslop-analyzer.md', 'docs-analyzer.md', 'docs-validator.md'
+    ];
+    let removedCount = 0;
+    for (const file of knownAgents) {
       const filePath = path.join(opencodeAgentsDir, file);
-      if (fs.statSync(filePath).isFile() && file.endsWith('.md')) {
+      if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
+        removedCount++;
       }
     }
-    log('  Removed OpenCode agents');
+    if (removedCount > 0) {
+      log(`  Removed ${removedCount} OpenCode agents`);
+    }
   }
 
   // Clean Codex

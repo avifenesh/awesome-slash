@@ -3,63 +3,30 @@
  */
 
 const path = require('path');
-
-// Import the parseArgs function directly from cli.js
-// We need to extract it since it's not exported
 const fs = require('fs');
-const cliSource = fs.readFileSync(path.join(__dirname, '..', 'bin', 'cli.js'), 'utf8');
 
-// Extract parseArgs function for testing
-const VALID_TOOLS = ['claude', 'opencode', 'codex'];
-
-function parseArgs(args) {
-  const result = {
-    help: false,
-    version: false,
-    remove: false,
-    development: false,
-    stripModels: true, // Default: strip models
-    tool: null,        // Single tool
-    tools: [],         // Multiple tools
-  };
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i];
-
-    if (arg === '--help' || arg === '-h') {
-      result.help = true;
-    } else if (arg === '--version' || arg === '-v') {
-      result.version = true;
-    } else if (arg === '--remove' || arg === '--uninstall') {
-      result.remove = true;
-    } else if (arg === '--development' || arg === '--dev') {
-      result.development = true;
-    } else if (arg === '--no-strip' || arg === '-ns') {
-      result.stripModels = false;
-    } else if (arg === '--strip-models') {
-      // Legacy flag, now default behavior
-      result.stripModels = true;
-    } else if (arg === '--tool' && args[i + 1]) {
-      const tool = args[i + 1].toLowerCase();
-      if (VALID_TOOLS.includes(tool)) {
-        result.tool = tool;
-      }
-      i++;
-    } else if (arg === '--tools' && args[i + 1]) {
-      const toolList = args[i + 1].toLowerCase().split(',').map(t => t.trim());
-      for (const tool of toolList) {
-        if (VALID_TOOLS.includes(tool)) {
-          result.tools.push(tool);
-        }
-      }
-      i++;
-    }
-  }
-
-  return result;
-}
+// Import parseArgs directly from cli.js (now exported for testing)
+const { parseArgs, VALID_TOOLS } = require('../bin/cli.js');
 
 describe('CLI argument parsing', () => {
+  // Save original process.exit and restore after each test
+  const originalExit = process.exit;
+  const originalError = console.error;
+
+  beforeEach(() => {
+    // Mock process.exit to throw instead of exiting
+    process.exit = jest.fn((code) => {
+      throw new Error(`process.exit(${code})`);
+    });
+    // Suppress error output during tests
+    console.error = jest.fn();
+  });
+
+  afterEach(() => {
+    process.exit = originalExit;
+    console.error = originalError;
+  });
+
   describe('default values', () => {
     test('returns default values for empty args', () => {
       const result = parseArgs([]);
@@ -165,9 +132,9 @@ describe('CLI argument parsing', () => {
       expect(result.tool).toBe('claude');
     });
 
-    test('ignores invalid tool names', () => {
-      const result = parseArgs(['--tool', 'invalid']);
-      expect(result.tool).toBeNull();
+    test('exits with error for invalid tool names', () => {
+      expect(() => parseArgs(['--tool', 'invalid'])).toThrow('process.exit(1)');
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Invalid tool'));
     });
 
     test('ignores --tool without value', () => {
@@ -197,15 +164,9 @@ describe('CLI argument parsing', () => {
       expect(result.tools).toEqual(['claude', 'opencode']);
     });
 
-    test('filters out invalid tools', () => {
-      const result = parseArgs(['--tools', 'claude,invalid,opencode']);
-      expect(result.tools).toEqual(['claude', 'opencode']);
-    });
-
-    test('handles quoted string', () => {
-      const result = parseArgs(['--tools', '"claude,opencode"']);
-      // Note: shell would strip quotes, but this tests direct parsing
-      expect(result.tools.length).toBe(0); // "claude" is not valid
+    test('exits with error for invalid tools in list', () => {
+      expect(() => parseArgs(['--tools', 'claude,invalid,opencode'])).toThrow('process.exit(1)');
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Invalid tool'));
     });
   });
 
@@ -227,9 +188,17 @@ describe('CLI argument parsing', () => {
   });
 });
 
+describe('VALID_TOOLS constant', () => {
+  test('contains expected tools', () => {
+    expect(VALID_TOOLS).toEqual(['claude', 'opencode', 'codex']);
+  });
+});
+
 describe('CLI integration', () => {
+  const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
+  const cliSource = fs.readFileSync(cliPath, 'utf8');
+
   test('cli.js file exists', () => {
-    const cliPath = path.join(__dirname, '..', 'bin', 'cli.js');
     expect(fs.existsSync(cliPath)).toBe(true);
   });
 
@@ -237,17 +206,14 @@ describe('CLI integration', () => {
     expect(cliSource.startsWith('#!/usr/bin/env node')).toBe(true);
   });
 
-  test('cli.js exports nothing (standalone script)', () => {
-    // cli.js is a standalone script, not a module
-    expect(cliSource.includes('module.exports')).toBe(false);
+  test('cli.js exports parseArgs and VALID_TOOLS for testing', () => {
+    expect(cliSource.includes('module.exports')).toBe(true);
+    expect(cliSource.includes('parseArgs')).toBe(true);
+    expect(cliSource.includes('VALID_TOOLS')).toBe(true);
   });
 
-  test('cli.js defines VALID_TOOLS', () => {
-    expect(cliSource.includes("const VALID_TOOLS = ['claude', 'opencode', 'codex']")).toBe(true);
-  });
-
-  test('cli.js has parseArgs function', () => {
-    expect(cliSource.includes('function parseArgs(args)')).toBe(true);
+  test('cli.js only runs main when executed directly', () => {
+    expect(cliSource.includes('require.main === module')).toBe(true);
   });
 
   test('cli.js has installForClaudeDevelopment function', () => {

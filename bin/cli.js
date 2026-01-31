@@ -874,7 +874,12 @@ async function main() {
   console.log('\nDocs: https://github.com/avifenesh/awesome-slash');
 }
 
-main().catch(err => {
-  console.error('Error:', err.message);
-  process.exit(1);
-});
+// Export for testing when required as module
+if (require.main === module) {
+  main().catch(err => {
+    console.error('Error:', err.message);
+    process.exit(1);
+  });
+}
+
+module.exports = { parseArgs, VALID_TOOLS };

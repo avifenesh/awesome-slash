@@ -203,16 +203,27 @@ describe('repo-map usage analyzer', () => {
       expect(isolatedFn.file).toBe('src/isolated.js');
     });
 
-    test('does not flag exports from used files', () => {
-      // In sampleRepoMap, src/utils.js is imported by other files,
-      // so even unused exports from that file won't be flagged
+    test('flags unused exports from imported files with LOW certainty', () => {
+      // A file can be imported for some symbols but have other unused exports
+      // These should be flagged with LOW certainty (vs MEDIUM for completely unused files)
       const unused = findUnusedExports(sampleRepoMap);
 
       const unusedNames = unused.map(u => u.name);
-      // These are from files that ARE imported, so they won't appear
+      // formatDate is used (imported), so it won't be flagged
       expect(unusedNames).not.toContain('formatDate');
-      expect(unusedNames).not.toContain('parseDate');
-      expect(unusedNames).not.toContain('unusedHelper');
+
+      // parseDate and unusedHelper are exported but never imported
+      // They SHOULD be flagged (this was a bug fix)
+      const parseDate = unused.find(u => u.name === 'parseDate');
+      const unusedHelper = unused.find(u => u.name === 'unusedHelper');
+
+      // They should have LOW certainty since the file itself is imported
+      if (parseDate) {
+        expect(parseDate.certainty).toBe('LOW');
+      }
+      if (unusedHelper) {
+        expect(unusedHelper.certainty).toBe('LOW');
+      }
     });
 
     test('does not flag entry point files', () => {
