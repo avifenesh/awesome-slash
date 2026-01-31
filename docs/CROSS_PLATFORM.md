@@ -62,9 +62,20 @@ For OpenCode and Codex CLI, the installer adapts the platform argument handling 
 ```bash
 npm install -g awesome-slash@latest
 awesome-slash  # Select option 1 for Claude Code
+
+# Or non-interactive:
+awesome-slash --tool claude
 ```
 
-### Option 3: Plugin Directory (Development)
+### Option 3: Development Mode (Testing RC Versions)
+
+Install directly to `~/.claude/plugins/` bypassing the marketplace:
+
+```bash
+awesome-slash --development
+```
+
+### Option 4: Plugin Directory (Local Development)
 
 ```bash
 claude --plugin-dir /path/to/awesome-slash/plugins/next-task
@@ -80,7 +91,7 @@ claude --plugin-dir /path/to/awesome-slash/plugins/next-task
 - `/enhance` - Enhancement analyzer suite
 - `/sync-docs` - Documentation sync
 
-### Available Agents (39 total: 29 file-based + 10 role-based)
+### Available Agents (42 total: 32 file-based + 10 role-based)
 
 **Key agents shown below:**
 
@@ -155,18 +166,15 @@ Conditional: architecture-reviewer, database-specialist, api-designer, frontend-
 ```bash
 npm install -g awesome-slash@latest
 awesome-slash  # Select option 2 for OpenCode
+
+# Or non-interactive:
+awesome-slash --tool opencode
 ```
 
-If your OpenCode setup does not have the same models as the defaults, you can skip per-agent model overrides:
+By default, model specifications (sonnet/opus/haiku) are stripped from agents. This prevents errors when your OpenCode setup doesn't have matching model aliases. If you have proper model mappings configured, use `--no-strip` to include them:
 
 ```bash
-awesome-slash --strip-models
-```
-
-Or set an environment variable for non-interactive installs:
-
-```bash
-AWESOME_SLASH_STRIP_MODELS=1 awesome-slash
+awesome-slash --tool opencode --no-strip
 ```
 
 This installs:
@@ -267,6 +275,9 @@ When invoked, you should:
 ```bash
 npm install -g awesome-slash@latest
 awesome-slash  # Select option 3 for Codex CLI
+
+# Or non-interactive:
+awesome-slash --tool codex
 ```
 
 This installs MCP server config in `~/.codex/config.toml` and skills (`$next-task`, `$ship`, `$deslop`, `$audit-project`, `$repo-map`, `$sync-docs`).
@@ -387,13 +398,13 @@ The plugin auto-detects the platform and uses the appropriate directory. Overrid
 
 ### From Claude Code to OpenCode
 
-1. Run: `npm install -g awesome-slash && awesome-slash` (select option 2)
+1. Run: `npm install -g awesome-slash && awesome-slash --tool opencode`
 2. State files will be created fresh in `.opencode/`
 3. Or copy state: `cp -r .claude/* .opencode/`
 
 ### From Claude Code to Codex
 
-1. Run: `npm install -g awesome-slash && awesome-slash` (select option 3)
+1. Run: `npm install -g awesome-slash && awesome-slash --tool codex`
 2. State files will be created fresh in `.codex/`
 3. Or copy state: `cp -r .claude/* .codex/`
 

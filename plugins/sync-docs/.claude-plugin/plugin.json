@@ -16,5 +16,14 @@
     "sync",
     "maintenance",
     "code-docs"
+  ],
+  "agents": [
+    "agents/docs-analyzer.md",
+    "agents/docs-validator.md"
+  ],
+  "skills": [
+    "skills/sync-docs-discovery/SKILL.md",
+    "skills/sync-docs-analysis/SKILL.md",
+    "skills/changelog-update/SKILL.md"
   ]
 }

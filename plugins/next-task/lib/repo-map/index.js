@@ -13,6 +13,7 @@ const installer = require('./installer');
 const runner = require('./runner');
 const cache = require('./cache');
 const updater = require('./updater');
+const usageAnalyzer = require('./usage-analyzer');
 
 /**
  * Initialize a new repo map (full scan)
@@ -202,10 +203,20 @@ module.exports = {
   exists,
   checkAstGrepInstalled,
   getInstallInstructions,
-  
+
+  // Usage analysis functions
+  buildUsageIndex: usageAnalyzer.buildUsageIndex,
+  findUsages: usageAnalyzer.findUsages,
+  findDependents: usageAnalyzer.findDependents,
+  findUnusedExports: usageAnalyzer.findUnusedExports,
+  findOrphanedInfrastructure: usageAnalyzer.findOrphanedInfrastructure,
+  getDependencyGraph: usageAnalyzer.getDependencyGraph,
+  findCircularDependencies: usageAnalyzer.findCircularDependencies,
+
   // Re-export submodules for advanced usage
   installer,
   runner,
   cache,
-  updater
+  updater,
+  usageAnalyzer
 };

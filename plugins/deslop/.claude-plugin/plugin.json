@@ -16,5 +16,12 @@
     "refactoring",
     "maintenance",
     "slop-detection"
+  ],
+  "agents": [
+    "agents/deslop-analyzer.md"
+  ],
+  "skills": [
+    "skills/deslop-detection/SKILL.md",
+    "skills/deslop-fixes/SKILL.md"
   ]
 }

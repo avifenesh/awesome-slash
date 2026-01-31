@@ -2,7 +2,7 @@
 
 Complete reference for all agents in awesome-slash.
 
-**TL;DR:** 39 agents across 9 plugins (6 have agents). opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 39 -->
+**TL;DR:** 42 agents across 9 plugins (8 have agents). opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 42 -->
 
 ---
 
@@ -16,6 +16,8 @@ Complete reference for all agents in awesome-slash.
 | drift-detect | 1 | [plan-synthesizer](#plan-synthesizer) |
 | repo-map | 1 | [map-validator](#map-validator) |
 | perf | 6 | [perf-orchestrator](#perf-orchestrator), [perf-theory-gatherer](#perf-theory-gatherer), [perf-theory-tester](#perf-theory-tester), [perf-code-paths](#perf-code-paths), [perf-investigation-logger](#perf-investigation-logger), [perf-analyzer](#perf-analyzer) |
+| deslop | 1 | [deslop-analyzer](#deslop-analyzer) |
+| sync-docs | 2 | [docs-analyzer](#docs-analyzer), [docs-validator](#docs-validator) |
 
 **Design principle:** Each agent has a single responsibility. Complex work is decomposed into specialized agents that do one thing extremely well, then orchestrated together.
 
@@ -27,7 +29,7 @@ Complete reference for all agents in awesome-slash.
 
 ## Overview
 
-awesome-slash uses 39 specialized agents across 9 plugins (6 have agents - ship, deslop, and sync-docs use commands only). Each agent is optimized for a specific task and assigned a model based on complexity:
+awesome-slash uses 42 specialized agents across 9 plugins (8 have agents - ship uses commands only). Each agent is optimized for a specific task and assigned a model based on complexity:
 
 | Model | Use Case | Cost |
 |-------|----------|------|
@@ -36,7 +38,7 @@ awesome-slash uses 39 specialized agents across 9 plugins (6 have agents - ship,
 | haiku | Mechanical execution, no judgment | Low |
 
 **Agent types:**
-- **File-based agents** (29) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 29 -->
+- **File-based agents** (32) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 32 -->
 - **Role-based agents** (10) - Defined inline via Task tool with specialized prompts <!-- AGENT_COUNT_ROLE_BASED: 10 -->
 
 ---

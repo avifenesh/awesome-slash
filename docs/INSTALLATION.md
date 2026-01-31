@@ -65,6 +65,39 @@ Which platforms do you want to install for?
 Your selection: 1 2
 ```
 
+### Non-Interactive Installation
+
+Use flags for CI/scripts or when you know what you want:
+
+```bash
+# Single tool
+awesome-slash --tool claude
+awesome-slash --tool opencode
+awesome-slash --tool codex
+
+# Multiple tools
+awesome-slash --tools "claude,opencode"
+awesome-slash --tools claude,opencode,codex
+```
+
+### CLI Flags
+
+| Flag | Description |
+|------|-------------|
+| `--tool <name>` | Install for single tool (claude, opencode, codex) |
+| `--tools <list>` | Install for multiple tools (comma-separated) |
+| `--development`, `--dev` | Development mode: install directly to ~/.claude/plugins |
+| `--no-strip`, `-ns` | Include model specifications (stripped by default) |
+| `--remove` | Remove local installation |
+| `--version`, `-v` | Show version |
+| `--help`, `-h` | Show help |
+
+### Model Stripping
+
+By default, model specifications (sonnet/opus/haiku) are stripped from agents when installing for OpenCode. This prevents errors when the target platform doesn't have the same model mappings configured.
+
+Use `--no-strip` or `-ns` to include models if your OpenCode setup has proper model aliases.
+
 **Commands:**
 ```bash
 npm update -g awesome-slash       # Update
@@ -76,6 +109,21 @@ awesome-slash --remove            # Clean up configs
 
 ## Alternative Installation Methods
 
+### Development Mode (Claude Code)
+
+For testing RC versions or local changes, use development mode:
+
+```bash
+awesome-slash --development
+```
+
+This bypasses the marketplace and installs plugins directly to `~/.claude/plugins/`. To revert to the marketplace version:
+
+```bash
+rm -rf ~/.claude/plugins/*@awesome-slash
+awesome-slash --tool claude
+```
+
 ### Local Development (Plugin Directory)
 
 For testing or development, load plugins directly:
@@ -84,6 +132,18 @@ For testing or development, load plugins directly:
 git clone https://github.com/avifenesh/awesome-slash.git
 claude --plugin-dir ./awesome-slash/plugins/next-task
 ```
+
+### Quick Dev Install (Contributors)
+
+For contributors: install to all tools at once from local source:
+
+```bash
+node scripts/dev-install.js           # Install to all tools
+node scripts/dev-install.js claude    # Install to Claude only
+node scripts/dev-install.js --clean   # Remove all installations
+```
+
+This script uses local source files (not npm package), installs Claude in development mode, and strips models from OpenCode agents.
 
 ### OpenCode / Codex CLI
 

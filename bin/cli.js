@@ -17,9 +17,17 @@ const VERSION = require('../package.json').version;
 // Use the installed npm package directory as source (no git clone needed)
 const PACKAGE_DIR = path.join(__dirname, '..');
 
+// Valid tool names
+const VALID_TOOLS = ['claude', 'opencode', 'codex'];
+
 function getInstallDir() {
   const home = process.env.HOME || process.env.USERPROFILE;
   return path.join(home, '.awesome-slash');
+}
+
+function getClaudePluginsDir() {
+  const home = process.env.HOME || process.env.USERPROFILE;
+  return path.join(home, '.claude', 'plugins');
 }
 
 function getConfigPath(platform) {
@@ -43,6 +51,66 @@ function commandExists(cmd) {
 }
 
 /**
+ * Parse command line arguments
+ */
+function parseArgs(args) {
+  const result = {
+    help: false,
+    version: false,
+    remove: false,
+    development: false,
+    stripModels: true, // Default: strip models
+    tool: null,        // Single tool
+    tools: [],         // Multiple tools
+  };
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+
+    if (arg === '--help' || arg === '-h') {
+      result.help = true;
+    } else if (arg === '--version' || arg === '-v') {
+      result.version = true;
+    } else if (arg === '--remove' || arg === '--uninstall') {
+      result.remove = true;
+    } else if (arg === '--development' || arg === '--dev') {
+      result.development = true;
+    } else if (arg === '--no-strip' || arg === '-ns') {
+      result.stripModels = false;
+    } else if (arg === '--strip-models') {
+      // Legacy flag, now default behavior
+      result.stripModels = true;
+    } else if (arg === '--tool' && args[i + 1]) {
+      const tool = args[i + 1].toLowerCase();
+      if (VALID_TOOLS.includes(tool)) {
+        result.tool = tool;
+      } else {
+        console.error(`[ERROR] Invalid tool: ${tool}. Valid options: ${VALID_TOOLS.join(', ')}`);
+        process.exit(1);
+      }
+      i++;
+    } else if (arg === '--tools' && args[i + 1]) {
+      const toolList = args[i + 1].toLowerCase().split(',').map(t => t.trim());
+      for (const tool of toolList) {
+        if (!VALID_TOOLS.includes(tool)) {
+          console.error(`[ERROR] Invalid tool: ${tool}. Valid options: ${VALID_TOOLS.join(', ')}`);
+          process.exit(1);
+        }
+        result.tools.push(tool);
+      }
+      i++;
+    }
+  }
+
+  // Environment variable override for strip models (legacy support)
+  if (['0', 'false', 'no'].includes((process.env.AWESOME_SLASH_STRIP_MODELS || '').toLowerCase())) {
+    result.stripModels = false;
+  }
+
+  return result;
+}
+
+/**
  * Interactive multi-select prompt
  */
 async function multiSelect(question, options) {
@@ -50,8 +118,6 @@ async function multiSelect(question, options) {
     input: process.stdin,
     output: process.stdout
   });
-
-  const selected = new Set();
 
   console.log(`\n${question}\n`);
   console.log('Enter numbers separated by spaces (e.g., "1 2" or "1,2,3"), then press Enter:\n');
@@ -162,9 +228,85 @@ function installForClaude() {
   }
 }
 
+/**
+ * Development mode: Install directly to ~/.claude/plugins
+ * Bypasses marketplace for testing RC/dev versions
+ */
+function installForClaudeDevelopment() {
+  console.log('\n[INSTALL] Installing for Claude Code (DEVELOPMENT MODE)...\n');
+
+  if (!commandExists('claude')) {
+    console.log('[WARN]  Claude Code CLI not detected.');
+    console.log('   Install it first: https://claude.ai/code\n');
+    return false;
+  }
+
+  const pluginsDir = getClaudePluginsDir();
+  const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf'];
+
+  // Remove marketplace plugins first
+  console.log('Removing marketplace plugins...');
+  try {
+    execSync('claude plugin marketplace remove avifenesh/awesome-slash', { stdio: 'pipe' });
+    console.log('  [OK] Removed marketplace');
+  } catch {
+    // May not exist
+  }
+
+  for (const plugin of plugins) {
+    try {
+      execSync(`claude plugin uninstall ${plugin}@awesome-slash`, { stdio: 'pipe' });
+      console.log(`  [OK] Uninstalled ${plugin}`);
+    } catch {
+      // May not be installed
+    }
+  }
+
+  // Create plugins directory
+  fs.mkdirSync(pluginsDir, { recursive: true });
+
+  // Copy each plugin directly
+  console.log('\nCopying plugins from package...');
+  for (const plugin of plugins) {
+    const srcDir = path.join(PACKAGE_DIR, 'plugins', plugin);
+    const destDir = path.join(pluginsDir, `${plugin}@awesome-slash`);
+
+    if (fs.existsSync(srcDir)) {
+      // Remove existing
+      if (fs.existsSync(destDir)) {
+        fs.rmSync(destDir, { recursive: true, force: true });
+      }
+
+      // Copy plugin
+      fs.cpSync(srcDir, destDir, {
+        recursive: true,
+        filter: (src) => {
+          const basename = path.basename(src);
+          return basename !== 'node_modules' && basename !== '.git';
+        }
+      });
+      console.log(`  [OK] Installed ${plugin}`);
+    }
+  }
+
+  console.log('\n[OK] Claude Code development installation complete!');
+  console.log('  Plugins installed to: ' + pluginsDir);
+  console.log('  Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf');
+  console.log('\n[NOTE] To revert to marketplace version:');
+  console.log('  rm -rf ~/.claude/plugins/*@awesome-slash');
+  console.log('  awesome-slash --tool claude');
+  return true;
+}
+
 function installForOpenCode(installDir, options = {}) {
   console.log('\n[INSTALL] Installing for OpenCode...\n');
-  const { stripModels = false } = options;
+  const { stripModels = true } = options;
+
+  if (stripModels) {
+    console.log('  [INFO] Model specifications stripped (default). Use --no-strip to include.');
+  } else {
+    console.log('  [INFO] Model specifications included (--no-strip).');
+  }
 
   const home = process.env.HOME || process.env.USERPROFILE;
   // Commands go to ~/.opencode/commands/awesome-slash/
@@ -312,7 +454,7 @@ function installForOpenCode(installDir, options = {}) {
   fs.mkdirSync(agentsDir, { recursive: true });
 
   console.log('  Installing agents for OpenCode...');
-  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map', 'perf'];
+  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map', 'perf', 'sync-docs'];
   let agentCount = 0;
 
   for (const pluginName of pluginDirs) {
@@ -351,7 +493,7 @@ function installForOpenCode(installDir, options = {}) {
             if (parsed.description) opencodeFrontmatter += `description: ${parsed.description}\n`;
             opencodeFrontmatter += 'mode: subagent\n';
 
-            // Map model names
+            // Map model names - only include if NOT stripping
             if (parsed.model && !stripModels) {
               const modelMap = {
                 'sonnet': 'anthropic/claude-sonnet-4',
@@ -575,42 +717,42 @@ function removeInstallation() {
   console.log('  - Codex: Remove [mcp_servers.awesome-slash] from ~/.codex/config.toml');
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  const stripModels = args.includes('--strip-models') ||
-    ['1', 'true', 'yes'].includes((process.env.AWESOME_SLASH_STRIP_MODELS || '').toLowerCase());
-
-  // Handle --remove / --uninstall
-  if (args.includes('--remove') || args.includes('--uninstall')) {
-    removeInstallation();
-    return;
-  }
-
-  // Handle --version
-  if (args.includes('--version') || args.includes('-v')) {
-    console.log(`awesome-slash v${VERSION}`);
-    return;
-  }
-
-  // Handle --help
-  if (args.includes('--help') || args.includes('-h')) {
-    console.log(`
+function printHelp() {
+  console.log(`
 awesome-slash v${VERSION} - Workflow automation for AI coding assistants
 
 Usage:
-  awesome-slash              Interactive installer (select platforms)
-  awesome-slash --strip-models  Skip per-agent model overrides (OpenCode)
-  awesome-slash --remove     Remove local installation
-  awesome-slash --version    Show version
-  awesome-slash --help       Show this help
+  awesome-slash                    Interactive installer (select platforms)
+  awesome-slash --tool <name>      Install for single tool (claude, opencode, codex)
+  awesome-slash --tools <list>     Install for multiple tools (comma-separated)
+  awesome-slash --development      Development mode: install to ~/.claude/plugins
+  awesome-slash --no-strip, -ns    Include model specifications (stripped by default)
+  awesome-slash --remove           Remove local installation
+  awesome-slash --version, -v      Show version
+  awesome-slash --help, -h         Show this help
 
-Environment:
-  AWESOME_SLASH_STRIP_MODELS=1  Same as --strip-models
+Non-Interactive Examples:
+  awesome-slash --tool claude              # Install for Claude Code only
+  awesome-slash --tool opencode            # Install for OpenCode only
+  awesome-slash --tools "claude,opencode"  # Install for both
+  awesome-slash --tools claude,opencode,codex  # Install for all three
+
+Development Mode:
+  awesome-slash --development      # Install plugins directly to ~/.claude/plugins
+                                   # Bypasses marketplace for testing RC versions
+
+Model Handling:
+  By default, model specifications (sonnet/opus/haiku) are stripped from agents
+  when installing for OpenCode. This is because most users don't have the
+  required model mappings configured. Use --no-strip or -ns to include models.
+
+Environment Variables:
+  AWESOME_SLASH_STRIP_MODELS=0     Same as --no-strip
 
 Supported Platforms:
-  1) Claude Code  - /next-task, /ship, /deslop, /audit-project
-  2) OpenCode     - Same commands + MCP tools
-  3) Codex CLI    - $next-task, $ship, etc. ($ prefix)
+  claude   - Claude Code (marketplace install or development mode)
+  opencode - OpenCode (local install + MCP)
+  codex    - Codex CLI (local install + MCP)
 
 Install:  npm install -g awesome-slash && awesome-slash
 Update:   npm update -g awesome-slash && awesome-slash
@@ -618,19 +760,52 @@ Remove:   npm uninstall -g awesome-slash && awesome-slash --remove
 
 Docs: https://github.com/avifenesh/awesome-slash
 `);
+}
+
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
+
+  // Handle --remove / --uninstall
+  if (args.remove) {
+    removeInstallation();
     return;
   }
 
-  const title = `awesome-slash v${VERSION}`;
-  const subtitle = 'Workflow automation for AI assistants';
-  const width = Math.max(title.length, subtitle.length) + 6;
-  const pad = (str) => {
-    const left = Math.floor((width - str.length) / 2);
-    const right = width - str.length - left;
-    return ' '.repeat(left) + str + ' '.repeat(right);
-  };
+  // Handle --version
+  if (args.version) {
+    console.log(`awesome-slash v${VERSION}`);
+    return;
+  }
 
-  console.log(`
+  // Handle --help
+  if (args.help) {
+    printHelp();
+    return;
+  }
+
+  // Determine which tools to install
+  let selected = [];
+
+  if (args.tool) {
+    // Single tool specified
+    selected = [args.tool];
+  } else if (args.tools.length > 0) {
+    // Multiple tools specified
+    selected = args.tools;
+  }
+
+  // If no tools specified via flags, show interactive prompt
+  if (selected.length === 0) {
+    const title = `awesome-slash v${VERSION}`;
+    const subtitle = 'Workflow automation for AI assistants';
+    const width = Math.max(title.length, subtitle.length) + 6;
+    const pad = (str) => {
+      const left = Math.floor((width - str.length) / 2);
+      const right = width - str.length - left;
+      return ' '.repeat(left) + str + ' '.repeat(right);
+    };
+
+    console.log(`
 ┌${'─'.repeat(width)}┐
 │${pad(title)}│
 │${' '.repeat(width)}│
@@ -638,23 +813,24 @@ Docs: https://github.com/avifenesh/awesome-slash
 └${'─'.repeat(width)}┘
 `);
 
-  // Multi-select platforms
-  const options = [
-    { value: 'claude', label: 'Claude Code' },
-    { value: 'opencode', label: 'OpenCode' },
-    { value: 'codex', label: 'Codex CLI' }
-  ];
+    // Multi-select platforms
+    const options = [
+      { value: 'claude', label: 'Claude Code' },
+      { value: 'opencode', label: 'OpenCode' },
+      { value: 'codex', label: 'Codex CLI' }
+    ];
 
-  const selected = await multiSelect(
-    'Which platforms do you want to install for?',
-    options
-  );
+    selected = await multiSelect(
+      'Which platforms do you want to install for?',
+      options
+    );
 
-  if (selected.length === 0) {
-    console.log('\nNo platforms selected. Exiting.');
-    console.log('\nFor Claude Code, you can also install directly:');
-    console.log('  /plugin marketplace add avifenesh/awesome-slash');
-    process.exit(0);
+    if (selected.length === 0) {
+      console.log('\nNo platforms selected. Exiting.');
+      console.log('\nFor Claude Code, you can also install directly:');
+      console.log('  /plugin marketplace add avifenesh/awesome-slash');
+      process.exit(0);
+    }
   }
 
   console.log(`\nInstalling for: ${selected.join(', ')}\n`);
@@ -674,10 +850,14 @@ Docs: https://github.com/avifenesh/awesome-slash
   for (const platform of selected) {
     switch (platform) {
       case 'claude':
-        installForClaude();
+        if (args.development) {
+          installForClaudeDevelopment();
+        } else {
+          installForClaude();
+        }
         break;
       case 'opencode':
-        installForOpenCode(installDir, { stripModels });
+        installForOpenCode(installDir, { stripModels: args.stripModels });
         break;
       case 'codex':
         installForCodex(installDir);

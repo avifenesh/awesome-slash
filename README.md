@@ -8,7 +8,7 @@
 
 AI models can write code. That's not the hard part anymore. The hard part is everything else—picking what to work on, managing branches, reviewing output, cleaning up artifacts, handling CI, addressing comments, deploying. **awesome-slash automates the entire workflow**, not just the coding.
 
-**9 plugins · 39 agents · 23 skills · 22k lines of lib code · 1,400+ tests · 3 platforms**
+**9 plugins · 42 agents · 28 skills · 22k lines of lib code · 1,400+ tests · 3 platforms**
 
 ---
 
@@ -613,6 +613,13 @@ npm install -g awesome-slash && awesome-slash
 ```
 
 Interactive installer for Claude Code, OpenCode, and Codex CLI.
+
+```bash
+# Non-interactive install
+awesome-slash --tool claude              # Single tool
+awesome-slash --tools "claude,opencode"  # Multiple tools
+awesome-slash --development              # Dev mode (bypasses marketplace)
+```
 
 [Full installation guide →](./docs/INSTALLATION.md)
 
