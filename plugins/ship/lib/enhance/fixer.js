@@ -16,11 +16,20 @@ function applyFixes(issues, options = {}) {
     errors: []
   };
 
-  // Auto-fixable pattern IDs for markdown files (agent analysis)
+  // Auto-fixable pattern IDs for markdown files
   const markdownAutoFixPatternIds = [
+    // Agent patterns
     'missing_frontmatter',
     'unrestricted_bash',
-    'missing_role'
+    'missing_role',
+    // Prompt patterns
+    'missing_output_format',
+    'missing_examples',
+    'missing_xml_structure',
+    'missing_verification_criteria',
+    'aggressive_emphasis',
+    // Skill patterns
+    'missing_trigger_phrase'
   ];
 
   // Filter to only HIGH certainty issues that are auto-fixable
@@ -83,6 +92,18 @@ function applyFixes(issues, options = {}) {
               modified = fixUnrestrictedBash(modified);
             } else if (issue.patternId === 'missing_role') {
               modified = fixMissingRole(modified);
+            } else if (issue.patternId === 'missing_output_format') {
+              modified = fixMissingOutputFormat(modified);
+            } else if (issue.patternId === 'missing_examples') {
+              modified = fixMissingExamples(modified);
+            } else if (issue.patternId === 'missing_xml_structure') {
+              modified = fixMissingXmlStructure(modified);
+            } else if (issue.patternId === 'missing_verification_criteria') {
+              modified = fixMissingVerificationCriteria(modified);
+            } else if (issue.patternId === 'aggressive_emphasis') {
+              modified = fixAggressiveEmphasis(modified);
+            } else if (issue.patternId === 'missing_trigger_phrase') {
+              modified = fixMissingTriggerPhrase(modified);
             } else {
               // No auto-fix available for this markdown issue
               continue;
@@ -452,6 +473,205 @@ function fixVerboseExplanations(content) {
   return result;
 }
 
+// ============================================
+// PROMPT AUTO-FIX FUNCTIONS
+// ============================================
+
+/**
+ * Add output format section to prompt
+ * @param {string} content - Prompt content
+ * @returns {string} Fixed content
+ */
+function fixMissingOutputFormat(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  // Don't add if already has output format
+  if (/##\s*output\s*format/i.test(content) || /<output_format>/i.test(content)) {
+    return content;
+  }
+
+  const outputSection = `
+
+## Output Format
+
+Respond with:
+- [Describe expected format: JSON, markdown, plain text, etc.]
+- [Include any specific structure requirements]
+`;
+
+  return content.trim() + outputSection;
+}
+
+/**
+ * Add example section to prompt
+ * @param {string} content - Prompt content
+ * @returns {string} Fixed content
+ */
+function fixMissingExamples(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  // Don't add if already has examples
+  if (/<example>|##\s*example/i.test(content)) {
+    return content;
+  }
+
+  const exampleSection = `
+
+## Examples
+
+<good-example>
+Input: [example input]
+Output: [example output]
+</good-example>
+
+<bad-example>
+Input: [example input]
+Output: [what NOT to do]
+Why bad: [explanation]
+</bad-example>
+`;
+
+  return content.trim() + exampleSection;
+}
+
+/**
+ * Add XML structure tags to complex prompt
+ * @param {string} content - Prompt content
+ * @returns {string} Fixed content
+ */
+function fixMissingXmlStructure(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  // Don't add if already has XML
+  if (/<[a-z_][a-z0-9_-]*>/i.test(content)) {
+    return content;
+  }
+
+  // Wrap role section if exists
+  let result = content;
+
+  // Find and wrap role section
+  result = result.replace(
+    /^(##\s*(?:your\s+)?role\s*\n)([\s\S]*?)(?=\n##|\n---|\Z)/im,
+    '<role>\n$1$2</role>\n'
+  );
+
+  // Find and wrap constraints section
+  result = result.replace(
+    /^(##\s*(?:constraints?|rules?)\s*\n)([\s\S]*?)(?=\n##|\n---|\Z)/im,
+    '<constraints>\n$1$2</constraints>\n'
+  );
+
+  return result;
+}
+
+/**
+ * Add verification criteria to task prompt
+ * @param {string} content - Prompt content
+ * @returns {string} Fixed content
+ */
+function fixMissingVerificationCriteria(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  // Don't add if already has verification
+  if (/\bverif|test|validate|expected\s+output/i.test(content)) {
+    return content;
+  }
+
+  const verificationSection = `
+
+## Verification
+
+After completing this task:
+- [ ] Run relevant tests to verify the change works
+- [ ] Check for regressions in related functionality
+- [ ] Verify expected output matches: [describe expected result]
+`;
+
+  return content.trim() + verificationSection;
+}
+
+/**
+ * Add trigger phrase to skill description
+ * @param {string} content - SKILL.md content
+ * @returns {string} Fixed content
+ */
+function fixMissingTriggerPhrase(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  const lines = content.split('\n');
+  let inFrontmatter = false;
+  let descriptionLineIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '---') {
+      if (!inFrontmatter) {
+        inFrontmatter = true;
+      } else {
+        break;
+      }
+    } else if (inFrontmatter && lines[i].startsWith('description:')) {
+      descriptionLineIndex = i;
+      break;
+    }
+  }
+
+  if (descriptionLineIndex >= 0) {
+    const descLine = lines[descriptionLineIndex];
+    // Check if already has trigger phrase
+    if (!/use when user asks/i.test(descLine)) {
+      // Extract current description
+      const match = descLine.match(/^description:\s*(.+)$/);
+      if (match) {
+        const currentDesc = match[1].trim();
+        // Add trigger phrase
+        lines[descriptionLineIndex] = `description: Use when user asks to ${currentDesc.toLowerCase().replace(/^to\s+/i, '')}`;
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Reduce aggressive emphasis (CAPS, !!)
+ * @param {string} content - Prompt content
+ * @returns {string} Fixed content
+ */
+function fixAggressiveEmphasis(content) {
+  if (!content || typeof content !== 'string') return content;
+
+  let result = content;
+
+  // Preserve code blocks
+  const codeBlocks = [];
+  let placeholder = 0;
+  result = result.replace(/```[\s\S]*?```/g, (match) => {
+    codeBlocks.push(match);
+    return `__CODE_BLOCK_${placeholder++}__`;
+  });
+
+  // Acceptable CAPS to preserve
+  const acceptableCaps = ['API', 'JSON', 'XML', 'HTML', 'CSS', 'URL', 'HTTP', 'HTTPS', 'SQL', 'CLI', 'SDK', 'JWT', 'UUID', 'REST', 'YAML', 'EOF', 'TODO', 'FIXME', 'NOTE', 'README', 'MCP', 'HIGH', 'MEDIUM', 'LOW'];
+
+  // Replace aggressive CAPS with normal case (except acceptable ones)
+  result = result.replace(/\b[A-Z]{3,}\b/g, (match) => {
+    if (acceptableCaps.includes(match)) return match;
+    // Convert to sentence case
+    return match.charAt(0) + match.slice(1).toLowerCase();
+  });
+
+  // Remove multiple exclamation marks
+  result = result.replace(/!{2,}/g, '!');
+
+  // Restore code blocks
+  for (let i = 0; i < codeBlocks.length; i++) {
+    result = result.replace(`__CODE_BLOCK_${i}__`, codeBlocks[i]);
+  }
+
+  return result;
+}
+
 module.exports = {
   applyFixes,
   fixAdditionalProperties,
@@ -462,6 +682,13 @@ module.exports = {
   fixMissingRole,
   fixInconsistentHeadings,
   fixVerboseExplanations,
+  // New prompt fixes
+  fixMissingOutputFormat,
+  fixMissingExamples,
+  fixMissingXmlStructure,
+  fixMissingVerificationCriteria,
+  fixMissingTriggerPhrase,
+  fixAggressiveEmphasis,
   previewFixes,
   restoreFromBackup,
   cleanupBackups

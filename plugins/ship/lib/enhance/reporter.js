@@ -1075,11 +1075,11 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
   lines.push('');
   lines.push(`**Target**: ${targetPath}`);
   lines.push(`**Analyzed**: ${new Date().toISOString()}`);
-  lines.push(`**Enhancers Run**: ${Object.keys(aggregatedResults.byEnhancer || {}).join(', ') || 'none'}`);
+  lines.push(`**Enhancers Run**: ${Object.keys(aggregatedResults?.byEnhancer || {}).join(', ') || 'none'}`);
   lines.push('');
 
   // Deduplicate findings - ensure array input
-  const rawFindings = Array.isArray(aggregatedResults.findings) ? aggregatedResults.findings : [];
+  const rawFindings = Array.isArray(aggregatedResults?.findings) ? aggregatedResults.findings : [];
   const dedupedFindings = deduplicateOrchestratorFindings(rawFindings);
 
   // Count auto-fixable
@@ -1112,6 +1112,29 @@ function generateOrchestratorReport(aggregatedResults, options = {}) {
 
   lines.push(`| **Total** | **${totalHigh}** | **${totalMedium}** | **${totalLow}** | **${totalAutoFix}** |`);
   lines.push('');
+
+  // Auto-Learned Suppressions Section (before "Clean" status)
+  if (options.autoLearned && options.autoLearned.length > 0) {
+    lines.push('## Auto-Learned Suppressions');
+    lines.push('');
+    lines.push(`Learned ${options.autoLearned.length} new false positives:`);
+    lines.push('');
+
+    // Group by pattern
+    const byPattern = {};
+    options.autoLearned.forEach(s => {
+      if (!byPattern[s.patternId]) {
+        byPattern[s.patternId] = [];
+      }
+      byPattern[s.patternId].push(s);
+    });
+
+    for (const [patternId, items] of Object.entries(byPattern)) {
+      const maxConf = Math.max(...items.map(i => i.confidence || 0));
+      lines.push(`- **${patternId}**: ${items.length} file(s) (confidence: ${(maxConf * 100).toFixed(0)}%)`);
+    }
+    lines.push('');
+  }
 
   // No issues case
   if (dedupedFindings.length === 0) {

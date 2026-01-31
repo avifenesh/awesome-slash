@@ -86,7 +86,7 @@ COMMAND_MAPPINGS=(
   "deslop-around:deslop-around:deslop-around"
   "next-task:next-task:next-task"
   "delivery-approval:next-task:delivery-approval"
-  "update-docs-around:next-task:update-docs-around"
+  "sync-docs:sync-docs:sync-docs"
   "project-review:project-review:project-review"
   "ship:ship:ship"
   "reality-check-scan:reality-check:scan"

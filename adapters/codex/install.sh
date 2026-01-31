@@ -93,7 +93,7 @@ SKILL_MAPPINGS=(
   "project-review:project-review:project-review:Multi-agent iterative code review until zero issues remain"
   "reality-check-scan:reality-check:scan:Deep repository analysis to detect plan drift and code reality gaps"
   "delivery-approval:next-task:delivery-approval:Validate task completion and approve for shipping"
-  "update-docs-around:next-task:update-docs-around:Sync documentation with actual code state"
+  "sync-docs:sync-docs:sync-docs:Sync documentation with actual code state"
 )
 
 for mapping in "${SKILL_MAPPINGS[@]}"; do
@@ -226,7 +226,7 @@ Access via $ prefix:
 - `$project-review` - Multi-agent code review
 - `$reality-check-scan` - Plan drift detection
 - `$delivery-approval` - Validate task completion
-- `$update-docs-around` - Sync documentation
+- `$sync-docs` - Sync documentation
 
 ## Usage
 
@@ -270,7 +270,7 @@ echo "  • \$deslop-around"
 echo "  • \$project-review"
 echo "  • \$reality-check-scan"
 echo "  • \$delivery-approval"
-echo "  • \$update-docs-around"
+echo "  • \$sync-docs"
 echo
 echo "[NEXT] Next Steps:"
 echo "  1. Start Codex CLI: codex"

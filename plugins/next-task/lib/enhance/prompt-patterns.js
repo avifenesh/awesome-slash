@@ -135,10 +135,14 @@ const promptPatterns = {
     id: 'missing_output_format',
     category: 'output',
     certainty: 'HIGH',
-    autoFix: false,
+    autoFix: true,
     description: 'No clear output format specification',
     check: (content) => {
       if (!content || typeof content !== 'string') return null;
+
+      // Skip workflow orchestrators that spawn agents rather than produce output
+      const isOrchestrator = /##\s*Phase\s+\d+|Task\(\{|spawn.*agent|subagent_type|await Task\(/i.test(content);
+      if (isOrchestrator) return null;
 
       // Check for output format indicators
       const outputIndicators = [
@@ -183,12 +187,16 @@ const promptPatterns = {
     check: (content) => {
       if (!content || typeof content !== 'string') return null;
 
+      // Skip workflow enforcement contexts where emphasis is intentional
+      const hasWorkflowGates = /WORKFLOW\s+(?:ENFORCEMENT|GATES)|MANDATORY.*GATES|agents?\s+MUST\s+NOT/i.test(content);
+      const isWorkflowDoc = /##\s*Phase\s+\d+|Task\(\{|subagent_type/i.test(content);
+
       // Find CAPS words (3+ chars, excluding headings and code)
       const capsPattern = /\b[A-Z]{3,}\b/g;
       const capsMatches = content.match(capsPattern) || [];
 
-      // Filter out common acceptable caps (acronyms, code)
-      const acceptableCaps = ['API', 'JSON', 'XML', 'HTML', 'CSS', 'URL', 'HTTP', 'HTTPS', 'SQL', 'CLI', 'SDK', 'JWT', 'UUID', 'REST', 'YAML', 'EOF', 'TODO', 'FIXME', 'NOTE', 'README', 'MCP'];
+      // Filter out common acceptable caps (acronyms, code, workflow terms)
+      const acceptableCaps = ['API', 'JSON', 'XML', 'HTML', 'CSS', 'URL', 'HTTP', 'HTTPS', 'SQL', 'CLI', 'SDK', 'JWT', 'UUID', 'REST', 'YAML', 'EOF', 'TODO', 'FIXME', 'NOTE', 'README', 'MCP', 'CRITICAL', 'MUST', 'NOT', 'STOP', 'MANDATORY', 'SKIP'];
       const aggressiveCaps = capsMatches.filter(c => !acceptableCaps.includes(c));
 
       // Check for excessive exclamation marks
@@ -196,8 +204,6 @@ const promptPatterns = {
 
       // Check for aggressive phrases
       const aggressivePhrases = [
-        /\bCRITICAL(?:LY)?\b/gi,
-        /\bMUST\s+(?:ALWAYS|NEVER)\b/gi,
         /\bABSOLUTELY\b/gi,
         /\bEXTREMELY\s+IMPORTANT\b/gi
       ];
@@ -208,7 +214,10 @@ const promptPatterns = {
         if (matches) aggressiveCount += matches.length;
       }
 
-      if (aggressiveCount >= 5) {
+      // Higher threshold for workflow docs (intentional emphasis for gates)
+      const threshold = (hasWorkflowGates || isWorkflowDoc) ? 50 : 5;
+
+      if (aggressiveCount >= threshold) {
         return {
           issue: `${aggressiveCount} instances of aggressive emphasis (CAPS, !!, CRITICAL)`,
           fix: 'Use normal language - models respond well to clear instructions without shouting',
@@ -231,7 +240,7 @@ const promptPatterns = {
     id: 'missing_xml_structure',
     category: 'structure',
     certainty: 'HIGH',
-    autoFix: false,
+    autoFix: true,
     description: 'Complex prompt without XML tags for structure',
     check: (content) => {
       if (!content || typeof content !== 'string') return null;
@@ -352,7 +361,7 @@ const promptPatterns = {
     id: 'missing_examples',
     category: 'examples',
     certainty: 'HIGH',
-    autoFix: false,
+    autoFix: true,
     description: 'Complex prompt without examples (few-shot)',
     check: (content) => {
       if (!content || typeof content !== 'string') return null;
@@ -361,6 +370,10 @@ const promptPatterns = {
 
       // Skip if prompt is simple
       if (tokens < 300) return null;
+
+      // Skip workflow orchestrators and command files
+      const isOrchestrator = /##\s*Phase\s+\d+|Task\(\{|spawn.*agent|subagent_type/i.test(content);
+      if (isOrchestrator) return null;
 
       // Check for example indicators
       const exampleIndicators = [
@@ -714,6 +727,203 @@ const promptPatterns = {
         return {
           issue: 'Requests JSON output but no schema or example provided',
           fix: 'Add JSON schema or example structure to ensure consistent output format'
+        };
+      }
+      return null;
+    }
+  },
+
+  // ============================================
+  // VERIFICATION PATTERNS (from Claude Code Best Practices)
+  // Source: https://code.claude.com/docs/en/best-practices
+  // ============================================
+
+  /**
+   * Missing verification criteria
+   * HIGH certainty - single highest-leverage improvement
+   * "Give Claude a way to verify its work"
+   */
+  missing_verification_criteria: {
+    id: 'missing_verification_criteria',
+    category: 'clarity',
+    certainty: 'HIGH',
+    autoFix: true,
+    description: 'Task lacks verification criteria (tests, screenshots, expected output)',
+    check: (content) => {
+      if (!content || typeof content !== 'string') return null;
+
+      const tokens = estimateTokens(content);
+      if (tokens < 150) return null; // Too short to need verification
+
+      // Check for implementation/action indicators
+      const isActionTask = /\b(?:implement|create|build|write|add|fix|update|refactor|modify)\b/i.test(content);
+      if (!isActionTask) return null;
+
+      // Check for verification indicators
+      const verificationPatterns = [
+        /\btest(?:s|ing)?\b/i,
+        /\bverify\b/i,
+        /\bvalidate\b/i,
+        /\bscreenshot\b/i,
+        /\bexpected\s+(?:output|result|behavior)\b/i,
+        /\bshould\s+(?:return|output|produce)\b/i,
+        /\bexample\s+(?:input|output)\b/i,
+        /\bcheck\s+(?:that|if)\b/i,
+        /\brun\s+(?:the\s+)?tests?\b/i,
+        /\bcompare\s+(?:to|with)\b/i,
+        /\bassert\b/i
+      ];
+
+      for (const pattern of verificationPatterns) {
+        if (pattern.test(content)) {
+          return null;
+        }
+      }
+
+      return {
+        issue: 'Task lacks verification criteria - no tests, expected output, or validation steps',
+        fix: 'Add verification: "run tests after implementing" or "expected output: X" or "take screenshot and compare"'
+      };
+    }
+  },
+
+  /**
+   * Unscoped task description
+   * HIGH certainty - vague scope leads to wrong solutions
+   */
+  unscoped_task: {
+    id: 'unscoped_task',
+    category: 'clarity',
+    certainty: 'HIGH',
+    autoFix: false,
+    description: 'Task description lacks specific scope (file, scenario, constraints)',
+    check: (content) => {
+      if (!content || typeof content !== 'string') return null;
+
+      const tokens = estimateTokens(content);
+      if (tokens < 50) return null;
+
+      // Check for action without scope
+      const vagueActions = [
+        /^(?:fix|add|implement|update|change)\s+(?:the|a|some)?\s*\w+$/im,
+        /\bfix\s+(?:the\s+)?bug\b/i,
+        /\badd\s+(?:a\s+)?(?:feature|function|test)\b/i,
+        /\bupdate\s+(?:the\s+)?(?:code|logic)\b/i
+      ];
+
+      const hasVagueAction = vagueActions.some(p => p.test(content));
+
+      // Check for scope indicators
+      const scopePatterns = [
+        /\bin\s+(?:file|folder|directory|module)\s+\S+/i,
+        /\b(?:src|lib|test)\/\S+/,
+        /\.(?:js|ts|py|rs|go|java|rb)\b/,
+        /\bwhen\s+(?:the|a)\s+\w+/i,
+        /\bfor\s+(?:the|a)\s+(?:case|scenario)\b/i,
+        /\bspecifically\b/i,
+        /\bedge\s+case/i
+      ];
+
+      const hasScope = scopePatterns.some(p => p.test(content));
+
+      if (hasVagueAction && !hasScope && tokens < 200) {
+        return {
+          issue: 'Task lacks specific scope (which file, what scenario, what constraints)',
+          fix: 'Specify: "in src/auth/login.js" or "for the edge case where user is logged out" or "without using library X"'
+        };
+      }
+      return null;
+    }
+  },
+
+  /**
+   * Missing pattern reference
+   * MEDIUM certainty - pointing to existing patterns improves consistency
+   */
+  missing_pattern_reference: {
+    id: 'missing_pattern_reference',
+    category: 'context',
+    certainty: 'MEDIUM',
+    autoFix: false,
+    description: 'Task could benefit from referencing existing patterns in codebase',
+    check: (content) => {
+      if (!content || typeof content !== 'string') return null;
+
+      // Only for tasks that involve creating new things
+      const creationTasks = /\b(?:create|add|implement|build)\s+(?:a\s+)?(?:new\s+)?(?:component|widget|endpoint|handler|service|module)\b/i;
+      if (!creationTasks.test(content)) return null;
+
+      // Check for pattern reference indicators
+      const patternRefs = [
+        /\blike\s+\S+\b/i,
+        /\bsimilar\s+to\b/i,
+        /\bfollow(?:ing)?\s+(?:the\s+)?(?:same\s+)?pattern\b/i,
+        /\bsee\s+\S+\s+(?:for|as)\s+(?:an?\s+)?example\b/i,
+        /\blook\s+at\s+(?:how|the)\b/i,
+        /\S+\.(?:js|ts|py)\s+(?:is|as)\s+(?:a\s+)?(?:good\s+)?example/i
+      ];
+
+      for (const pattern of patternRefs) {
+        if (pattern.test(content)) {
+          return null;
+        }
+      }
+
+      return {
+        issue: 'Creating new code without referencing existing patterns in codebase',
+        fix: 'Add: "look at how widgets are implemented in HomePage.tsx" or "follow the pattern in existing handlers"'
+      };
+    }
+  },
+
+  /**
+   * Missing source direction
+   * MEDIUM certainty - directing to sources saves exploration time
+   */
+  missing_source_direction: {
+    id: 'missing_source_direction',
+    category: 'context',
+    certainty: 'MEDIUM',
+    autoFix: false,
+    description: 'Question/investigation without directing to likely sources',
+    check: (content) => {
+      if (!content || typeof content !== 'string') return null;
+
+      // Only for investigation/question tasks
+      const investigationPatterns = [
+        /\bwhy\s+does\b/i,
+        /\bhow\s+does\b/i,
+        /\bwhere\s+is\b/i,
+        /\bwhat\s+(?:is|are|does)\b/i,
+        /\bfind\s+(?:out|the)\b/i,
+        /\binvestigate\b/i,
+        /\bunderstand\b/i
+      ];
+
+      const isInvestigation = investigationPatterns.some(p => p.test(content));
+      if (!isInvestigation) return null;
+
+      // Check for source directions
+      const sourceDirections = [
+        /\blook\s+(?:at|in|through)\b/i,
+        /\bcheck\s+(?:the|in)\b/i,
+        /\bstart\s+(?:with|from|in)\b/i,
+        /\bsee\s+\S+\b/i,
+        /\bin\s+(?:the\s+)?\S+\s+(?:file|folder|directory)\b/i,
+        /\bgit\s+(?:log|history|blame)\b/i
+      ];
+
+      for (const pattern of sourceDirections) {
+        if (pattern.test(content)) {
+          return null;
+        }
+      }
+
+      const tokens = estimateTokens(content);
+      if (tokens < 100) {
+        return {
+          issue: 'Investigation task without directing to likely sources',
+          fix: 'Add: "look through git history" or "check the auth flow in src/auth/" or "start in the config files"'
         };
       }
       return null;

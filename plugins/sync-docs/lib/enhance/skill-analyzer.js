@@ -75,8 +75,46 @@ function analyzeSkill(skillPath) {
       ...missingTrigger,
       file: skillPath,
       certainty: skillPatterns.missing_trigger_phrase.certainty,
-      patternId: skillPatterns.missing_trigger_phrase.id
+      patternId: skillPatterns.missing_trigger_phrase.id,
+      autoFix: skillPatterns.missing_trigger_phrase.autoFix
     });
+  }
+
+  // Check new patterns from Claude Code Best Practices
+  if (skillPatterns.side_effect_without_disable) {
+    const sideEffect = skillPatterns.side_effect_without_disable.check(frontmatter, content);
+    if (sideEffect) {
+      results.structureIssues.push({
+        ...sideEffect,
+        file: skillPath,
+        certainty: skillPatterns.side_effect_without_disable.certainty,
+        patternId: skillPatterns.side_effect_without_disable.id
+      });
+    }
+  }
+
+  if (skillPatterns.missing_context_fork) {
+    const missingFork = skillPatterns.missing_context_fork.check(frontmatter, content);
+    if (missingFork) {
+      results.structureIssues.push({
+        ...missingFork,
+        file: skillPath,
+        certainty: skillPatterns.missing_context_fork.certainty,
+        patternId: skillPatterns.missing_context_fork.id
+      });
+    }
+  }
+
+  if (skillPatterns.missing_allowed_tools) {
+    const missingTools = skillPatterns.missing_allowed_tools.check(frontmatter);
+    if (missingTools) {
+      results.structureIssues.push({
+        ...missingTools,
+        file: skillPath,
+        certainty: skillPatterns.missing_allowed_tools.certainty,
+        patternId: skillPatterns.missing_allowed_tools.id
+      });
+    }
   }
 
   return results;

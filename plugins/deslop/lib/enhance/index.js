@@ -1,9 +1,3 @@
-/**
- * Enhance Library
- * @author Avi Fenesh
- * @license MIT
- */
-
 const pluginAnalyzer = require('./plugin-analyzer');
 const pluginPatterns = require('./plugin-patterns');
 const toolPatterns = require('./tool-patterns');
@@ -20,6 +14,9 @@ const hookAnalyzer = require('./hook-analyzer');
 const skillAnalyzer = require('./skill-analyzer');
 const reporter = require('./reporter');
 const fixer = require('./fixer');
+const suppression = require('./suppression');
+const autoSuppression = require('./auto-suppression');
+const benchmark = require('./benchmark');
 
 module.exports = {
   // Main analyzers
@@ -43,6 +40,9 @@ module.exports = {
   // Output modules
   reporter,
   fixer,
+  suppression,
+  autoSuppression,
+  benchmark,
 
   // Convenience exports - Plugin
   analyze: pluginAnalyzer.analyze,
@@ -88,5 +88,28 @@ module.exports = {
 
   // Convenience exports - Orchestrator
   generateOrchestratorReport: reporter.generateOrchestratorReport,
-  deduplicateOrchestratorFindings: reporter.deduplicateOrchestratorFindings
+  deduplicateOrchestratorFindings: reporter.deduplicateOrchestratorFindings,
+
+  // Convenience exports - Suppression
+  loadSuppressionConfig: suppression.loadConfig,
+  filterFindings: suppression.filterFindings,
+  extractInlineSuppressions: suppression.extractInlineSuppressions,
+  generateSuppressionSummary: suppression.generateSuppressionSummary,
+
+  // Convenience exports - Auto-Suppression
+  isLikelyFalsePositive: autoSuppression.isLikelyFalsePositive,
+  getProjectId: autoSuppression.getProjectId,
+  loadAutoSuppressions: autoSuppression.loadAutoSuppressions,
+  saveAutoSuppressions: autoSuppression.saveAutoSuppressions,
+  clearAutoSuppressions: autoSuppression.clearAutoSuppressions,
+  mergeSuppressions: autoSuppression.mergeSuppressions,
+  analyzeForAutoSuppression: autoSuppression.analyzeForAutoSuppression,
+  exportAutoSuppressions: autoSuppression.exportAutoSuppressions,
+  importAutoSuppressions: autoSuppression.importAutoSuppressions,
+
+  // Convenience exports - Benchmark
+  runPatternBenchmarks: benchmark.runPatternBenchmarks,
+  runFixBenchmarks: benchmark.runFixBenchmarks,
+  generateBenchmarkReport: benchmark.generateReport,
+  assertBenchmarkThresholds: benchmark.assertThresholds
 };

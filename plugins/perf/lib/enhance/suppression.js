@@ -263,6 +263,9 @@ function filterFindings(findings, config, projectRoot, fileContents = new Map())
     if (suppression) {
       suppressed.push({
         ...finding,
+        reason: suppression.reason,
+        confidence: suppression.confidence,
+        note: suppression.note,
         suppression
       });
     } else {
