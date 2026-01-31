@@ -1,7 +1,8 @@
 ---
 name: sync-docs-discovery
-description: "Find documentation files related to changed source files. Uses lib/collectors/docs-patterns for efficient discovery."
+description: "Use when finding docs affected by code changes. Find documentation files related to changed source files using lib/collectors/docs-patterns."
 version: 1.0.0
+argument-hint: "<changed-files-json>"
 ---
 
 # sync-docs-discovery

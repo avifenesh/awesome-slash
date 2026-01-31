@@ -1,7 +1,8 @@
 ---
 name: changelog-update
-description: "Manage CHANGELOG.md updates. Check for undocumented commits, format new entries, apply updates safely."
+description: "Use when managing CHANGELOG entries. Check for undocumented commits, format and apply new entries safely."
 version: 1.0.0
+argument-hint: "check | apply <commits-json> | format <entry-json>"
 ---
 
 # changelog-update

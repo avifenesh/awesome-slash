@@ -1,7 +1,8 @@
 ---
 name: deslop-detection
-description: "Detect AI slop patterns in codebase. Wraps lib/patterns/pipeline.js + repo-map integration for AST-based detection. Returns structured findings with certainty levels."
+description: "Use when scanning for AI slop patterns, debug statements, or code cleanup. Wraps lib/patterns/pipeline.js + repo-map for AST-based detection with certainty levels."
 version: 1.0.0
+argument-hint: "<scope-path> [--thoroughness quick|normal|deep]"
 ---
 
 # deslop-detection

@@ -1,7 +1,8 @@
 ---
 name: sync-docs-analysis
-description: "Analyze documentation for issues like outdated references, stale examples, and missing updates. Uses lib/collectors/docs-patterns for efficient analysis."
+description: "Use when analyzing doc issues after code changes. Check for outdated references, stale examples, and missing updates."
 version: 1.0.0
+argument-hint: "<doc-path> <changed-file> [--deep]"
 ---
 
 # sync-docs-analysis

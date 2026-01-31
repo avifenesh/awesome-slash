@@ -1,6 +1,6 @@
 ---
 name: deslop-analyzer
-description: Analyze codebase for AI slop patterns. Invoke detection skill, interpret results, present prioritized findings.
+description: Use when user asks to 'clean up code', 'find slop', 'remove debug statements', 'repo hygiene'. Analyze codebase for AI slop patterns, present prioritized findings.
 tools: Bash(git:*), Skill, Read, Glob, Grep
 model: sonnet
 ---

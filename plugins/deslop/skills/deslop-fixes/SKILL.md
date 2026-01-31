@@ -1,7 +1,8 @@
 ---
 name: deslop-fixes
-description: "Apply auto-fixes for HIGH certainty slop findings. Runs verification after each fix, rolls back on failure."
+description: "Use when applying fixes for detected slop. Apply auto-fixes for HIGH certainty findings with verification and rollback on failure."
 version: 1.0.0
+argument-hint: "<findings-json> [--dry-run]"
 ---
 
 # deslop-fixes

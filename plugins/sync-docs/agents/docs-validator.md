@@ -1,6 +1,6 @@
 ---
 name: docs-validator
-description: Apply safe documentation fixes. Handle version updates, import paths. Delegate mechanical edits to simple-fixer.
+description: Use when documentation fixes need to be applied after analysis. Apply safe documentation fixes including version updates and import paths.
 tools: Bash(git:*), Skill, Read, Edit, Task
 model: sonnet
 ---

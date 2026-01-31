@@ -1,6 +1,6 @@
 ---
 name: docs-analyzer
-description: Analyze documentation for issues and outdated references. Invoke discovery and analysis skills, present findings by severity.
+description: Use when documentation may be stale after code changes. Analyze documentation for outdated references, stale examples, and missing CHANGELOG entries.
 tools: Bash(git:*), Skill, Read, Glob, Grep
 model: sonnet
 ---
