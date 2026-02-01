@@ -231,8 +231,23 @@ Instructions with $1, $2, $ARGUMENTS placeholders...
 ### Agent Modes
 
 - **primary** - Can be default agent for sessions
-- **subagent** - Called via Task tool from other agents
+- **subagent** - Called via @ mention syntax (e.g., `@agent-name prompt`)
 - **all** - Both primary and subagent
+
+### Invoking Subagents in OpenCode
+
+OpenCode does NOT have Claude Code's Task tool. Instead, use @ mention syntax:
+
+```
+@general help me search for authentication patterns
+@explore find all files that handle user sessions
+```
+
+Subagents can be invoked:
+1. **Manually** - Type `@agent-name` followed by your prompt
+2. **Automatically** - Primary agents may call subagents based on their descriptions
+
+Navigate between sessions with `<Leader>+Right/Left` keybinds.
 
 ### Custom Agent Definition
 
@@ -423,7 +438,7 @@ Creates `AGENTS.md` with project context.
 
 1. **No hook system** - OpenCode has plugins with hooks, but different from Claude Code hooks
 2. **No marketplace** - Manual installation only
-3. **Agent format differs** - Our agents work via Task tool, not native OpenCode agents
+3. **No Task tool** - OpenCode uses @ mentions for subagent invocation, not Task tool
 
 ### Workarounds
 
@@ -431,7 +446,8 @@ Creates `AGENTS.md` with project context.
 |-------|------------|
 | No checkboxes | Works functionally, just different UI |
 | Model selection | Users can set in `opencode.jsonc` |
-| Agent definitions | MCP tools work; native agents need manual setup |
+| Agent invocation | Use @ mentions (`@agent-name prompt`) instead of Task tool |
+| Multi-agent workflows | Define native OpenCode agents in `.opencode/agent/` |
 
 ---
 

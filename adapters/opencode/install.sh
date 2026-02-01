@@ -284,6 +284,16 @@ EOF
 echo "  [OK] Created README"
 echo
 
+# Run migration tool to set up native OpenCode agents
+echo "[MIGRATE] Setting up native OpenCode agents..."
+if [ -f "$REPO_ROOT/scripts/migrate-opencode.js" ]; then
+  node "$REPO_ROOT/scripts/migrate-opencode.js" --target "$(pwd)" 2>/dev/null || true
+  echo "  [OK] Native agents configured"
+else
+  echo "  [SKIP] Migration script not found"
+fi
+echo
+
 # Success message
 echo "[OK] Installation complete!"
 echo

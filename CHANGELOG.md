@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.2-rc.1] - 2026-02-01
+
+### Fixed
+- **OpenCode Subagent Invocation** - Fixed incorrect documentation stating subagents use Task tool
+  - OpenCode uses @ mention syntax (`@agent-name prompt`), not Task tool
+  - Updated `agent-docs/OPENCODE-REFERENCE.md` with correct invocation patterns
+  - Added section documenting @ mention syntax for subagents
+
+### Added
+- **OpenCode Compatibility Tests** - New test suite for cross-platform validation
+  - `__tests__/opencode-compatibility.test.js` - 13 tests covering:
+    - Documentation accuracy (no Task tool references for OpenCode)
+    - Label length compliance (30-char limit)
+    - Cross-platform state handling
+    - Plugin and installer validation
+- **OpenCode Migration Tool** - Script to set up native OpenCode agents
+  - `scripts/migrate-opencode.js` - Creates `.opencode/agent/` definitions
+  - Validates label lengths and identifies Task tool usage
+  - Integrated into OpenCode installer
+
+### Changed
+- **OpenCode Installer** - Now runs migration tool during installation
+
 ## [3.7.1] - 2026-02-01
 
 ### Security
