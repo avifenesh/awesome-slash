@@ -657,7 +657,7 @@ npm run verify   # Tool availability + versions
 
 This project is built on research, not guesswork.
 
-**Knowledge base** (`agent-docs/`): 9,500 lines of curated documentation from Anthropic, OpenAI, Google, and Microsoft covering:
+**Knowledge base** (`agent-docs/`): 8,000 lines of curated documentation from Anthropic, OpenAI, Google, and Microsoft covering:
 - Agent architecture and design patterns
 - Prompt engineering techniques
 - Function calling and tool use
