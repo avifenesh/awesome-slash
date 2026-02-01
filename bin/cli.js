@@ -613,6 +613,33 @@ After user answers, proceed to Phase 2 with the selected policy.
     console.log(`  [OK] Installed lib to ${libDestDir}`);
   }
 
+  // Install skills to ~/.opencode/skills/<skill-name>/SKILL.md
+  const skillsDestDir = path.join(home, '.opencode', 'skills');
+  fs.mkdirSync(skillsDestDir, { recursive: true });
+  console.log('  Installing skills...');
+  let skillCount = 0;
+
+  for (const pluginName of pluginDirs) {
+    const srcSkillsDir = path.join(installDir, 'plugins', pluginName, 'skills');
+    if (fs.existsSync(srcSkillsDir)) {
+      const skillDirs = fs.readdirSync(srcSkillsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory());
+      for (const skillDir of skillDirs) {
+        const skillName = skillDir.name;
+        const srcSkillPath = path.join(srcSkillsDir, skillName, 'SKILL.md');
+        if (fs.existsSync(srcSkillPath)) {
+          const destSkillDir = path.join(skillsDestDir, skillName);
+          fs.mkdirSync(destSkillDir, { recursive: true });
+          let content = fs.readFileSync(srcSkillPath, 'utf8');
+          content = transformForOpenCode(content);
+          fs.writeFileSync(path.join(destSkillDir, 'SKILL.md'), content);
+          skillCount++;
+        }
+      }
+    }
+  }
+  console.log(`  [OK] Installed ${skillCount} skills to ${skillsDestDir}`);
+
   console.log('[OK] OpenCode installation complete!');
   console.log(`   Commands: ${commandsDir}`);
   console.log(`   Agents: ${agentsDir}`);
