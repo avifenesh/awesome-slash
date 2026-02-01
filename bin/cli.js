@@ -372,6 +372,11 @@ function installForOpenCode(installDir, options = {}) {
     content = content.replace(/\.claude"/g, '.opencode"');
     content = content.replace(/\.claude`/g, '.opencode`');
 
+    // Strip plugin prefix from agent references (next-task:agent-name -> agent-name)
+    // This is critical - OpenCode agents are installed without the plugin prefix
+    content = content.replace(/`(next-task|deslop|enhance|ship|sync-docs|audit-project|drift-detect|repo-map|perf):([a-z-]+)`/g, '`$2`');
+    content = content.replace(/(next-task|deslop|enhance|ship|sync-docs|audit-project|drift-detect|repo-map|perf):([a-z-]+)/g, '$2');
+
     // Transform JavaScript code blocks to OpenCode instructions
     // OpenCode commands don't execute JS - they're instruction files
     content = content.replace(
@@ -380,11 +385,11 @@ function installForOpenCode(installDir, options = {}) {
         // Extract key actions from the code
         let instructions = '**OpenCode Instructions:**\n';
 
-        // Extract Task calls and convert to @ mentions
-        const taskMatches = code.matchAll(/(?:await\s+)?Task\s*\(\s*\{[^}]*subagent_type:\s*["']([^"':]+):([^"']+)["'][^}]*\}\s*\)/g);
+        // Extract Task calls and convert to @ mentions (strip plugin prefix)
+        const taskMatches = code.matchAll(/(?:await\s+)?Task\s*\(\s*\{[^}]*subagent_type:\s*["'](?:[^"':]+:)?([^"']+)["'][^}]*\}\s*\)/g);
         for (const taskMatch of taskMatches) {
-          const agent = taskMatch[2];
-          instructions += `- Invoke @${agent} agent\n`;
+          const agent = taskMatch[1];
+          instructions += `- Invoke \`@${agent}\` agent\n`;
         }
 
         // Extract workflowState calls as status notes
@@ -415,11 +420,12 @@ function installForOpenCode(installDir, options = {}) {
     );
 
     // Add OpenCode-specific note at the top if it's a complex command
-    if (content.includes('@') && content.includes('agent')) {
+    if (content.includes('agent')) {
       const note = `
-> **OpenCode Note**: This command uses @ mentions to invoke agents.
-> Example: \`@exploration-agent analyze the codebase for task #123\`
-> Agents are installed in ~/.opencode/agents/
+> **OpenCode Note**: Invoke agents using \`@agent-name\` syntax.
+> Available agents: task-discoverer, exploration-agent, planning-agent,
+> implementation-agent, deslop-agent, delivery-validator, sync-docs-agent
+> Example: \`@exploration-agent analyze the codebase\`
 
 `;
       // Insert after frontmatter

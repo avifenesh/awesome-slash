@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.2-rc.3] - 2026-02-01
+
+### Fixed
+- **OpenCode Agent Name Prefix** - Strip plugin prefix from agent references
+  - `next-task:task-discoverer` -> `task-discoverer`
+  - `deslop:deslop-agent` -> `deslop-agent`
+  - Agents are installed without prefix, commands must match
+  - Updated OpenCode note to list available agent names
+
 ## [3.7.2-rc.2] - 2026-02-01
 
 ### Fixed
