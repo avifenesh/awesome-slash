@@ -65,13 +65,24 @@ if [ -n "$agents_modified" ] || [ -n "$skills_modified" ] || [ -n "$hooks_modifi
   echo "Modified files:"
   echo "$agents_modified$skills_modified$hooks_modified$prompts_modified"
   echo ""
-  read -p "Have you run /enhance on these files? (y/N) " response
-  if [ "$response" != "y" ] && [ "$response" != "Y" ]; then
+  # Check for env var first (for non-interactive/CI contexts)
+  if [ "\$ENHANCE_CONFIRMED" = "1" ]; then
+    echo "[OK] /enhance confirmed via ENHANCE_CONFIRMED=1"
+  elif [ -t 0 ]; then
+    # Interactive mode - prompt user
+    read -p "Have you run /enhance on these files? (y/N) " response
+    if [ "\$response" != "y" ] && [ "\$response" != "Y" ]; then
+      echo "[BLOCKED] Run /enhance first"
+      echo "   Skip: ENHANCE_CONFIRMED=1 git push"
+      exit 1
+    fi
+    echo "[OK] /enhance confirmed"
+  else
+    # Non-interactive, no env var - block
     echo "[BLOCKED] Run /enhance first"
-    echo "   Skip: git push --no-verify"
+    echo "   For non-interactive: ENHANCE_CONFIRMED=1 git push"
     exit 1
   fi
-  echo "[OK] /enhance confirmed"
 else
   echo "[OK] No enhanced content modified"
 fi

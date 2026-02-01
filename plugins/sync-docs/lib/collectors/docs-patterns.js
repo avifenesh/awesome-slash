@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 const DEFAULT_OPTIONS = {
   cwd: process.cwd()
@@ -31,18 +31,24 @@ function findRelatedDocs(changedFiles, options = {}) {
   // Find all markdown files
   const docFiles = findMarkdownFiles(basePath);
 
+  // Cache doc file contents to avoid redundant disk reads
+  const docContentCache = new Map();
+  for (const doc of docFiles) {
+    try {
+      docContentCache.set(doc, fs.readFileSync(path.join(basePath, doc), 'utf8'));
+    } catch {
+      // Skip unreadable docs
+    }
+  }
+
   for (const file of changedFiles) {
     const basename = path.basename(file).replace(/\.[^.]+$/, '');
     const modulePath = file.replace(/\.[^.]+$/, '');
     const dirName = path.dirname(file);
 
     for (const doc of docFiles) {
-      let content;
-      try {
-        content = fs.readFileSync(path.join(basePath, doc), 'utf8');
-      } catch {
-        continue;
-      }
+      const content = docContentCache.get(doc);
+      if (!content) continue;
 
       const references = [];
 
@@ -220,11 +226,17 @@ function getExportsFromGit(filePath, ref, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
   try {
-    const content = execSync(`git show ${ref}:${filePath}`, {
+    // Use spawnSync with args array to avoid shell interpolation (security)
+    const result = spawnSync('git', ['show', `${ref}:${filePath}`], {
       cwd: opts.cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
+
+    if (result.status !== 0) {
+      return [];
+    }
+    const content = result.stdout;
 
     const exports = [];
 
@@ -297,15 +309,17 @@ function checkChangelog(changedFiles, options = {}) {
 
   const hasUnreleased = changelog.includes('## [Unreleased]');
 
-  // Get recent commits
+  // Get recent commits - use spawnSync to avoid shell injection
   let recentCommits = [];
   try {
-    const output = execSync('git log --oneline -10 HEAD', {
+    const result = spawnSync('git', ['log', '--oneline', '-10', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    recentCommits = output.trim().split('\n');
+    if (result.status === 0 && result.stdout) {
+      recentCommits = result.stdout.trim().split('\n');
+    }
   } catch {
     // Git command failed
   }
