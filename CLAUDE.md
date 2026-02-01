@@ -47,6 +47,11 @@
    - Use plain text: `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]`
    - Use markdown formatting instead of decorative borders
    *WHY: Emojis and ASCII art waste tokens. AI models parse plain text better.*
+
+9. **gh/git on Windows** - Escape `$` as `\$` in GraphQL queries, avoid `!=` in jq (use `== "A" or == "B"`).
+   - `gh pr checks` uses `state` not `conclusion` - returns UPPERCASE: `SUCCESS`, `FAILURE`, `PENDING`
+   - Single quotes unreliable - use double quotes with escaped inner quotes
+   *WHY: Windows shell interprets $ and ! differently. These cause silent failures.*
 </critical-rules>
 
 <architecture>
