@@ -7,8 +7,9 @@
 'use strict';
 
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const runner = require('./runner');
 const cache = require('./cache');
@@ -101,13 +102,27 @@ async function incrementalUpdate(basePath, map) {
     }
   }
 
-  // Apply added/modified
+  // Apply added/modified - batch file existence checks
   const updatedFiles = [...changes.added, ...changes.modified];
-  for (const file of updatedFiles) {
-    const fullPath = path.join(basePath, file);
-    if (!fs.existsSync(fullPath)) continue;
+  const fullPaths = updatedFiles.map(file => ({ file, fullPath: path.join(basePath, file) }));
 
-    const fileData = runner.scanSingleFile(installed.command, fullPath, basePath);
+  // Batch check file existence
+  const existenceChecks = await Promise.all(
+    fullPaths.map(async ({ file, fullPath }) => {
+      try {
+        await fsPromises.access(fullPath);
+        return { file, fullPath, exists: true };
+      } catch {
+        return { file, fullPath, exists: false };
+      }
+    })
+  );
+
+  // Process files that exist
+  for (const { file, fullPath, exists } of existenceChecks) {
+    if (!exists) continue;
+
+    const fileData = await runner.scanSingleFileAsync(installed.command, fullPath, basePath);
     if (fileData) {
       map.files[file] = fileData;
       if (fileData.imports && fileData.imports.length > 0) {
@@ -167,32 +182,46 @@ async function updateWithoutGit(basePath, map, cmd) {
     total: 0
   };
 
-  // Detect deleted or modified files
-  for (const file of Object.keys(map.files)) {
+  // Collect existing files to check
+  const existingFiles = Object.keys(map.files);
+  const filesToCheck = [];
+  const filesToDelete = [];
+
+  for (const file of existingFiles) {
     if (!currentFiles.has(file)) {
-      changes.deleted.push(file);
-      delete map.files[file];
-      delete map.dependencies[file];
+      filesToDelete.push(file);
     } else {
-      const fullPath = path.join(basePath, file);
-      const fileData = runner.scanSingleFile(cmd, fullPath, basePath);
-      if (fileData && fileData.hash !== map.files[file].hash) {
-        map.files[file] = fileData;
-        if (fileData.imports && fileData.imports.length > 0) {
-          map.dependencies[file] = Array.from(new Set(fileData.imports.map(imp => imp.source)));
-        } else {
-          delete map.dependencies[file];
-        }
-        changes.modified.push(file);
-      }
+      filesToCheck.push(file);
       currentFiles.delete(file);
     }
   }
 
-  // Remaining files are new
+  // Process deletions
+  for (const file of filesToDelete) {
+    changes.deleted.push(file);
+    delete map.files[file];
+    delete map.dependencies[file];
+  }
+
+  // Process existing files for modifications (async file reads)
+  for (const file of filesToCheck) {
+    const fullPath = path.join(basePath, file);
+    const fileData = await runner.scanSingleFileAsync(cmd, fullPath, basePath);
+    if (fileData && fileData.hash !== map.files[file].hash) {
+      map.files[file] = fileData;
+      if (fileData.imports && fileData.imports.length > 0) {
+        map.dependencies[file] = Array.from(new Set(fileData.imports.map(imp => imp.source)));
+      } else {
+        delete map.dependencies[file];
+      }
+      changes.modified.push(file);
+    }
+  }
+
+  // Process new files (async file reads)
   for (const file of currentFiles) {
     const fullPath = path.join(basePath, file);
-    const fileData = runner.scanSingleFile(cmd, fullPath, basePath);
+    const fileData = await runner.scanSingleFileAsync(cmd, fullPath, basePath);
     if (fileData) {
       map.files[file] = fileData;
       if (fileData.imports && fileData.imports.length > 0) {
@@ -316,14 +345,29 @@ function parseDiff(diff) {
 }
 
 /**
+ * Validate git commit hash format
+ * @param {string} commit - Commit hash to validate
+ * @returns {boolean} True if valid hex commit hash
+ */
+function isValidCommitHash(commit) {
+  // Git commit hashes are 4-40 hex characters (short to full SHA)
+  return typeof commit === 'string' && /^[0-9a-fA-F]{4,40}$/.test(commit);
+}
+
+/**
  * Get git diff name-status
  * @param {string} basePath - Repository root
  * @param {string} sinceCommit - Base commit
  * @returns {string|null}
  */
 function getGitDiff(basePath, sinceCommit) {
+  // Validate commit hash to prevent command injection
+  if (!isValidCommitHash(sinceCommit)) {
+    return null;
+  }
   try {
-    return execSync(`git diff --name-status -M ${sinceCommit} HEAD`, {
+    // Use execFileSync with arg array to prevent command injection
+    return execFileSync('git', ['diff', '--name-status', '-M', sinceCommit, 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -340,8 +384,13 @@ function getGitDiff(basePath, sinceCommit) {
  * @returns {boolean}
  */
 function commitExists(basePath, commit) {
+  // Validate commit hash to prevent command injection
+  if (!isValidCommitHash(commit)) {
+    return false;
+  }
   try {
-    execSync(`git cat-file -e ${commit}`, {
+    // Use execFileSync with arg array to prevent command injection
+    execFileSync('git', ['cat-file', '-e', commit], {
       cwd: basePath,
       stdio: ['pipe', 'pipe', 'pipe']
     });
@@ -358,7 +407,8 @@ function commitExists(basePath, commit) {
  */
 function getCurrentBranch(basePath) {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD', {
+    // Use execFileSync with arg array for consistency
+    return execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -375,8 +425,13 @@ function getCurrentBranch(basePath) {
  * @returns {number}
  */
 function getCommitsBehind(basePath, commit) {
+  // Validate commit hash to prevent command injection
+  if (!isValidCommitHash(commit)) {
+    return 0;
+  }
   try {
-    const out = execSync(`git rev-list ${commit}..HEAD --count`, {
+    // Use execFileSync with arg array to prevent command injection
+    const out = execFileSync('git', ['rev-list', `${commit}..HEAD`, '--count'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']

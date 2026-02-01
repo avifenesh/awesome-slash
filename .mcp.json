@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "awesome-slash": {
-      "command": "node",
-      "args": ["./mcp-server/index.js"]
-    }
-  }
-}

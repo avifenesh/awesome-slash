@@ -1020,7 +1020,7 @@ function func${i}() {
   });
 
   describe('analyzeOverEngineering (with mocks)', () => {
-    // Create a mock file system for testing
+    // Create a mock file system for testing (supports both sync and async)
     const createMockFs = (files) => {
       const mockFs = {
         readdirSync: (dir, options) => {
@@ -1051,6 +1051,14 @@ function func${i}() {
             isFile: () => file.type === 'file',
             isDirectory: () => file.type === 'dir'
           };
+        },
+        // Async version for countSourceLines (PERF-007)
+        promises: {
+          readFile: async (path) => {
+            const file = files.find(f => f.path === path || path.endsWith(f.path));
+            if (!file) throw new Error('ENOENT');
+            return file.content || '';
+          }
         }
       };
       return mockFs;
@@ -1062,9 +1070,9 @@ function func${i}() {
       expect(typeof analyzeOverEngineering).toBe('function');
     });
 
-    it('should include all expected metrics in result', () => {
+    it('should include all expected metrics in result', async () => {
       // Mock a minimal project
-      const result = analyzeOverEngineering('/fake/path', {
+      const result = await analyzeOverEngineering('/fake/path', {
         fs: createMockFs([]),
         path: require('path')
       });
@@ -1078,8 +1086,8 @@ function func${i}() {
       expect(result.metrics).toHaveProperty('directoryDepth');
     });
 
-    it('should use fallback when no entry points found', () => {
-      const result = analyzeOverEngineering('/fake/path', {
+    it('should use fallback when no entry points found', async () => {
+      const result = await analyzeOverEngineering('/fake/path', {
         fs: createMockFs([]),
         path: require('path')
       });
@@ -1088,8 +1096,8 @@ function func${i}() {
       expect(result.metrics.exports).toBe(1); // Fallback to 1
     });
 
-    it('should respect custom thresholds', () => {
-      const result = analyzeOverEngineering('/fake/path', {
+    it('should respect custom thresholds', async () => {
+      const result = await analyzeOverEngineering('/fake/path', {
         fs: createMockFs([]),
         path: require('path'),
         fileRatioThreshold: 5,
@@ -3035,7 +3043,7 @@ src/auth.js`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 3,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 
@@ -3057,7 +3065,7 @@ src/config.js`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 3,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 
@@ -3082,7 +3090,7 @@ src/user.test.js`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 3,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 
@@ -3104,7 +3112,7 @@ package.json`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 2,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 
@@ -3143,7 +3151,7 @@ src/e.js`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 5,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 
@@ -3194,7 +3202,7 @@ src/j.js`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 5,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 
@@ -3212,7 +3220,7 @@ src/j.js`;
         });
 
         const result = analyzeShotgunSurgery('/not-a-repo', {
-          execSync: mockExec,
+          execFileSync: mockExec,
           path: createMockPath()
         });
 
@@ -3225,7 +3233,7 @@ src/j.js`;
         const result = analyzeShotgunSurgery('/repo', {
           commitLimit: 100,
           clusterThreshold: 5,
-          execSync: createMockExecSync(''),
+          execFileSync: createMockExecSync(''),
           path: createMockPath()
         });
 
@@ -3241,12 +3249,13 @@ src/j.js`;
 
         analyzeShotgunSurgery('/repo', {
           commitLimit: 50,
-          execSync: mockExec,
+          execFileSync: mockExec,
           path: createMockPath()
         });
 
         expect(mockExec).toHaveBeenCalledWith(
-          expect.stringContaining('-n 50'),
+          'git',
+          expect.arrayContaining(['-n', '50']),
           expect.any(Object)
         );
       });
@@ -3255,12 +3264,13 @@ src/j.js`;
         const mockExec = jest.fn().mockReturnValue('COMMIT:abc\nfile.js');
 
         analyzeShotgunSurgery('/repo', {
-          execSync: mockExec,
+          execFileSync: mockExec,
           path: createMockPath()
         });
 
         expect(mockExec).toHaveBeenCalledWith(
-          expect.stringContaining('-n 100'), // Default commitLimit
+          'git',
+          expect.arrayContaining(['-n', '100']), // Default commitLimit
           expect.any(Object)
         );
       });
@@ -3280,7 +3290,7 @@ src/j.js`;
         analyzeShotgunSurgery('/repo', {
           commitLimit: 1000,
           clusterThreshold: 5,
-          execSync: createMockExecSync(gitOutput),
+          execFileSync: createMockExecSync(gitOutput),
           path: createMockPath()
         });
 

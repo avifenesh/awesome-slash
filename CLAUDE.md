@@ -93,9 +93,8 @@ adapters/                   # Platform-specific adapters
 ├── opencode/               # OpenCode install script
 └── codex/                  # Codex install script
 
-mcp-server/                 # Cross-platform MCP server
 bin/cli.js                  # npm CLI installer
-checklists/                 # Action checklists (9 files)
+checklists/                 # Action checklists (8 files)
 agent-docs/                 # Knowledge base
 docs/                       # User documentation
 ```

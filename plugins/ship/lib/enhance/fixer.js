@@ -172,7 +172,7 @@ function applyFixes(issues, options = {}) {
 
 function applyAtPath(obj, pathStr, fixFn) {
   const parts = pathStr.split('.');
-  const result = JSON.parse(JSON.stringify(obj)); // Deep clone
+  const result = structuredClone(obj);
 
   let current = result;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -181,7 +181,7 @@ function applyAtPath(obj, pathStr, fixFn) {
       // Array access
       const match = part.match(/(\w+)\[(\d+)\]/);
       if (match) {
-        current = current[match[1]][parseInt(match[2])];
+        current = current[match[1]][parseInt(match[2], 10)];
       }
     } else {
       current = current[part];
@@ -192,7 +192,7 @@ function applyAtPath(obj, pathStr, fixFn) {
   if (lastPart.includes('[')) {
     const match = lastPart.match(/(\w+)\[(\d+)\]/);
     if (match) {
-      current[match[1]][parseInt(match[2])] = fixFn(current[match[1]][parseInt(match[2])]);
+      current[match[1]][parseInt(match[2], 10)] = fixFn(current[match[1]][parseInt(match[2], 10)]);
     }
   } else {
     current[lastPart] = fixFn(current[lastPart]);
@@ -307,6 +307,7 @@ function cleanupBackups(directory) {
           fs.unlinkSync(fullPath);
           count++;
         } catch (err) {
+          console.error('[WARN] fixer error:', err.message);
         }
       }
     }

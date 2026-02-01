@@ -132,7 +132,7 @@ describe('pipeline', () => {
   });
 
   describe('runMultiPassAnalyzers', () => {
-    it('should detect excessive JSDoc', () => {
+    it('should detect excessive JSDoc', async () => {
       // JSDoc: 15 non-empty lines, Function: 4 code lines = 15/4 = 3.75x (exceeds 3.0 max)
       const code = `
 /**
@@ -160,14 +160,14 @@ function add(a, b) {
 }`;
       fs.writeFileSync(path.join(tmpDir, 'math.js'), code);
 
-      const findings = runMultiPassAnalyzers(tmpDir, ['math.js']);
+      const findings = await runMultiPassAnalyzers(tmpDir, ['math.js']);
 
       const docRatioFindings = findings.filter(f => f.patternName === 'doc_code_ratio');
       expect(docRatioFindings.length).toBeGreaterThan(0);
       expect(docRatioFindings[0].certainty).toBe(CERTAINTY.MEDIUM);
     });
 
-    it('should detect excessive inline comments', () => {
+    it('should detect excessive inline comments', async () => {
       // Comments: 8 lines, Code: 4 lines = 8/4 = 2x (matches 2.0 maxCommentRatio threshold)
       // Need to exceed the threshold, so making it higher
       const code = `
@@ -188,19 +188,19 @@ function process(data) {
 }`;
       fs.writeFileSync(path.join(tmpDir, 'processor.js'), code);
 
-      const findings = runMultiPassAnalyzers(tmpDir, ['processor.js']);
+      const findings = await runMultiPassAnalyzers(tmpDir, ['processor.js']);
 
       const verbosityFindings = findings.filter(f => f.patternName === 'verbosity_ratio');
       expect(verbosityFindings.length).toBeGreaterThan(0);
     });
 
-    it('should skip unsupported file types for doc analysis', () => {
+    it('should skip unsupported file types for doc analysis', async () => {
       fs.writeFileSync(
         path.join(tmpDir, 'data.json'),
         '{ "key": "value" }'
       );
 
-      const findings = runMultiPassAnalyzers(tmpDir, ['data.json']);
+      const findings = await runMultiPassAnalyzers(tmpDir, ['data.json']);
 
       const docRatioFindings = findings.filter(f => f.patternName === 'doc_code_ratio');
       expect(docRatioFindings.length).toBe(0);
@@ -514,13 +514,13 @@ function process(data) {
   });
 
   describe('runPipeline', () => {
-    it('should return correct structure', () => {
+    it('should return correct structure', async () => {
       fs.writeFileSync(
         path.join(tmpDir, 'app.js'),
         'console.log("test");\n'
       );
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         mode: 'report'
       });
@@ -532,8 +532,8 @@ function process(data) {
       expect(result).toHaveProperty('metadata');
     });
 
-    it('should include metadata', () => {
-      const result = runPipeline(tmpDir, {
+    it('should include metadata', async () => {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         mode: 'report'
       });
@@ -544,13 +544,13 @@ function process(data) {
       expect(result.metadata.timestamp).toBeDefined();
     });
 
-    it('should detect findings in quick mode', () => {
+    it('should detect findings in quick mode', async () => {
       fs.writeFileSync(
         path.join(tmpDir, 'app.js'),
         'function test() {\n  console.log("debug");\n}'
       );
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['app.js']
       });
@@ -560,7 +560,7 @@ function process(data) {
       expect(result.findings.every(f => f.phase === 1)).toBe(true);
     });
 
-    it('should run multi-pass analyzers in normal mode', () => {
+    it('should run multi-pass analyzers in normal mode', async () => {
       const code = `
 /**
  * Excessive docs
@@ -578,7 +578,7 @@ function foo() {
 }`;
       fs.writeFileSync(path.join(tmpDir, 'test.js'), code);
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'normal',
         targetFiles: ['test.js']
       });
@@ -588,8 +588,8 @@ function foo() {
       expect(result.metadata.thoroughness).toBe('normal');
     });
 
-    it('should track missing tools in deep mode', () => {
-      const result = runPipeline(tmpDir, {
+    it('should track missing tools in deep mode', async () => {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'deep',
         cliTools: { jscpd: false, madge: false, escomplex: false }
       });
@@ -599,18 +599,18 @@ function foo() {
       expect(result.missingTools).toContain('escomplex');
     });
 
-    it('should use default options', () => {
-      const result = runPipeline(tmpDir);
+    it('should use default options', async () => {
+      const result = await runPipeline(tmpDir);
 
       expect(result.metadata.thoroughness).toBe('normal');
       expect(result.metadata.mode).toBe('report');
     });
 
-    it('should filter by specific files', () => {
+    it('should filter by specific files', async () => {
       fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("a");\n');
       fs.writeFileSync(path.join(tmpDir, 'b.js'), 'console.log("b");\n');
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['a.js']
       });
@@ -620,13 +620,13 @@ function foo() {
       expect(filesWithFindings).not.toContain('b.js');
     });
 
-    it('should generate phase3Prompt with findings', () => {
+    it('should generate phase3Prompt with findings', async () => {
       fs.writeFileSync(
         path.join(tmpDir, 'app.js'),
         'console.log("debug");\n'
       );
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['app.js'],
         mode: 'apply'
@@ -638,16 +638,16 @@ function foo() {
   });
 
   describe('mode inheritance', () => {
-    it('should pass mode to handoff prompt', () => {
+    it('should pass mode to handoff prompt', async () => {
       fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
 
-      const reportResult = runPipeline(tmpDir, {
+      const reportResult = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['a.js'],
         mode: 'report'
       });
 
-      const applyResult = runPipeline(tmpDir, {
+      const applyResult = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['a.js'],
         mode: 'apply'
@@ -659,10 +659,10 @@ function foo() {
   });
 
   describe('certainty tagging', () => {
-    it('should tag Phase 1 regex matches as HIGH certainty', () => {
+    it('should tag Phase 1 regex matches as HIGH certainty', async () => {
       fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['a.js']
       });
@@ -671,7 +671,7 @@ function foo() {
       expect(phase1Findings.every(f => f.certainty === CERTAINTY.HIGH)).toBe(true);
     });
 
-    it('should tag multi-pass findings as MEDIUM certainty', () => {
+    it('should tag multi-pass findings as MEDIUM certainty', async () => {
       const code = `
 /**
  * Excessive documentation
@@ -693,7 +693,7 @@ function foo() {
 }`;
       fs.writeFileSync(path.join(tmpDir, 'test.js'), code);
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'normal',
         targetFiles: ['test.js']
       });
@@ -706,10 +706,10 @@ function foo() {
   });
 
   describe('thoroughness levels', () => {
-    it('quick mode should only run Phase 1 regex', () => {
+    it('quick mode should only run Phase 1 regex', async () => {
       fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'quick',
         targetFiles: ['a.js']
       });
@@ -719,7 +719,7 @@ function foo() {
       expect(result.findings.every(f => f.certainty === CERTAINTY.HIGH)).toBe(true);
     });
 
-    it('normal mode should include multi-pass analyzers', () => {
+    it('normal mode should include multi-pass analyzers', async () => {
       // Create file that will trigger multi-pass analysis
       const code = `
 /**
@@ -740,7 +740,7 @@ function foo() {
 }`;
       fs.writeFileSync(path.join(tmpDir, 'test.js'), code);
 
-      const result = runPipeline(tmpDir, {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'normal',
         targetFiles: ['test.js']
       });
@@ -751,13 +751,359 @@ function foo() {
       expect(result.metadata.thoroughness).toBe('normal');
     });
 
-    it('deep mode should track missing CLI tools', () => {
-      const result = runPipeline(tmpDir, {
+    it('deep mode should track missing CLI tools', async () => {
+      const result = await runPipeline(tmpDir, {
         thoroughness: 'deep',
         cliTools: { jscpd: false, madge: false, escomplex: false }
       });
 
       expect(result.missingTools.length).toBe(3);
+    });
+  });
+
+  describe('timeout behavior', () => {
+    it('should not timeout with default timeout value', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+
+      expect(result.metadata.timedOut).toBe(false);
+    });
+
+    it('should accept custom timeout option', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js'],
+        timeout: 60000 // 1 minute
+      });
+
+      expect(result.metadata.timedOut).toBe(false);
+      expect(result.metadata.elapsedMs).toBeLessThan(60000);
+    });
+
+    it('should track elapsed time in metadata', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'const x = 1;');
+
+      const startTime = Date.now();
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+      const endTime = Date.now();
+
+      // elapsedMs should be roughly between 0 and (endTime - startTime)
+      expect(result.metadata.elapsedMs).toBeGreaterThanOrEqual(0);
+      expect(result.metadata.elapsedMs).toBeLessThanOrEqual(endTime - startTime + 100);
+    });
+
+    it('should complete Phase 1 even with very short timeout', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      // Even with a 1ms timeout, Phase 1 should complete (timeout is checked AFTER phases)
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js'],
+        timeout: 1 // 1ms timeout
+      });
+
+      // Phase 1 findings should still be present
+      expect(result.findings).toBeDefined();
+      expect(result.findings.length).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should include elapsedMs in metadata', async () => {
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick'
+      });
+
+      expect(result.metadata.elapsedMs).toBeDefined();
+      expect(typeof result.metadata.elapsedMs).toBe('number');
+      expect(result.metadata.elapsedMs).toBeGreaterThanOrEqual(0);
+    });
+
+    it('should include timedOut in metadata', async () => {
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick'
+      });
+
+      expect(result.metadata.timedOut).toBeDefined();
+      expect(typeof result.metadata.timedOut).toBe('boolean');
+    });
+  });
+
+  describe('target file filtering', () => {
+    it('should only analyze specified target files', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'included.js'), 'console.log("included");');
+      fs.writeFileSync(path.join(tmpDir, 'excluded.js'), 'console.log("excluded");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['included.js']
+      });
+
+      const filesWithFindings = result.findings.map(f => f.file);
+      expect(filesWithFindings.some(f => f === 'included.js')).toBe(true);
+      expect(filesWithFindings.some(f => f === 'excluded.js')).toBe(false);
+    });
+
+    it('should handle empty target files array', async () => {
+      // When targetFiles is empty, pipeline should discover files automatically
+      fs.writeFileSync(path.join(tmpDir, 'auto.js'), 'console.log("auto");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: []
+      });
+
+      // Should still analyze files found in the directory
+      expect(result.metadata.filesAnalyzed).toBeDefined();
+    });
+
+    it('should respect maxFiles option', async () => {
+      // Create multiple files
+      for (let i = 0; i < 10; i++) {
+        fs.writeFileSync(path.join(tmpDir, `file${i}.js`), `console.log("${i}");`);
+      }
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        maxFiles: 5
+      });
+
+      expect(result.metadata.filesAnalyzed).toBeLessThanOrEqual(5);
+    });
+  });
+
+  describe('finding aggregation', () => {
+    it('should aggregate findings from Phase 1', async () => {
+      // Create file with multiple issues
+      fs.writeFileSync(
+        path.join(tmpDir, 'multi.js'),
+        'console.log("a");\nconsole.log("b");\nconsole.log("c");'
+      );
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['multi.js']
+      });
+
+      // Should have multiple findings from the same file
+      const consoleFindings = result.findings.filter(f => f.patternName === 'console_debugging');
+      expect(consoleFindings.length).toBe(3);
+    });
+
+    it('should aggregate findings from multiple files', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'file1.js'), 'console.log("1");');
+      fs.writeFileSync(path.join(tmpDir, 'file2.js'), 'console.log("2");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['file1.js', 'file2.js']
+      });
+
+      const uniqueFiles = [...new Set(result.findings.map(f => f.file))];
+      expect(uniqueFiles.length).toBe(2);
+    });
+
+    it('should aggregate findings across phases in normal mode', async () => {
+      // Create code that triggers both Phase 1 and multi-pass findings
+      const code = `
+/**
+ * Excessive documentation line 1
+ * Line 2
+ * Line 3
+ * Line 4
+ * Line 5
+ * Line 6
+ * Line 7
+ * Line 8
+ * Line 9
+ * Line 10
+ * Line 11
+ * Line 12
+ */
+function foo() {
+  console.log("debug");
+  return 1;
+}`;
+      fs.writeFileSync(path.join(tmpDir, 'combined.js'), code);
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'normal',
+        targetFiles: ['combined.js']
+      });
+
+      // Should have findings from Phase 1 (console.log)
+      const phase1Findings = result.findings.filter(f => f.patternName === 'console_debugging');
+      expect(phase1Findings.length).toBeGreaterThan(0);
+
+      // Summary should reflect all findings
+      expect(result.summary.total).toBeGreaterThan(0);
+    });
+
+    it('should correctly summarize aggregated findings', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("a");');
+      fs.writeFileSync(path.join(tmpDir, 'b.js'), 'console.log("b");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js', 'b.js']
+      });
+
+      expect(result.summary.total).toBe(result.findings.length);
+      expect(result.summary.byPhase[1]).toBe(result.findings.filter(f => f.phase === 1).length);
+    });
+  });
+
+  describe('summary generation', () => {
+    it('should generate summary with correct totals', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+
+      expect(result.summary.total).toBe(result.findings.length);
+    });
+
+    it('should track patterns in summary', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+
+      expect(result.summary.topPatterns).toBeDefined();
+      if (result.findings.length > 0) {
+        expect(Object.keys(result.summary.topPatterns).length).toBeGreaterThan(0);
+      }
+    });
+
+    it('should categorize findings by severity in summary', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+
+      expect(result.summary.bySeverity).toBeDefined();
+      expect(result.summary.bySeverity.critical).toBeDefined();
+      expect(result.summary.bySeverity.high).toBeDefined();
+      expect(result.summary.bySeverity.medium).toBeDefined();
+      expect(result.summary.bySeverity.low).toBeDefined();
+    });
+
+    it('should categorize findings by certainty in summary', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+
+      expect(result.summary.byCertainty).toBeDefined();
+      expect(result.summary.byCertainty.HIGH).toBeDefined();
+      expect(result.summary.byCertainty.MEDIUM).toBeDefined();
+      expect(result.summary.byCertainty.LOW).toBeDefined();
+    });
+
+    it('should categorize findings by autoFix in summary', async () => {
+      fs.writeFileSync(path.join(tmpDir, 'a.js'), 'console.log("test");');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['a.js']
+      });
+
+      expect(result.summary.byAutoFix).toBeDefined();
+      expect(result.summary.byAutoFix.remove).toBeDefined();
+      expect(result.summary.byAutoFix.flag).toBeDefined();
+      expect(result.summary.byAutoFix.none).toBeDefined();
+    });
+
+    it('should generate empty summary for no findings', async () => {
+      // Create a file that won't trigger any patterns
+      fs.writeFileSync(path.join(tmpDir, 'clean.txt'), 'This is clean text.');
+
+      const result = await runPipeline(tmpDir, {
+        thoroughness: 'quick',
+        targetFiles: ['clean.txt']
+      });
+
+      expect(result.summary.total).toBe(0);
+      expect(result.phase3Prompt).toContain('No issues detected');
+    });
+  });
+
+  describe('runPhase1 with pre-loaded content', () => {
+    it('should use pre-loaded file contents when provided', () => {
+      const filePath = path.join(tmpDir, 'preloaded.js');
+      fs.writeFileSync(filePath, 'const x = 1;');
+
+      // Create a Map with pre-loaded content that has a console.log
+      const fileContents = new Map();
+      fileContents.set('preloaded.js', {
+        content: 'console.log("from preloaded");',
+        error: null
+      });
+
+      const findings = runPhase1(tmpDir, ['preloaded.js'], null, fileContents);
+
+      // Should find console.log from pre-loaded content, not from disk
+      const consoleFindings = findings.filter(f => f.patternName === 'console_debugging');
+      expect(consoleFindings.length).toBeGreaterThan(0);
+    });
+
+    it('should fallback to disk read when pre-loaded content has error', () => {
+      const filePath = path.join(tmpDir, 'fallback.js');
+      fs.writeFileSync(filePath, 'console.log("from disk");');
+
+      // Create a Map with error
+      const fileContents = new Map();
+      fileContents.set('fallback.js', {
+        content: null,
+        error: new Error('Read error')
+      });
+
+      const findings = runPhase1(tmpDir, ['fallback.js'], null, fileContents);
+
+      // Should find console.log from disk read
+      const consoleFindings = findings.filter(f => f.patternName === 'console_debugging');
+      expect(consoleFindings.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('runMultiPassAnalyzers with pre-loaded content', () => {
+    it('should skip test files', async () => {
+      const code = `/**
+ * Line 1
+ * Line 2
+ * Line 3
+ * Line 4
+ * Line 5
+ * Line 6
+ * Line 7
+ * Line 8
+ * Line 9
+ * Line 10
+ */
+function foo() {
+  return 1;
+}`;
+      fs.writeFileSync(path.join(tmpDir, 'app.test.js'), code);
+
+      const findings = await runMultiPassAnalyzers(tmpDir, ['app.test.js']);
+
+      // Test files should be skipped
+      expect(findings.length).toBe(0);
     });
   });
 });

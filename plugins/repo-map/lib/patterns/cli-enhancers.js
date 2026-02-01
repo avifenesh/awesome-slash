@@ -96,13 +96,18 @@ const CLI_TOOLS = {
 
 /**
  * Check if a CLI tool is available in PATH
+ * Uses execFileSync to avoid shell injection risks
  *
  * @param {string} command - Command to check (e.g., 'jscpd --version')
  * @returns {boolean} True if tool is available
  */
 function isToolAvailable(command) {
   try {
-    execSync(command, {
+    // Parse command into executable and args for safer execution
+    const parts = command.split(/\s+/);
+    const executable = parts[0];
+    const args = parts.slice(1);
+    execFileSync(executable, args, {
       stdio: 'pipe',
       timeout: 5000,
       windowsHide: true

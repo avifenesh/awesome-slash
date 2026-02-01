@@ -69,11 +69,23 @@ function runBenchmark(command, options = {}) {
   }
 
   const start = Date.now();
-  const output = execSync(command, {
-    stdio: 'pipe',
-    encoding: 'utf8',
-    env
-  });
+  let output;
+  try {
+    output = execSync(command, {
+      stdio: 'pipe',
+      encoding: 'utf8',
+      env
+    });
+  } catch (error) {
+    const stderr = error.stderr ? error.stderr.toString().trim() : '';
+    const stdout = error.stdout ? error.stdout.toString().trim() : '';
+    const exitCode = error.status ?? 'unknown';
+    const details = stderr || stdout || error.message || 'No error details available';
+    throw new Error(
+      `Benchmark command failed (exit code ${exitCode}): ${command}\n` +
+      `Details: ${details}`
+    );
+  }
   const elapsedSeconds = (Date.now() - start) / 1000;
 
   const allowShort = normalized.allowShort || process.env.PERF_ALLOW_SHORT === '1';
@@ -346,16 +358,23 @@ function runBenchmarkSeries(command, options = {}) {
 
   const samples = [];
   for (let i = 0; i < runs; i++) {
-    const result = runBenchmark(command, {
-      ...options,
-      env,
-      allowShort,
-      setDurationEnv,
-      runMode
-    });
+    let result;
+    try {
+      result = runBenchmark(command, {
+        ...options,
+        env,
+        allowShort,
+        setDurationEnv,
+        runMode
+      });
+    } catch (error) {
+      throw new Error(
+        `Benchmark run ${i + 1}/${runs} failed: ${error.message}`
+      );
+    }
     const parsed = parseMetrics(result.output);
     if (!parsed.ok) {
-      throw new Error(`Metrics parse failed: ${parsed.error}`);
+      throw new Error(`Metrics parse failed on run ${i + 1}/${runs}: ${parsed.error}`);
     }
     samples.push(parsed.metrics);
   }

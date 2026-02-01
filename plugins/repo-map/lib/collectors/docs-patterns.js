@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const DEFAULT_OPTIONS = {
   cwd: process.cwd()
@@ -210,6 +210,18 @@ function findLineNumber(content, search) {
 }
 
 /**
+ * Validate git ref format (e.g., HEAD, HEAD~1, branch names)
+ * @param {string} ref - Git ref to validate
+ * @returns {boolean} True if valid
+ */
+function isValidGitRef(ref) {
+  if (typeof ref !== 'string' || !ref) return false;
+  // Allow: HEAD, HEAD~N, HEAD^N, branch names (alphanumeric, /, -, _, .)
+  // Reject: shell metacharacters, spaces, null bytes
+  return /^[a-zA-Z0-9_./-]+(?:[~^][0-9]+)?$/.test(ref);
+}
+
+/**
  * Get exports from a file at a specific git ref
  * @param {string} filePath - File path
  * @param {string} ref - Git ref (HEAD, HEAD~1, etc.)
@@ -219,8 +231,15 @@ function findLineNumber(content, search) {
 function getExportsFromGit(filePath, ref, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
+  // Validate ref to prevent command injection
+  if (!isValidGitRef(ref)) {
+    return [];
+  }
+
   try {
-    const content = execSync(`git show ${ref}:${filePath}`, {
+    // Use execFileSync with arguments array to prevent command injection
+    // git show requires the ref:path as a single argument
+    const content = execFileSync('git', ['show', `${ref}:${filePath}`], {
       cwd: opts.cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -300,7 +319,8 @@ function checkChangelog(changedFiles, options = {}) {
   // Get recent commits
   let recentCommits = [];
   try {
-    const output = execSync('git log --oneline -10 HEAD', {
+    // Use execFileSync with arguments array for safer execution
+    const output = execFileSync('git', ['log', '--oneline', '-10', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']

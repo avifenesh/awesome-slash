@@ -10,8 +10,8 @@ Build tools once, run everywhere. The core workflows are the same regardless of 
 |---------|---------|
 | [Supported Platforms](#supported-platforms) | Which platforms work |
 | [Claude Code](#claude-code-native) | Native plugin installation |
-| [OpenCode](#opencode) | Plugins/agents (MCP optional) |
-| [Codex CLI](#codex-cli) | Skills (MCP optional) |
+| [OpenCode](#opencode) | Plugins/agents |
+| [Codex CLI](#codex-cli) | Skills |
 | [State Directories](#state-directories) | Where state files live |
 | [Troubleshooting](#troubleshooting) | Common issues |
 
@@ -22,8 +22,8 @@ Build tools once, run everywhere. The core workflows are the same regardless of 
 | Platform | Integration Method | Command Prefix | Status |
 |----------|-------------------|----------------|--------|
 | Claude Code | Native plugins | `/` (slash) | [OK] Full support |
-| OpenCode | Plugins + agent configs (MCP optional) | `/` (slash) | [OK] Supported |
-| Codex CLI | Skills (MCP optional) | `$` (dollar) | [OK] Supported |
+| OpenCode | Plugins + agent configs | `/` (slash) | [OK] Supported |
+| Codex CLI | Skills | `$` (dollar) | [OK] Supported |
 
 > **Note:** Codex CLI uses `$` prefix for skills (e.g., `$next-task`, `$ship`) instead of `/` slash commands.
 
@@ -31,12 +31,10 @@ Build tools once, run everywhere. The core workflows are the same regardless of 
 
 All three platforms share:
 
-1. **MCP (Model Context Protocol)** - Optional tool interface for external clients
-2. **Agent/Subagent systems** - Specialized assistants with tool restrictions
-3. **Slash commands** - User-invoked actions
-4. **Configuration files** - JSON/YAML/Markdown formats
-
-> **MCP is optional.** If you're running awesome-slash as native plugins/skills (Claude Code, OpenCode, Codex CLI) or invoking scripts directly, you can skip MCP. Use MCP when you want a generic tool endpoint for external clients.
+1. **Agent/Subagent systems** - Specialized assistants with tool restrictions
+2. **Slash commands** - User-invoked actions
+3. **Configuration files** - JSON/YAML/Markdown formats
+4. **Platform-aware state directories** - Automatic state isolation
 
 ## Command Arguments ($ARGUMENTS)
 
@@ -176,7 +174,6 @@ awesome-slash --tool opencode --no-strip
 ```
 
 This installs:
-- MCP server for tools (`workflow_status`, `slop_detect`, etc.)
 - Slash commands (`/next-task`, `/ship`, `/deslop`, `/audit-project`, `/drift-detect`, `/repo-map`, `/sync-docs`)
 - **Native OpenCode plugin** with advanced features:
 
@@ -211,27 +208,7 @@ The plugin auto-detects your model provider and applies the correct thinking con
 // Google → thinkingConfig.thinkingBudget
 ```
 
-### Option 2: Manual MCP Config
-
-Add to `~/.config/opencode/opencode.json`:
-
-```json
-{
-  "mcp": {
-    "awesome-slash": {
-      "type": "local",
-      "command": ["node", "/path/to/awesome-slash/mcp-server/index.js"],
-      "environment": {
-        "PLUGIN_ROOT": "/path/to/awesome-slash",
-        "AI_STATE_DIR": ".opencode"
-      },
-      "enabled": true
-    }
-  }
-}
-```
-
-### Option 3: Agent Configuration
+### Option 2: Agent Configuration
 
 Create agent definitions in OpenCode format:
 
@@ -278,21 +255,9 @@ awesome-slash  # Select option 3 for Codex CLI
 awesome-slash --tool codex
 ```
 
-This installs MCP server config in `~/.codex/config.toml` and skills (`$next-task`, `$ship`, `$deslop`, `$audit-project`, `$repo-map`, `$sync-docs`).
+This installs skills to `~/.codex/skills/` (`$next-task`, `$ship`, `$deslop`, `$audit-project`, `$repo-map`, `$sync-docs`).
 
-### Option 2: Manual MCP Config
-
-Add to `~/.codex/config.toml`:
-
-```toml
-[mcp_servers.awesome-slash]
-command = "node"
-args = ["/path/to/awesome-slash/mcp-server/index.js"]
-env = { PLUGIN_ROOT = "/path/to/awesome-slash", AI_STATE_DIR = ".codex" }
-enabled = true
-```
-
-### Option 3: Custom Skills
+### Option 2: Custom Skills
 
 Create Codex skills in `~/.codex/skills/<name>/SKILL.md`:
 
@@ -304,27 +269,8 @@ description: Master workflow orchestrator for task automation
 
 # Next Task Workflow
 
-Use the awesome-slash MCP tools:
-- `workflow_status` - Check current state
-- `workflow_start` - Start new workflow
-- `task_discover` - Find tasks
+Run `$next-task` to start the master workflow orchestrator.
 ```
-
-## MCP Server Tools
-
-When using the MCP server integration, these tools become available:
-
-| Tool | Description |
-|------|-------------|
-| `workflow_status` | Get current workflow state |
-| `workflow_start` | Start a new workflow with policy settings |
-| `workflow_resume` | Resume from last checkpoint |
-| `workflow_abort` | Cancel workflow and cleanup resources |
-| `task_discover` | Find and prioritize tasks from gh-issues, linear, or tasks-md |
-| `review_code` | Run pattern-based code review on changed files |
-| `slop_detect` | Detect AI slop with certainty levels (HIGH/MEDIUM/LOW) |
-| `enhance_analyze` | Analyze plugins, agents, docs, prompts, hooks, skills |
-| `repo_map` | Generate or update cached AST repo map |
 
 ## Shared Libraries
 
@@ -333,7 +279,7 @@ All integrations use the same core libraries:
 ```
 lib/
 ├── config/                    # Configuration management
-├── cross-platform/            # Platform detection, MCP helpers
+├── cross-platform/            # Platform detection, utilities
 ├── enhance/                   # Quality analyzer logic
 ├── patterns/                  # 3-phase slop detection pipeline
 │   ├── pipeline.js            # Orchestrates phases
@@ -384,13 +330,11 @@ The plugin auto-detects the platform and uses the appropriate directory. Overrid
   - Workflow enforcement (blocks git push until /ship)
   - Session compaction with state preservation
   - Provider-agnostic thinking config (Anthropic, OpenAI, Google)
-- Custom tools via MCP
 
 ### Codex CLI
 - OpenAI-native with GPT-5-Codex
 - State directory: `.codex/`
 - Skills in `~/.codex/skills/` (invoked with `$` prefix, e.g., `$next-task`)
-- MCP config in `~/.codex/config.toml`
 
 ## Migration Guide
 
@@ -420,5 +364,5 @@ To add support for a new platform:
 
 1. Create installation script in `scripts/install/<platform>.sh`
 2. Add platform-specific configuration examples
-3. Test MCP server integration with the target platform
+3. Test integration with the target platform
 4. Submit PR with documentation

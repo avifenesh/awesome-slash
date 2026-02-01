@@ -125,6 +125,11 @@ class CacheManager {
    * @private
    */
   _enforceMaxSize() {
+    // Only evict if cache exceeds limit
+    if (this._cache.size <= this.maxSize) {
+      return;
+    }
+
     // Map maintains insertion order - first key is oldest
     while (this._cache.size > this.maxSize) {
       const firstKey = this._cache.keys().next().value;

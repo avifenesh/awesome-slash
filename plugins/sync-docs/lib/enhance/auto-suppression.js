@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // Try to import cross-platform helpers
 let getSuppressionPath;
@@ -290,7 +290,7 @@ function isPatternDocumentation(filePath, content, patternId) {
 function getProjectId(projectRoot = process.cwd()) {
   try {
     // Try to get git remote
-    const remote = execSync('git remote get-url origin', {
+    const remote = execFileSync('git', ['remote', 'get-url', 'origin'], {
       cwd: projectRoot,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']

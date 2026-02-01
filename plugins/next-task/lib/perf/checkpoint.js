@@ -4,7 +4,7 @@
  * @module lib/perf/checkpoint
  */
 
-const { execSync, execFileSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const { getStateDir } = require('../platform/state-dir');
 
@@ -13,7 +13,7 @@ const { getStateDir } = require('../platform/state-dir');
  * @returns {boolean}
  */
 function isWorkingTreeClean() {
-  const output = execSync('git status --porcelain', { encoding: 'utf8' }).trim();
+  const output = execFileSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).trim();
   return output.length === 0;
 }
 
@@ -50,7 +50,7 @@ function buildCheckpointMessage(input) {
  */
 function getLastCommitMessage() {
   try {
-    return execSync('git log -1 --pretty=%B', { encoding: 'utf8' }).trim();
+    return execFileSync('git', ['log', '-1', '--pretty=%B'], { encoding: 'utf8' }).trim();
   } catch {
     return null;
   }
@@ -90,7 +90,7 @@ function isDuplicateCheckpoint(message) {
  */
 function commitCheckpoint(input) {
   try {
-    execSync('git rev-parse --is-inside-work-tree', { stdio: 'ignore' });
+    execFileSync('git', ['rev-parse', '--is-inside-work-tree'], { stdio: 'ignore' });
   } catch {
     return { ok: false, reason: 'not a git repo' };
   }

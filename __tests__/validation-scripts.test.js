@@ -1,5 +1,5 @@
 const { runValidation: runCountsValidation, getActualCounts, extractCountsFromDocs, checkVersionAlignment, checkProjectMemoryAlignment } = require('../scripts/validate-counts');
-const { runValidation: runCrossPlatformValidation, validateCommandPrefixes, validateStateDirReferences, validateFeatureParity, validateInstallationInstructions, validateMCPConfigurations } = require('../scripts/validate-cross-platform-docs');
+const { runValidation: runCrossPlatformValidation, validateCommandPrefixes, validateStateDirReferences, validateFeatureParity, validateInstallationInstructions } = require('../scripts/validate-cross-platform-docs');
 
 describe('validate-counts', () => {
   describe('getActualCounts', () => {
@@ -235,10 +235,4 @@ describe('validate-cross-platform-docs', () => {
     });
   });
 
-  describe('validateMCPConfigurations', () => {
-    test('returns array', () => {
-      const issues = validateMCPConfigurations();
-      expect(Array.isArray(issues)).toBe(true);
-    });
-  });
 });

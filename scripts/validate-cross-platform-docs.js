@@ -7,9 +7,8 @@
  * 1. Command prefix consistency (/, $)
  * 2. State directory references are platform-aware
  * 3. Installation instructions are accurate
- * 4. MCP server configurations are correct
- * 5. Feature parity across platforms
- * 6. No conflicting information between platform docs
+ * 4. Feature parity across platforms
+ * 5. No conflicting information between platform docs
  *
  * CRITICAL: Per CLAUDE.md rule - 3 platforms must work (Claude Code, OpenCode, Codex)
  *
@@ -305,57 +304,6 @@ function validateInstallationInstructions() {
   return issues;
 }
 
-// Check MCP server configuration consistency
-function validateMCPConfigurations() {
-  const issues = [];
-
-  const crossPlatform = readFileIfExists('docs/CROSS_PLATFORM.md');
-  const mcpTools = readFileIfExists('docs/reference/MCP-TOOLS.md');
-
-  if (!crossPlatform || !mcpTools) {
-    return [{ error: 'Missing MCP documentation files' }];
-  }
-
-  // Expected MCP tool names
-  const expectedTools = [
-    'workflow_status',
-    'workflow_start',
-    'workflow_resume',
-    'workflow_abort',
-    'task_discover',
-    'review_code',
-    'slop_detect',
-    'enhance_analyze',
-    'repo_map'
-  ];
-
-  // Check that all tools are documented
-  expectedTools.forEach(tool => {
-    if (!mcpTools.includes(tool)) {
-      issues.push({
-        file: 'docs/reference/MCP-TOOLS.md',
-        message: `MCP tool "${tool}" not documented`
-      });
-    }
-  });
-
-  // Check that CROSS_PLATFORM.md mentions MCP for all platforms
-  const mcpConfigs = {
-    opencode: 'opencode.json',
-    codex: 'config.toml'
-  };
-
-  Object.entries(mcpConfigs).forEach(([platform, configFile]) => {
-    if (!crossPlatform.includes(configFile)) {
-      issues.push({
-        file: 'docs/CROSS_PLATFORM.md',
-        message: `MCP configuration for ${platform} (${configFile}) not documented`
-      });
-    }
-  });
-
-  return issues;
-}
 
 /**
  * Run all validations and return structured result
@@ -369,7 +317,6 @@ function runValidation() {
   const stateDirIssues = validateStateDirReferences();
   const { featuresByPlatform, issues: parityIssues } = validateFeatureParity();
   const installIssues = validateInstallationInstructions();
-  const mcpIssues = validateMCPConfigurations();
 
   const issues = [];
   const fixes = [];
@@ -449,27 +396,6 @@ function runValidation() {
     }
   });
 
-  // Process MCP issues
-  mcpIssues.forEach(issue => {
-    if (issue.error) {
-      // Surface missing MCP docs as medium severity validation errors
-      issues.push({
-        type: 'mcp-config',
-        severity: 'medium',
-        file: 'N/A',
-        message: issue.error,
-        autoFix: false
-      });
-    } else {
-      issues.push({
-        type: 'mcp-config',
-        severity: 'low',
-        file: issue.file,
-        message: issue.message,
-        autoFix: false
-      });
-    }
-  });
 
   // Convert featuresByPlatform Sets to arrays for JSON
   const featuresJson = {};
@@ -489,8 +415,7 @@ function runValidation() {
         commandPrefix: issues.filter(i => i.type === 'command-prefix').length,
         stateDirectory: issues.filter(i => i.type === 'state-directory').length,
         featureParity: issues.filter(i => i.type === 'feature-parity').length,
-        installation: issues.filter(i => i.type === 'installation').length,
-        mcpConfig: issues.filter(i => i.type === 'mcp-config').length
+        installation: issues.filter(i => i.type === 'installation').length
       },
       bySeverity: {
         high: issues.filter(i => i.severity === 'high').length,
@@ -603,20 +528,6 @@ if (require.main === module) {
     console.log('[OK] Installation instructions consistent\n');
   }
 
-  // 5. MCP configuration validation
-  console.log('## MCP Configuration Validation\n');
-  const mcpIssues = result.issues.filter(i => i.type === 'mcp-config');
-  if (mcpIssues.length > 0) {
-    console.error('[ERROR] MCP configuration issues found:\n');
-    mcpIssues.forEach(issue => {
-      console.error(`  ${issue.file}: ${issue.message}`);
-    });
-    console.error('');
-    hasErrors = true;
-  } else {
-    console.log('[OK] MCP configurations documented correctly\n');
-  }
-
   if (hasErrors) {
     console.error('[ERROR] Cross-platform validation failed\n');
     console.error('CLAUDE.md Critical Rule: 3 platforms must work\n');
@@ -632,6 +543,5 @@ module.exports = {
   validateStateDirReferences,
   validateFeatureParity,
   validateInstallationInstructions,
-  validateMCPConfigurations,
   runValidation
 };

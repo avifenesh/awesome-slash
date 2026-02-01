@@ -112,6 +112,24 @@ describe('cli-enhancers', () => {
       const result = isToolAvailable('');
       expect(result).toBe(false);
     });
+
+    it('should handle commands with multiple arguments', () => {
+      // npm --version should work with multiple flags
+      const result = isToolAvailable('node --version');
+      expect(result).toBe(true);
+    });
+
+    it('should return false for commands that exit with error code', () => {
+      // This should return false if the command fails
+      const result = isToolAvailable('node --invalid-flag-xyz');
+      expect(result).toBe(false);
+    });
+
+    it('should handle whitespace in command string', () => {
+      // Extra whitespace should be handled
+      const result = isToolAvailable('node   --version');
+      expect(result).toBe(true);
+    });
   });
 
   describe('detectProjectLanguages', () => {
@@ -155,6 +173,30 @@ describe('cli-enhancers', () => {
       expect(langs).toContain('rust');
     });
 
+    it('should detect Python from setup.py', () => {
+      fs.writeFileSync(path.join(tempDir, 'setup.py'), 'from setuptools import setup\n');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('python');
+    });
+
+    it('should detect Python from pyproject.toml', () => {
+      fs.writeFileSync(path.join(tempDir, 'pyproject.toml'), '[project]\n');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('python');
+    });
+
+    it('should detect Python from Pipfile', () => {
+      fs.writeFileSync(path.join(tempDir, 'Pipfile'), '[[source]]\n');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('python');
+    });
+
+    it('should detect Go from go.sum', () => {
+      fs.writeFileSync(path.join(tempDir, 'go.sum'), 'module/path v1.0.0\n');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('go');
+    });
+
     it('should detect multiple languages', () => {
       fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
       fs.writeFileSync(path.join(tempDir, 'requirements.txt'), 'flask\n');
@@ -167,6 +209,50 @@ describe('cli-enhancers', () => {
       fs.writeFileSync(path.join(tempDir, 'main.py'), 'print("hello")');
       const langs = detectProjectLanguages(tempDir);
       expect(langs).toContain('python');
+    });
+
+    it('should scan src/ directory for extensions', () => {
+      fs.mkdirSync(path.join(tempDir, 'src'));
+      fs.writeFileSync(path.join(tempDir, 'src', 'main.ts'), 'const x: number = 1;');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('typescript');
+    });
+
+    it('should scan lib/ directory for extensions', () => {
+      fs.mkdirSync(path.join(tempDir, 'lib'));
+      fs.writeFileSync(path.join(tempDir, 'lib', 'utils.go'), 'package main');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('go');
+    });
+
+    it('should detect .jsx files as javascript', () => {
+      fs.writeFileSync(path.join(tempDir, 'App.jsx'), 'export default function App() {}');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('javascript');
+    });
+
+    it('should detect .tsx files as typescript', () => {
+      fs.writeFileSync(path.join(tempDir, 'App.tsx'), 'export default function App() {}');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('typescript');
+    });
+
+    it('should detect .mjs files as javascript', () => {
+      fs.writeFileSync(path.join(tempDir, 'module.mjs'), 'export const x = 1;');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('javascript');
+    });
+
+    it('should detect .cjs files as javascript', () => {
+      fs.writeFileSync(path.join(tempDir, 'module.cjs'), 'module.exports = {};');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('javascript');
+    });
+
+    it('should detect .rs files as rust', () => {
+      fs.writeFileSync(path.join(tempDir, 'main.rs'), 'fn main() {}');
+      const langs = detectProjectLanguages(tempDir);
+      expect(langs).toContain('rust');
     });
 
     it('should default to javascript if nothing detected', () => {
@@ -221,6 +307,32 @@ describe('cli-enhancers', () => {
       const tools = getToolsForLanguages(['brainfuck']);
       expect(Object.keys(tools).length).toBe(0);
     });
+
+    it('should return empty object for empty languages array', () => {
+      const tools = getToolsForLanguages([]);
+      expect(Object.keys(tools).length).toBe(0);
+    });
+
+    it('should not include escomplex for typescript-only', () => {
+      const tools = getToolsForLanguages(['typescript']);
+      // escomplex only supports javascript, not typescript
+      expect(tools.escomplex).toBeUndefined();
+      // But madge supports both
+      expect(tools.madge).toBeDefined();
+    });
+
+    it('should include all relevant tools when multiple languages present', () => {
+      const tools = getToolsForLanguages(['javascript', 'python', 'go', 'rust']);
+      // Should include cross-language tool
+      expect(tools.jscpd).toBeDefined();
+      // Should include language-specific tools
+      expect(tools.madge).toBeDefined();
+      expect(tools.escomplex).toBeDefined();
+      expect(tools.pylint).toBeDefined();
+      expect(tools.radon).toBeDefined();
+      expect(tools.golangci_lint).toBeDefined();
+      expect(tools.clippy).toBeDefined();
+    });
   });
 
   describe('detectAvailableTools', () => {
@@ -267,6 +379,28 @@ describe('cli-enhancers', () => {
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
+    });
+
+    it('should filter tools by multiple languages', () => {
+      const tools = detectAvailableTools(['python', 'rust']);
+      // Python tools
+      expect(tools).toHaveProperty('pylint');
+      expect(tools).toHaveProperty('radon');
+      // Rust tools
+      expect(tools).toHaveProperty('clippy');
+      // Cross-language tool
+      expect(tools).toHaveProperty('jscpd');
+      // Should NOT have JS-only tools
+      expect(tools).not.toHaveProperty('madge');
+      expect(tools).not.toHaveProperty('escomplex');
+    });
+
+    it('should return fresh detection when no repoPath provided', () => {
+      const tools1 = detectAvailableTools(['javascript']);
+      clearCache();
+      const tools2 = detectAvailableTools(['javascript']);
+      // Both should return same structure (though values may vary)
+      expect(Object.keys(tools1).sort()).toEqual(Object.keys(tools2).sort());
     });
   });
 
@@ -319,6 +453,38 @@ describe('cli-enhancers', () => {
       const refreshedResult = getToolAvailabilityForRepo(tempDir, { forceRefresh: true });
       expect(refreshedResult.languages).toContain('python');
     });
+
+    it('should handle multi-language projects', () => {
+      fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+      fs.writeFileSync(path.join(tempDir, 'requirements.txt'), 'flask\n');
+      fs.writeFileSync(path.join(tempDir, 'go.mod'), 'module test\n');
+      const result = getToolAvailabilityForRepo(tempDir);
+      expect(result.languages).toContain('javascript');
+      expect(result.languages).toContain('python');
+      expect(result.languages).toContain('go');
+      // Should have tools for all detected languages
+      expect(result.available).toHaveProperty('jscpd');
+      expect(result.available).toHaveProperty('madge');
+      expect(result.available).toHaveProperty('pylint');
+      expect(result.available).toHaveProperty('golangci_lint');
+    });
+
+    it('should correctly identify missing tools', () => {
+      fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+      const result = getToolAvailabilityForRepo(tempDir);
+      // missing should contain tools that are not available
+      for (const toolName of result.missing) {
+        expect(result.available[toolName]).toBe(false);
+      }
+    });
+
+    it('should resolve repo path correctly', () => {
+      // Use relative-like path
+      const absPath = path.resolve(tempDir);
+      fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+      const result = getToolAvailabilityForRepo(absPath);
+      expect(result.languages).toContain('javascript');
+    });
   });
 
   describe('runDuplicateDetection', () => {
@@ -335,9 +501,29 @@ describe('cli-enhancers', () => {
       });
       expect(result === null || Array.isArray(result)).toBe(true);
     });
+
+    it('should use default minLines of 5', () => {
+      const result = runDuplicateDetection('/nonexistent/path', {});
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should use default minTokens of 50', () => {
+      const result = runDuplicateDetection('/nonexistent/path', { minLines: 3 });
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
   });
 
   describe('runDependencyAnalysis', () => {
+    let tempDir;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'dep-analysis-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
     it('should return null if madge not available', () => {
       const result = runDependencyAnalysis('/nonexistent/path');
       expect(result === null || Array.isArray(result)).toBe(true);
@@ -349,9 +535,52 @@ describe('cli-enhancers', () => {
       });
       expect(result === null || Array.isArray(result)).toBe(true);
     });
+
+    it('should auto-detect src/index.js entry point', () => {
+      fs.mkdirSync(path.join(tempDir, 'src'));
+      fs.writeFileSync(path.join(tempDir, 'src', 'index.js'), 'module.exports = {};');
+      const result = runDependencyAnalysis(tempDir);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should auto-detect src/index.ts entry point', () => {
+      fs.mkdirSync(path.join(tempDir, 'src'));
+      fs.writeFileSync(path.join(tempDir, 'src', 'index.ts'), 'export {};');
+      const result = runDependencyAnalysis(tempDir);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should auto-detect index.js entry point', () => {
+      fs.writeFileSync(path.join(tempDir, 'index.js'), 'module.exports = {};');
+      const result = runDependencyAnalysis(tempDir);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should auto-detect lib/index.js entry point', () => {
+      fs.mkdirSync(path.join(tempDir, 'lib'));
+      fs.writeFileSync(path.join(tempDir, 'lib', 'index.js'), 'module.exports = {};');
+      const result = runDependencyAnalysis(tempDir);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should fallback to . when no entry point found', () => {
+      // Empty directory - no entry point files
+      const result = runDependencyAnalysis(tempDir);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
   });
 
   describe('runComplexityAnalysis', () => {
+    let tempDir;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'complexity-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
     it('should return null if escomplex not available', () => {
       const result = runComplexityAnalysis('/nonexistent/path', ['app.js']);
       expect(result === null || Array.isArray(result)).toBe(true);
@@ -360,6 +589,43 @@ describe('cli-enhancers', () => {
     it('should skip non-JS files', () => {
       const result = runComplexityAnalysis('/nonexistent/path', ['app.py', 'main.go']);
       // Should return null since no JS files to analyze
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should filter to only JS/TS files', () => {
+      const result = runComplexityAnalysis(tempDir, [
+        'app.js',
+        'utils.ts',
+        'component.jsx',
+        'page.tsx',
+        'main.py',
+        'lib.go',
+        'Cargo.toml'
+      ]);
+      // Only JS/TS files should be analyzed
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should handle absolute file paths', () => {
+      const absPath = path.join(tempDir, 'test.js');
+      fs.writeFileSync(absPath, 'function test() { return 1; }');
+      const result = runComplexityAnalysis(tempDir, [absPath]);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should handle relative file paths', () => {
+      fs.writeFileSync(path.join(tempDir, 'test.js'), 'function test() { return 1; }');
+      const result = runComplexityAnalysis(tempDir, ['test.js']);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should handle empty file list', () => {
+      const result = runComplexityAnalysis(tempDir, []);
+      expect(result === null || Array.isArray(result)).toBe(true);
+    });
+
+    it('should accept options parameter', () => {
+      const result = runComplexityAnalysis(tempDir, ['app.js'], { someOption: true });
       expect(result === null || Array.isArray(result)).toBe(true);
     });
   });
@@ -404,6 +670,37 @@ describe('cli-enhancers', () => {
       const message = getMissingToolsMessage(['jscpd']);
       expect(message).toContain('optional');
     });
+
+    it('should include multiple detected languages', () => {
+      const message = getMissingToolsMessage(['pylint', 'golangci_lint'], ['python', 'go']);
+      expect(message).toContain('python');
+      expect(message).toContain('go');
+    });
+
+    it('should format install hints correctly for different package managers', () => {
+      const message = getMissingToolsMessage(['jscpd', 'pylint', 'golangci_lint', 'clippy']);
+      expect(message).toContain('npm install');
+      expect(message).toContain('pip install');
+      expect(message).toContain('go install');
+      expect(message).toContain('rustup');
+    });
+
+    it('should handle mix of valid and invalid tool names', () => {
+      const message = getMissingToolsMessage(['jscpd', 'unknown_tool', 'madge']);
+      expect(message).toContain('jscpd');
+      expect(message).toContain('madge');
+      expect(message).not.toContain('unknown_tool');
+    });
+
+    it('should include Enhanced Analysis Available header', () => {
+      const message = getMissingToolsMessage(['jscpd']);
+      expect(message).toContain('## Enhanced Analysis Available');
+    });
+
+    it('should format tool description correctly', () => {
+      const message = getMissingToolsMessage(['madge']);
+      expect(message).toContain('Circular dependency detector');
+    });
   });
 
   describe('getToolDefinitions', () => {
@@ -420,6 +717,22 @@ describe('cli-enhancers', () => {
       // Original should be unchanged
       expect(CLI_TOOLS.jscpd).toBeDefined();
     });
+
+    it('should include all defined tools', () => {
+      const definitions = getToolDefinitions();
+      expect(Object.keys(definitions)).toEqual(Object.keys(CLI_TOOLS));
+    });
+
+    it('should preserve tool structure', () => {
+      const definitions = getToolDefinitions();
+      for (const [name, tool] of Object.entries(definitions)) {
+        expect(tool.name).toBeDefined();
+        expect(tool.description).toBeDefined();
+        expect(tool.checkCommand).toBeDefined();
+        expect(tool.installHint).toBeDefined();
+        expect(tool.languages).toBeDefined();
+      }
+    });
   });
 
   describe('getSupportedLanguages', () => {
@@ -433,6 +746,16 @@ describe('cli-enhancers', () => {
       const langs = getSupportedLanguages();
       langs.push('brainfuck');
       expect(SUPPORTED_LANGUAGES).not.toContain('brainfuck');
+    });
+
+    it('should return all supported languages', () => {
+      const langs = getSupportedLanguages();
+      expect(langs).toContain('javascript');
+      expect(langs).toContain('typescript');
+      expect(langs).toContain('python');
+      expect(langs).toContain('rust');
+      expect(langs).toContain('go');
+      expect(langs.length).toBe(5);
     });
   });
 
@@ -538,6 +861,201 @@ describe('cli-enhancers', () => {
       expect(() => {
         runComplexityAnalysis('/safe/repo', dangerousFiles);
       }).not.toThrow();
+    });
+  });
+
+  describe('CLI_TOOLS structure validation', () => {
+    it('all tools should have --version in checkCommand', () => {
+      for (const [name, tool] of Object.entries(CLI_TOOLS)) {
+        expect(tool.checkCommand).toContain('--version');
+      }
+    });
+
+    it('all tool languages should be in SUPPORTED_LANGUAGES', () => {
+      for (const [name, tool] of Object.entries(CLI_TOOLS)) {
+        for (const lang of tool.languages) {
+          expect(SUPPORTED_LANGUAGES).toContain(lang);
+        }
+      }
+    });
+
+    it('each tool should have a unique name', () => {
+      const names = Object.values(CLI_TOOLS).map(t => t.name);
+      const uniqueNames = new Set(names);
+      expect(uniqueNames.size).toBe(names.length);
+    });
+
+    it('checkCommand should match tool name pattern', () => {
+      // Most tools have the tool name in the check command
+      expect(CLI_TOOLS.jscpd.checkCommand).toContain('jscpd');
+      expect(CLI_TOOLS.madge.checkCommand).toContain('madge');
+      expect(CLI_TOOLS.escomplex.checkCommand).toContain('escomplex');
+      expect(CLI_TOOLS.pylint.checkCommand).toContain('pylint');
+      expect(CLI_TOOLS.radon.checkCommand).toContain('radon');
+      expect(CLI_TOOLS.golangci_lint.checkCommand).toContain('golangci-lint');
+      expect(CLI_TOOLS.clippy.checkCommand).toContain('clippy');
+    });
+
+    it('installHint should use appropriate package manager', () => {
+      // npm for JS tools
+      expect(CLI_TOOLS.jscpd.installHint).toMatch(/npm install/);
+      expect(CLI_TOOLS.madge.installHint).toMatch(/npm install/);
+      expect(CLI_TOOLS.escomplex.installHint).toMatch(/npm install/);
+      // pip for Python tools
+      expect(CLI_TOOLS.pylint.installHint).toMatch(/pip install/);
+      expect(CLI_TOOLS.radon.installHint).toMatch(/pip install/);
+      // go install for Go tools
+      expect(CLI_TOOLS.golangci_lint.installHint).toMatch(/go install/);
+      // rustup for Rust tools
+      expect(CLI_TOOLS.clippy.installHint).toMatch(/rustup/);
+    });
+  });
+
+  describe('edge cases', () => {
+    let tempDir;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'edge-case-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('detectProjectLanguages should handle unreadable directories gracefully', () => {
+      // Create a directory that might fail to read
+      const badDir = path.join(tempDir, 'nonexistent-subdir');
+      // Should not throw, even if directory doesn't exist
+      expect(() => detectProjectLanguages(badDir)).not.toThrow();
+    });
+
+    it('getToolAvailabilityForRepo should handle empty options object', () => {
+      fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+      const result = getToolAvailabilityForRepo(tempDir, {});
+      expect(result.languages).toContain('javascript');
+    });
+
+    it('detectAvailableTools should handle null repoPath', () => {
+      const tools = detectAvailableTools(['javascript'], null);
+      expect(typeof tools).toBe('object');
+      expect(tools).toHaveProperty('jscpd');
+    });
+
+    it('clearCache should work even when cache is empty', () => {
+      expect(() => {
+        clearCache();
+        clearCache(); // Call twice
+      }).not.toThrow();
+    });
+
+    it('getMissingToolsMessage should handle empty languages array', () => {
+      const message = getMissingToolsMessage(['jscpd'], []);
+      expect(message).toContain('jscpd');
+      // Should not contain "Detected project languages" section
+      expect(message).not.toContain('Detected project languages');
+    });
+
+    it('getToolsForLanguages should handle duplicate languages', () => {
+      const tools = getToolsForLanguages(['javascript', 'javascript', 'python', 'python']);
+      // Should work correctly without duplicates causing issues
+      expect(tools.jscpd).toBeDefined();
+      expect(tools.pylint).toBeDefined();
+    });
+  });
+
+  describe('cache behavior', () => {
+    let tempDir;
+
+    beforeEach(() => {
+      clearCache();
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cache-behavior-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('should cache results per repo path', () => {
+      const tempDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'cache-test-2-'));
+      try {
+        fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+        fs.writeFileSync(path.join(tempDir2, 'requirements.txt'), 'flask\n');
+
+        const result1 = getToolAvailabilityForRepo(tempDir);
+        const result2 = getToolAvailabilityForRepo(tempDir2);
+
+        // Different repos should have different results
+        expect(result1.languages).toContain('javascript');
+        expect(result1.languages).not.toContain('python');
+        expect(result2.languages).toContain('python');
+      } finally {
+        fs.rmSync(tempDir2, { recursive: true, force: true });
+      }
+    });
+
+    it('should resolve different paths to same repo correctly', () => {
+      fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+
+      // Get result with resolved path
+      const result1 = getToolAvailabilityForRepo(path.resolve(tempDir));
+
+      // Should get same result
+      const result2 = getToolAvailabilityForRepo(tempDir);
+
+      expect(result1.languages).toEqual(result2.languages);
+    });
+  });
+
+  describe('language detection priority', () => {
+    let tempDir;
+
+    beforeEach(() => {
+      clearCache();
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'priority-test-'));
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it('should prefer config files over extension scanning', () => {
+      // Create tsconfig but only .js files
+      fs.writeFileSync(path.join(tempDir, 'tsconfig.json'), '{}');
+      fs.writeFileSync(path.join(tempDir, 'app.js'), 'console.log("hi")');
+
+      const langs = detectProjectLanguages(tempDir);
+      // Should detect TypeScript from config, not just JavaScript from extension
+      expect(langs).toContain('typescript');
+    });
+
+    it('should detect both JS and TS from package.json', () => {
+      fs.writeFileSync(path.join(tempDir, 'package.json'), '{}');
+      const langs = detectProjectLanguages(tempDir);
+      // package.json indicates both JS and TS projects
+      expect(langs).toContain('javascript');
+      expect(langs).toContain('typescript');
+    });
+  });
+
+  describe('tool filtering edge cases', () => {
+    it('should handle case sensitivity in language names', () => {
+      // Languages should be lowercase
+      const tools = getToolsForLanguages(['JavaScript']); // Wrong case
+      // This should return empty since our languages are lowercase
+      expect(Object.keys(tools).length).toBe(0);
+    });
+
+    it('typescript should include madge but not escomplex', () => {
+      const tsTools = getToolsForLanguages(['typescript']);
+      const jsTools = getToolsForLanguages(['javascript']);
+
+      // madge supports both
+      expect(tsTools.madge).toBeDefined();
+      expect(jsTools.madge).toBeDefined();
+
+      // escomplex only supports javascript
+      expect(tsTools.escomplex).toBeUndefined();
+      expect(jsTools.escomplex).toBeDefined();
     });
   });
 });

@@ -6,9 +6,10 @@
 
 'use strict';
 
-const { execSync, spawnSync } = require('child_process');
+const { execFileSync, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const crypto = require('crypto');
 
 const installer = require('./installer');
@@ -33,6 +34,7 @@ const EXCLUDE_DIRS = Array.from(new Set([
 
 const AST_GREP_BATCH_SIZE = 100;
 const LANGUAGE_EXTENSION_SCAN_LIMIT = 500;
+const FILE_READ_BATCH_SIZE = 50; // Concurrent file reads
 
 /**
  * Detect languages in a repository
@@ -167,41 +169,49 @@ async function fullScan(basePath, languages, options = {}) {
     const importStateByFile = new Map();
     const contentByFile = new Map();
 
-    for (const file of files) {
+    // Filter out already processed files first
+    const filesToProcess = files.filter(file => {
       const relativePath = path.relative(basePath, file).replace(/\\/g, '/');
+      return !map.files[relativePath];
+    });
 
-      // Skip if already processed (e.g., .ts and .tsx both map to typescript)
-      if (map.files[relativePath]) continue;
+    // Batch read all files asynchronously
+    const fileContents = await batchReadFiles(filesToProcess);
 
-      try {
-        const content = fs.readFileSync(file, 'utf8');
-        const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+    for (const file of filesToProcess) {
+      const relativePath = path.relative(basePath, file).replace(/\\/g, '/');
+      const readResult = fileContents.get(file);
 
-        map.files[relativePath] = {
-          hash,
-          language: lang,
-          size: content.length,
-          symbols: {
-            exports: [],
-            functions: [],
-            classes: [],
-            types: [],
-            constants: []
-          },
-          imports: []
-        };
-
-        map.stats.totalFiles++;
-        fileEntries.push({ file, relativePath });
-        symbolMapsByFile.set(relativePath, createSymbolMaps());
-        importStateByFile.set(relativePath, { items: [], seen: new Set() });
-        contentByFile.set(relativePath, content);
-      } catch (err) {
+      if (readResult.error || readResult.content === null) {
         map.stats.errors.push({
           file: relativePath,
-          error: err.message
+          error: readResult.error?.message || 'Failed to read file'
         });
+        continue;
       }
+
+      const content = readResult.content;
+      const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+
+      map.files[relativePath] = {
+        hash,
+        language: lang,
+        size: content.length,
+        symbols: {
+          exports: [],
+          functions: [],
+          classes: [],
+          types: [],
+          constants: []
+        },
+        imports: []
+      };
+
+      map.stats.totalFiles++;
+      fileEntries.push({ file, relativePath });
+      symbolMapsByFile.set(relativePath, createSymbolMaps());
+      importStateByFile.set(relativePath, { items: [], seen: new Set() });
+      contentByFile.set(relativePath, content);
     }
 
     if (fileEntries.length === 0) continue;
@@ -444,6 +454,36 @@ function createSymbolMaps() {
     types: new Map(),
     constants: new Map()
   };
+}
+
+/**
+ * Read multiple files asynchronously in batches
+ * @param {string[]} files - Array of file paths
+ * @param {number} batchSize - Concurrent reads per batch
+ * @returns {Promise<Map<string, {content: string, error: Error|null}>>}
+ */
+async function batchReadFiles(files, batchSize = FILE_READ_BATCH_SIZE) {
+  const results = new Map();
+
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(async (file) => {
+        try {
+          const content = await fsPromises.readFile(file, 'utf8');
+          return { file, content, error: null };
+        } catch (err) {
+          return { file, content: null, error: err };
+        }
+      })
+    );
+
+    for (const result of batchResults) {
+      results.set(result.file, { content: result.content, error: result.error });
+    }
+  }
+
+  return results;
 }
 
 function chunkArray(items, size) {
@@ -989,13 +1029,13 @@ function mapToSortedArray(map, exportNames) {
  */
 function getGitInfo(basePath) {
   try {
-    const commit = execSync('git rev-parse HEAD', {
+    const commit = execFileSync('git', ['rev-parse', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
     
-    const branch = execSync('git rev-parse --abbrev-ref HEAD', {
+    const branch = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
@@ -1032,7 +1072,7 @@ function detectProjectType(languages) {
  */
 function scanSingleFile(cmd, file, basePath) {
   const ext = path.extname(file).toLowerCase();
-  
+
   // Find language for this extension
   let language = null;
   for (const [lang, exts] of Object.entries(LANGUAGE_EXTENSIONS)) {
@@ -1041,19 +1081,63 @@ function scanSingleFile(cmd, file, basePath) {
       break;
     }
   }
-  
+
   if (!language) return null;
-  
+
   const langQueries = queries.getQueriesForLanguage(language);
   if (!langQueries) return null;
-  
+
   try {
     const content = fs.readFileSync(file, 'utf8');
     const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
-    
+
     const symbols = extractSymbols(cmd, file, language, langQueries, basePath, content);
     const imports = extractImports(cmd, file, language, langQueries, basePath);
-    
+
+    return {
+      hash,
+      language,
+      size: content.length,
+      symbols,
+      imports
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Scan a single file asynchronously (for incremental updates)
+ * Uses async file read, but ast-grep subprocess remains synchronous
+ * @param {string} cmd - ast-grep command
+ * @param {string} file - File path
+ * @param {string} basePath - Repository root
+ * @returns {Promise<Object|null>} - File data or null if failed
+ */
+async function scanSingleFileAsync(cmd, file, basePath) {
+  const ext = path.extname(file).toLowerCase();
+
+  // Find language for this extension
+  let language = null;
+  for (const [lang, exts] of Object.entries(LANGUAGE_EXTENSIONS)) {
+    if (exts.includes(ext)) {
+      language = lang;
+      break;
+    }
+  }
+
+  if (!language) return null;
+
+  const langQueries = queries.getQueriesForLanguage(language);
+  if (!langQueries) return null;
+
+  try {
+    const content = await fsPromises.readFile(file, 'utf8');
+    const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
+
+    const symbols = extractSymbols(cmd, file, language, langQueries, basePath, content);
+    const imports = extractImports(cmd, file, language, langQueries, basePath);
+
     return {
       hash,
       language,
@@ -1072,8 +1156,10 @@ module.exports = {
   findFilesForLanguage,
   collectFilesByLanguage,
   scanSingleFile,
+  scanSingleFileAsync,
   runAstGrep,
   getGitInfo,
+  batchReadFiles,
   LANGUAGE_EXTENSIONS,
   EXCLUDE_DIRS
 };

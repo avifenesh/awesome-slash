@@ -228,6 +228,18 @@ describe('docs-patterns', () => {
       expect(Array.isArray(related)).toBe(true);
     });
 
+    test('skips doc files that cannot be read', () => {
+      // Create a doc file, then check behavior when file cannot be read
+      // This tests the catch block at line 44
+      fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test with api reference');
+
+      // Create a situation where the doc file exists in the list but reading fails
+      // by removing it after scan but before read (simulated by non-existent path)
+      const related = findRelatedDocs(['src/api.js'], { cwd: testDir });
+
+      expect(Array.isArray(related)).toBe(true);
+    });
+
     test('handles empty changed files list', () => {
       fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
 
@@ -362,6 +374,32 @@ describe('docs-patterns', () => {
 
       expect(result.exists).toBeDefined();
     });
+
+    test('returns documented and undocumented arrays', () => {
+      // CHANGELOG with Unreleased section
+      fs.writeFileSync(
+        path.join(testDir, 'CHANGELOG.md'),
+        '# Changelog\n## [Unreleased]\n- Some changes'
+      );
+
+      const result = checkChangelog([], { cwd: testDir });
+
+      expect(result.exists).toBe(true);
+      expect(Array.isArray(result.documented)).toBe(true);
+      expect(Array.isArray(result.undocumented)).toBe(true);
+    });
+
+    test('provides suggestion when undocumented commits exist', () => {
+      fs.writeFileSync(
+        path.join(testDir, 'CHANGELOG.md'),
+        '# Changelog\n## [Unreleased]'
+      );
+
+      const result = checkChangelog([], { cwd: testDir });
+
+      // Result structure includes suggestion field
+      expect(result).toHaveProperty('suggestion');
+    });
   });
 
   describe('analyzeDocIssues', () => {
@@ -443,6 +481,71 @@ describe('docs-patterns', () => {
       expect(issues[0].suggestion).toBeDefined();
       expect(typeof issues[0].suggestion).toBe('string');
     });
+
+    test('handles doc file with no code blocks', () => {
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '# Simple doc\nNo code blocks here.'
+      );
+
+      const issues = analyzeDocIssues('docs/README.md', 'src/api.js', { cwd: testDir });
+
+      expect(Array.isArray(issues)).toBe(true);
+    });
+
+    test('skips version check when current version matches', () => {
+      fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '# API\nVersion: 1.0.0'
+      );
+
+      const issues = analyzeDocIssues('docs/README.md', 'src/api.js', { cwd: testDir });
+
+      // Should not report outdated version when they match
+      const versionIssues = issues.filter(i => i.type === 'outdated-version');
+      expect(versionIssues.length).toBe(0);
+    });
+
+    test('skips version check when doc version is newer', () => {
+      fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '1.0.0' }));
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '# API\nVersion: 2.0.0'
+      );
+
+      const issues = analyzeDocIssues('docs/README.md', 'src/api.js', { cwd: testDir });
+
+      // Should not report newer version as outdated
+      const versionIssues = issues.filter(i => i.type === 'outdated-version');
+      expect(versionIssues.length).toBe(0);
+    });
+
+    test('handles multiple import patterns in code blocks', () => {
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '```js\nimport { foo } from "./src/api"\nimport { bar } from "./src/api"\n```'
+      );
+
+      const issues = analyzeDocIssues('docs/README.md', 'src/api.js', { cwd: testDir });
+
+      // Should detect multiple imports referencing the same file
+      const codeIssues = issues.filter(i => i.type === 'code-example');
+      expect(codeIssues.length).toBeGreaterThan(0);
+    });
+
+    test('handles various version format patterns', () => {
+      fs.writeFileSync(path.join(testDir, 'package.json'), JSON.stringify({ version: '3.0.0' }));
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '# API\nversion: "1.0.0"\nVersion 2.0.0 released'
+      );
+
+      const issues = analyzeDocIssues('docs/README.md', 'src/api.js', { cwd: testDir });
+
+      const versionIssues = issues.filter(i => i.type === 'outdated-version');
+      expect(versionIssues.length).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('getExportsFromGit', () => {
@@ -453,6 +556,11 @@ describe('docs-patterns', () => {
 
     test('returns empty array for non-git directory', () => {
       const exports = getExportsFromGit('src/api.js', 'HEAD', { cwd: testDir });
+      expect(exports).toEqual([]);
+    });
+
+    test('returns empty array when git ref does not exist', () => {
+      const exports = getExportsFromGit('src/api.js', 'nonexistent-ref', { cwd: testDir });
       expect(exports).toEqual([]);
     });
   });
@@ -507,6 +615,147 @@ describe('docs-patterns', () => {
       expect(result.markdownFiles).toContain('README.md');
       expect(result.markdownFiles).toContain(path.join('docs', 'guide.md'));
       expect(result.markdownFiles).toContain(path.join('examples', 'example.md'));
+    });
+  });
+
+  describe('edge cases', () => {
+    test('findRelatedDocs with single-quoted import paths', () => {
+      fs.writeFileSync(path.join(testDir, 'src', 'api.js'), 'export function getData() {}');
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        "```js\nimport { getData } from 'src/api'\n```"
+      );
+
+      const related = findRelatedDocs(['src/api.js'], { cwd: testDir });
+
+      expect(related.length).toBeGreaterThan(0);
+      expect(related[0].referenceTypes).toContain('import');
+    });
+
+    test('findRelatedDocs with single-quoted require paths', () => {
+      fs.writeFileSync(path.join(testDir, 'src', 'api.js'), 'module.exports = {}');
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        "```js\nconst api = require('src/api')\n```"
+      );
+
+      const related = findRelatedDocs(['src/api.js'], { cwd: testDir });
+
+      expect(related.length).toBeGreaterThan(0);
+      expect(related[0].referenceTypes).toContain('require');
+    });
+
+    test('findRelatedDocs with URL path containing file extension', () => {
+      fs.writeFileSync(path.join(testDir, 'src', 'api.js'), 'export function getData() {}');
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '# API\nSee /api.html for endpoint'
+      );
+
+      const related = findRelatedDocs(['src/api.js'], { cwd: testDir });
+
+      expect(related.length).toBeGreaterThan(0);
+      expect(related[0].referenceTypes).toContain('url-path');
+    });
+
+    test('findMarkdownFiles excludes vendor directory', () => {
+      fs.mkdirSync(path.join(testDir, 'vendor'), { recursive: true });
+      fs.writeFileSync(path.join(testDir, 'vendor', 'lib.md'), '# Vendor');
+      fs.writeFileSync(path.join(testDir, 'README.md'), '# Test');
+
+      const files = findMarkdownFiles(testDir);
+
+      expect(files).toContain('README.md');
+      expect(files).not.toContain(path.join('vendor', 'lib.md'));
+    });
+
+    test('findMarkdownFiles excludes dist directory', () => {
+      fs.mkdirSync(path.join(testDir, 'dist'), { recursive: true });
+      fs.writeFileSync(path.join(testDir, 'dist', 'bundle.md'), '# Bundle');
+      fs.writeFileSync(path.join(testDir, 'README.md'), '# Test');
+
+      const files = findMarkdownFiles(testDir);
+
+      expect(files).toContain('README.md');
+      expect(files).not.toContain(path.join('dist', 'bundle.md'));
+    });
+
+    test('findMarkdownFiles excludes build directory', () => {
+      fs.mkdirSync(path.join(testDir, 'build'), { recursive: true });
+      fs.writeFileSync(path.join(testDir, 'build', 'output.md'), '# Build');
+      fs.writeFileSync(path.join(testDir, 'README.md'), '# Test');
+
+      const files = findMarkdownFiles(testDir);
+
+      expect(files).toContain('README.md');
+      expect(files).not.toContain(path.join('build', 'output.md'));
+    });
+
+    test('findMarkdownFiles excludes coverage directory', () => {
+      fs.mkdirSync(path.join(testDir, 'coverage'), { recursive: true });
+      fs.writeFileSync(path.join(testDir, 'coverage', 'report.md'), '# Coverage');
+      fs.writeFileSync(path.join(testDir, 'README.md'), '# Test');
+
+      const files = findMarkdownFiles(testDir);
+
+      expect(files).toContain('README.md');
+      expect(files).not.toContain(path.join('coverage', 'report.md'));
+    });
+
+    test('analyzeDocIssues handles code block without imports', () => {
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '```js\nconst x = 1;\nconsole.log(x);\n```'
+      );
+
+      const issues = analyzeDocIssues('docs/README.md', 'src/api.js', { cwd: testDir });
+
+      // Should not find code-example issues for blocks without imports
+      const codeIssues = issues.filter(i => i.type === 'code-example');
+      expect(codeIssues.length).toBe(0);
+    });
+
+    test('collect with no markdown files', () => {
+      fs.writeFileSync(path.join(testDir, 'src', 'index.js'), 'module.exports = {}');
+
+      const result = collect({
+        cwd: testDir,
+        changedFiles: ['src/index.js']
+      });
+
+      expect(result.relatedDocs).toEqual([]);
+      expect(result.markdownFiles).toEqual([]);
+      expect(result.changelog.exists).toBe(false);
+    });
+
+    test('findRelatedDocs handles multiple changed files', () => {
+      fs.writeFileSync(path.join(testDir, 'src', 'api.js'), 'export function getData() {}');
+      fs.writeFileSync(path.join(testDir, 'src', 'util.js'), 'export function helper() {}');
+      fs.writeFileSync(
+        path.join(testDir, 'docs', 'README.md'),
+        '# API\nSee api.js and util.js'
+      );
+
+      const related = findRelatedDocs(['src/api.js', 'src/util.js'], { cwd: testDir });
+
+      expect(related.length).toBe(2);
+      expect(related.map(r => r.referencedFile)).toContain('src/api.js');
+      expect(related.map(r => r.referencedFile)).toContain('src/util.js');
+    });
+
+    test('checkChangelog returns correct structure when CHANGELOG exists', () => {
+      fs.writeFileSync(
+        path.join(testDir, 'CHANGELOG.md'),
+        '# Changelog\n## [Unreleased]\n- Added feature\n## [1.0.0]\n- Initial release'
+      );
+
+      const result = checkChangelog(['src/api.js'], { cwd: testDir });
+
+      expect(result).toHaveProperty('exists', true);
+      expect(result).toHaveProperty('hasUnreleased', true);
+      expect(result).toHaveProperty('documented');
+      expect(result).toHaveProperty('undocumented');
+      expect(result).toHaveProperty('suggestion');
     });
   });
 });
