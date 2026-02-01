@@ -98,29 +98,29 @@ function extractCountsFromDocs() {
     // Extract plugin count
     const pluginMatches = content.match(/(\d+)\s+plugins/i);
     if (pluginMatches) {
-      counts.plugins = parseInt(pluginMatches[1]);
+      counts.plugins = parseInt(pluginMatches[1], 10);
     }
 
     // Extract agent count - handle both total and file-based counts
     // Pattern: "39 agents (29 file-based + 10 role-based)" or "39 total"
     const totalAgentMatch = content.match(/(\d+)\s+(?:total|agents)\s*[:\(]?\s*(\d+)?\s*file-based\s*\+\s*(\d+)\s*role-based/i);
     if (totalAgentMatch) {
-      counts.agents = parseInt(totalAgentMatch[1]); // Total count
-      counts.fileBasedAgents = totalAgentMatch[2] ? parseInt(totalAgentMatch[2]) : null;
-      counts.roleBasedAgents = parseInt(totalAgentMatch[3]);
+      counts.agents = parseInt(totalAgentMatch[1], 10); // Total count
+      counts.fileBasedAgents = totalAgentMatch[2] ? parseInt(totalAgentMatch[2], 10) : null;
+      counts.roleBasedAgents = parseInt(totalAgentMatch[3], 10);
     } else {
       // Look for top-level agent count (not plugin-specific)
       // Match patterns like "9 plugins · 39 agents" or "39 agents across"
       const topLevelMatch = content.match(/(?:·|,)\s*(\d+)\s+agents|(\d+)\s+agents\s+across/i);
       if (topLevelMatch) {
-        counts.agents = parseInt(topLevelMatch[1] || topLevelMatch[2]);
+        counts.agents = parseInt(topLevelMatch[1] || topLevelMatch[2], 10);
       }
     }
 
     // Extract skill count
     const skillMatches = content.match(/(\d+)\s+skills/i);
     if (skillMatches) {
-      counts.skills = parseInt(skillMatches[1]);
+      counts.skills = parseInt(skillMatches[1], 10);
     }
 
     // Special handling for package.json
@@ -129,7 +129,7 @@ function extractCountsFromDocs() {
         const pkg = JSON.parse(content);
         const descMatch = pkg.description.match(/(\d+)\s+specialized plugins/);
         if (descMatch) {
-          counts.plugins = parseInt(descMatch[1]);
+          counts.plugins = parseInt(descMatch[1], 10);
         }
         counts.version = pkg.version;
       } catch (err) {

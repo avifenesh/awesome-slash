@@ -170,13 +170,6 @@ function copyFromPackage(installDir) {
 function installDependencies(installDir) {
   console.log('Installing dependencies...');
   execSync('npm install --production', { cwd: installDir, stdio: 'inherit' });
-
-  // Also install MCP server dependencies
-  const mcpDir = path.join(installDir, 'mcp-server');
-  if (fs.existsSync(path.join(mcpDir, 'package.json'))) {
-    console.log('Installing MCP server dependencies...');
-    execSync('npm install --production', { cwd: mcpDir, stdio: 'inherit' });
-  }
 }
 
 function installForClaude() {
@@ -313,11 +306,7 @@ function installForOpenCode(installDir, options = {}) {
   const commandsDir = path.join(home, '.opencode', 'commands', 'awesome-slash');
   // Native plugin goes to ~/.opencode/plugins/awesome-slash/
   const pluginDir = path.join(home, '.opencode', 'plugins', 'awesome-slash');
-  // MCP config goes to ~/.config/opencode/opencode.json
-  const configPath = getConfigPath('opencode');
-  const configDir = path.dirname(configPath);
 
-  fs.mkdirSync(configDir, { recursive: true });
   if (fs.existsSync(commandsDir)) {
     fs.rmSync(commandsDir, { recursive: true, force: true });
   }
@@ -326,29 +315,6 @@ function installForOpenCode(installDir, options = {}) {
   }
   fs.mkdirSync(commandsDir, { recursive: true });
   fs.mkdirSync(pluginDir, { recursive: true });
-
-  // Update MCP config
-  let config = {};
-  if (fs.existsSync(configPath)) {
-    try {
-      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch {
-      config = {};
-    }
-  }
-
-  config.mcp = config.mcp || {};
-  config.mcp['awesome-slash'] = {
-    type: 'local',
-    command: ['node', path.join(installDir, 'mcp-server', 'index.js')],
-    environment: {
-      PLUGIN_ROOT: installDir,
-      AI_STATE_DIR: '.opencode'
-    },
-    enabled: true
-  };
-
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
   // Install native OpenCode plugin (auto-thinking, workflow enforcement, compaction)
   const pluginSrcDir = path.join(installDir, 'adapters', 'opencode-plugin');
@@ -527,12 +493,10 @@ function installForOpenCode(installDir, options = {}) {
   console.log(`  [OK] Installed ${agentCount} agents to ${agentsDir}`);
 
   console.log('[OK] OpenCode installation complete!');
-  console.log(`   Config: ${configPath}`);
   console.log(`   Commands: ${commandsDir}`);
   console.log(`   Agents: ${agentsDir}`);
   console.log(`   Plugin: ${pluginDir}`);
   console.log('   Access via: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /sync-docs, /perf');
-  console.log('   MCP tools: workflow_status, workflow_start, workflow_resume, task_discover, review_code, slop_detect, enhance_analyze, repo_map');
   console.log('   Native features: Auto-thinking selection, workflow enforcement, session compaction\n');
   return true;
 }
@@ -542,58 +506,10 @@ function installForCodex(installDir) {
 
   const home = process.env.HOME || process.env.USERPROFILE;
   const configDir = path.join(home, '.codex');
-  const configPath = path.join(configDir, 'config.toml');
   const skillsDir = path.join(configDir, 'skills');
 
   fs.mkdirSync(configDir, { recursive: true });
   fs.mkdirSync(skillsDir, { recursive: true });
-
-  // Update MCP config
-  const mcpPath = path.join(installDir, 'mcp-server', 'index.js').replace(/\\/g, '\\\\');
-  const pluginRoot = installDir.replace(/\\/g, '\\\\');
-
-  let configContent = '';
-  if (fs.existsSync(configPath)) {
-    configContent = fs.readFileSync(configPath, 'utf8');
-  }
-
-  // Remove any existing awesome-slash MCP config using line-by-line approach
-  // This is more reliable than regex for TOML
-  const lines = configContent.split('\n');
-  const filteredLines = [];
-  let inAwesomeSlashSection = false;
-
-  for (const line of lines) {
-    // Check if entering an awesome-slash section
-    if (line.match(/^\[mcp_servers\.awesome-slash/)) {
-      inAwesomeSlashSection = true;
-      continue;
-    }
-    // Check if entering a different section (not awesome-slash subsection)
-    if (line.match(/^\[/) && !line.match(/^\[mcp_servers\.awesome-slash/)) {
-      inAwesomeSlashSection = false;
-    }
-    // Keep lines that are not in awesome-slash sections
-    if (!inAwesomeSlashSection) {
-      filteredLines.push(line);
-    }
-  }
-
-  configContent = filteredLines.join('\n').trimEnd();
-
-  // Add the MCP config
-  configContent += `
-
-[mcp_servers.awesome-slash]
-command = "node"
-args = ["${mcpPath}"]
-
-[mcp_servers.awesome-slash.env]
-PLUGIN_ROOT = "${pluginRoot}"
-AI_STATE_DIR = ".codex"
-`;
-
-  fs.writeFileSync(configPath, configContent);
 
   // Remove old/deprecated prompts directory if it exists
   const oldPromptsDir = path.join(configDir, 'prompts');
@@ -693,8 +609,7 @@ AI_STATE_DIR = ".codex"
   console.log('\n[OK] Codex CLI installation complete!');
   console.log(`   Config: ${configPath}`);
   console.log(`   Skills: ${skillsDir}`);
-  console.log('   Access via: $next-task, $ship, $deslop, etc.');
-  console.log('   MCP tools: workflow_status, workflow_start, workflow_resume, task_discover, review_code, slop_detect, enhance_analyze, repo_map\n');
+  console.log('   Access via: $next-task, $ship, $deslop, etc.\n');
   return true;
 }
 
@@ -710,11 +625,10 @@ function removeInstallation() {
   fs.rmSync(installDir, { recursive: true, force: true });
 
   console.log('\n[OK] Removed ~/.awesome-slash');
-  console.log('\nNote: MCP configs in OpenCode/Codex are not removed.');
-  console.log('To fully uninstall, also remove:');
+  console.log('\nTo fully uninstall, also remove:');
   console.log('  - Claude: /plugin marketplace remove awesome-slash');
-  console.log('  - OpenCode: Remove "awesome-slash" from ~/.config/opencode/opencode.json');
-  console.log('  - Codex: Remove [mcp_servers.awesome-slash] from ~/.codex/config.toml');
+  console.log('  - OpenCode: Remove ~/.opencode/commands/awesome-slash/ and ~/.opencode/plugins/awesome-slash/');
+  console.log('  - Codex: Remove ~/.codex/skills/*/');
 }
 
 function printHelp() {
@@ -751,8 +665,8 @@ Environment Variables:
 
 Supported Platforms:
   claude   - Claude Code (marketplace install or development mode)
-  opencode - OpenCode (local install + MCP)
-  codex    - Codex CLI (local install + MCP)
+  opencode - OpenCode (local commands + native plugin)
+  codex    - Codex CLI (local skills)
 
 Install:  npm install -g awesome-slash && awesome-slash
 Update:   npm update -g awesome-slash && awesome-slash

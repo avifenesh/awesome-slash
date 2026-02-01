@@ -6,12 +6,12 @@
 
 'use strict';
 
-const { execSync, exec } = require('child_process');
+const { execSync, execFileSync, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { promisify } = require('util');
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Commands to try (sg is the common alias)
 const AST_GREP_COMMANDS = ['sg', 'ast-grep'];
@@ -45,21 +45,24 @@ function pickCommandPath(pathOutput) {
 async function checkInstalled() {
   for (const cmd of AST_GREP_COMMANDS) {
     try {
-      // Try to get version
-      const { stdout } = await execAsync(`${cmd} --version`, {
+      // Try to get version using execFileAsync (no shell, safe from injection)
+      const { stdout } = await execFileAsync(cmd, ['--version'], {
         timeout: 5000,
-        windowsHide: true
+        windowsHide: true,
+        shell: process.platform === 'win32' // Windows needs shell for PATH lookup
       });
-      
+
       const version = stdout.trim().replace(/^ast-grep\s*/i, '');
-      
+
       // Try to get path
       let cmdPath = null;
       try {
         const whereCmd = process.platform === 'win32' ? 'where' : 'which';
-        const { stdout: pathOut } = await execAsync(`${whereCmd} ${cmd}`, {
+        // Use execFileAsync with args array (no shell interpolation)
+        const { stdout: pathOut } = await execFileAsync(whereCmd, [cmd], {
           timeout: 5000,
-          windowsHide: true
+          windowsHide: true,
+          shell: process.platform === 'win32'
         });
         cmdPath = pickCommandPath(pathOut);
       } catch {
@@ -77,7 +80,7 @@ async function checkInstalled() {
       continue;
     }
   }
-  
+
   return { found: false };
 }
 
@@ -88,23 +91,27 @@ async function checkInstalled() {
 function checkInstalledSync() {
   for (const cmd of AST_GREP_COMMANDS) {
     try {
-      const stdout = execSync(`${cmd} --version`, {
+      // Use execFileSync with args array (no shell interpolation, safe from injection)
+      const stdout = execFileSync(cmd, ['--version'], {
         timeout: 5000,
         windowsHide: true,
         encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        shell: process.platform === 'win32' // Windows needs shell for PATH lookup
       });
-      
+
       const version = stdout.trim().replace(/^ast-grep\s*/i, '');
       let cmdPath = null;
 
       try {
         const whereCmd = process.platform === 'win32' ? 'where' : 'which';
-        const pathOut = execSync(`${whereCmd} ${cmd}`, {
+        // Use execFileSync with args array (no shell interpolation)
+        const pathOut = execFileSync(whereCmd, [cmd], {
           timeout: 5000,
           windowsHide: true,
           encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'pipe']
+          stdio: ['pipe', 'pipe', 'pipe'],
+          shell: process.platform === 'win32'
         });
         cmdPath = pickCommandPath(pathOut);
       } catch {
@@ -116,7 +123,7 @@ function checkInstalledSync() {
       continue;
     }
   }
-  
+
   return { found: false };
 }
 

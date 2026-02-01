@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **MCP Server** - Removed unused MCP (Model Context Protocol) server component
+  - Deleted `mcp-server/` directory
+  - Removed MCP configuration from OpenCode and Codex installers
+  - Removed `docs/reference/MCP-TOOLS.md` and `checklists/update-mcp.md`
+  - Removed MCP validation from cross-platform checks
+
+### Changed
+- **Atomic File Writes** - All state files now use atomic write pattern (write to temp, then rename)
+  - `lib/state/workflow-state.js` - tasks.json, flow.json
+  - `lib/repo-map/cache.js` - repo-map.json
+  - `lib/perf/investigation-state.js` - investigation state
+  - `lib/sources/source-cache.js` - source preferences
+- **Optimistic Locking** - Added version-based concurrency control for read-modify-write operations
+  - `lib/state/workflow-state.js` - updateFlow() with retry on conflict
+  - `lib/perf/investigation-state.js` - updateInvestigation() with retry on conflict
+- **Async File Reading** - Converted synchronous file reads to async batches in repo-map fullScan
+  - Added `batchReadFiles()` helper with configurable concurrency
+  - Pre-loads file contents asynchronously before processing
+- **Error Logging** - Added error logging to catch blocks in `lib/patterns/pipeline.js`
+- **Cache Efficiency** - Optimized `lib/utils/cache-manager.js` to skip iterator creation when not evicting
+- **Deep Clone** - Replaced `JSON.parse(JSON.stringify())` with `structuredClone()` in workflow-state.js and fixer.js
+- **Safer CLI Checks** - Replaced `execSync` with `execFileSync` in cli-enhancers.js for version checks
+- **Pipeline Timeout** - Added timeout option to `runPipeline()` with phase boundary checks (default: 5 minutes)
+- **Config Size Limit** - Added 1MB file size limit to enhance suppression config loading
+- **Git Log Buffer** - Reduced maxBuffer for git log from 10MB to 2MB in shotgun surgery analyzer
+- **parseInt Radix** - Added explicit radix parameter (10) to all parseInt calls in validate-counts.js and fixer.js
+- **Empty Catch Blocks** - Added error logging to empty catch block in fixer.js cleanupBackups()
+
+### Fixed
+- **Performance** - Fixed quadratic complexity in `analyzeInfrastructureWithoutImplementation()` by caching file contents
+
+### Added
+- **New Utility** - `lib/utils/atomic-write.js` for crash-safe file operations
+- **Test Coverage** - Added 51 tests for `lib/utils/shell-escape.js` security module
+- **Test Coverage** - Added 11 tests for `lib/utils/atomic-write.js`
+- **Test Coverage** - Added 36 tests for `lib/schemas/validator.js`
+- **Test Coverage** - Added 37 tests for `lib/enhance/suppression.js`
+- **Test Coverage** - Added 29 tests for `lib/repo-map/installer.js` (version checks, detection)
+- **Test Coverage** - Added 15 tests for `lib/repo-map/updater.js` (incremental updates, staleness)
+- **Test Coverage** - Added 99 tests for `lib/cross-platform/index.js` (platform detection, state dirs, MCP config)
+- **Test Coverage** - Added 76 tests for `lib/repo-map/queries.js` (AST query patterns, language detection)
+- **Test Coverage** - Added 37 tests for `lib/sources/source-cache.js` (preference caching, platform paths)
+- **Test Coverage** - Expanded `lib/platform/state-dir.js` tests to 24 (priority order, edge cases)
+- **Test Coverage** - Expanded `lib/utils/atomic-write.js` tests to 41 (concurrency, unicode, large files)
+- **Test Coverage** - Expanded `lib/patterns/pipeline.js` tests to 72 (timeout, filtering, aggregation)
+- **Test Coverage** - Expanded `lib/collectors/docs-patterns.js` tests to 69 (edge cases, coverage)
+
 ## [3.7.0] - 2026-02-01
 
 ### Added

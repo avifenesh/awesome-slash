@@ -223,38 +223,13 @@ function installOpenCode() {
   const commandsDir = path.join(OPENCODE_DIR, 'commands', 'awesome-slash');
   const pluginDir = path.join(OPENCODE_DIR, 'plugins', 'awesome-slash');
   const agentsDir = path.join(OPENCODE_DIR, 'agents');
-  const configDir = OPENCODE_CONFIG_DIR;
-  const configPath = path.join(configDir, 'opencode.json');
 
-  fs.mkdirSync(configDir, { recursive: true });
   fs.mkdirSync(commandsDir, { recursive: true });
   fs.mkdirSync(pluginDir, { recursive: true });
   fs.mkdirSync(agentsDir, { recursive: true });
 
   // Copy to ~/.awesome-slash first (OpenCode needs local files)
   copyToAwesomeSlash();
-
-  // Update MCP config
-  let config = {};
-  if (fs.existsSync(configPath)) {
-    try {
-      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-    } catch {
-      config = {};
-    }
-  }
-
-  config.mcp = config.mcp || {};
-  config.mcp['awesome-slash'] = {
-    type: 'local',
-    command: ['node', path.join(AWESOME_SLASH_DIR, 'mcp-server', 'index.js')],
-    environment: {
-      PLUGIN_ROOT: AWESOME_SLASH_DIR,
-      AI_STATE_DIR: '.opencode'
-    },
-    enabled: true
-  };
-  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
 
   // Copy native plugin
   const pluginSrcDir = path.join(SOURCE_DIR, 'adapters', 'opencode-plugin');
@@ -394,7 +369,6 @@ function installCodex() {
   log('Installing for Codex CLI...');
 
   const configDir = CODEX_DIR;
-  const configPath = path.join(configDir, 'config.toml');
   const skillsDir = path.join(configDir, 'skills');
 
   fs.mkdirSync(configDir, { recursive: true });
@@ -402,48 +376,6 @@ function installCodex() {
 
   // Copy to ~/.awesome-slash first
   copyToAwesomeSlash();
-
-  // Update MCP config
-  const mcpPath = path.join(AWESOME_SLASH_DIR, 'mcp-server', 'index.js').replace(/\\/g, '\\\\');
-  const pluginRoot = AWESOME_SLASH_DIR.replace(/\\/g, '\\\\');
-
-  let configContent = '';
-  if (fs.existsSync(configPath)) {
-    configContent = fs.readFileSync(configPath, 'utf8');
-  }
-
-  // Remove existing awesome-slash section
-  const lines = configContent.split('\n');
-  const filteredLines = [];
-  let inAwesomeSlashSection = false;
-
-  for (const line of lines) {
-    if (line.match(/^\[mcp_servers\.awesome-slash/)) {
-      inAwesomeSlashSection = true;
-      continue;
-    }
-    if (line.match(/^\[/) && !line.match(/^\[mcp_servers\.awesome-slash/)) {
-      inAwesomeSlashSection = false;
-    }
-    if (!inAwesomeSlashSection) {
-      filteredLines.push(line);
-    }
-  }
-
-  configContent = filteredLines.join('\n').trimEnd();
-
-  configContent += `
-
-[mcp_servers.awesome-slash]
-command = "node"
-args = ["${mcpPath}"]
-
-[mcp_servers.awesome-slash.env]
-PLUGIN_ROOT = "${pluginRoot}"
-AI_STATE_DIR = ".codex"
-`;
-
-  fs.writeFileSync(configPath, configContent);
 
   // Skill mappings
   const skillMappings = [
@@ -524,11 +456,6 @@ function copyToAwesomeSlash() {
   // Install dependencies
   log('  Installing dependencies...');
   execSync('npm install --production', { cwd: AWESOME_SLASH_DIR, stdio: 'pipe' });
-
-  const mcpDir = path.join(AWESOME_SLASH_DIR, 'mcp-server');
-  if (fs.existsSync(path.join(mcpDir, 'package.json'))) {
-    execSync('npm install --production', { cwd: mcpDir, stdio: 'pipe' });
-  }
 
   awesomeSlashCopied = true;
   log('  [OK] ~/.awesome-slash');

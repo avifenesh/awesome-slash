@@ -24,6 +24,37 @@ describe('review-patterns', () => {
       expect(Object.isFrozen(reviewPatterns)).toBe(true);
     });
 
+    it('should have deeply frozen nested objects', () => {
+      // Test that nested framework objects are also frozen
+      Object.values(reviewPatterns).forEach(framework => {
+        expect(Object.isFrozen(framework)).toBe(true);
+        Object.values(framework).forEach(category => {
+          expect(Object.isFrozen(category)).toBe(true);
+        });
+      });
+    });
+
+    it('should prevent modifications to patterns', () => {
+      // Frozen objects prevent modifications - verify no new property exists
+      const originalKeys = Object.keys(reviewPatterns).sort();
+      try {
+        reviewPatterns.newFramework = {};
+      } catch {
+        // May throw in strict mode, which is expected
+      }
+      // Verify the object was not modified
+      expect(reviewPatterns.newFramework).toBeUndefined();
+      expect(Object.keys(reviewPatterns).sort()).toEqual(originalKeys);
+    });
+
+    it('should prevent modifications to nested arrays', () => {
+      const originalLength = reviewPatterns.react.hooks_rules.length;
+      expect(() => {
+        reviewPatterns.react.hooks_rules.push('new pattern');
+      }).toThrow();
+      expect(reviewPatterns.react.hooks_rules.length).toBe(originalLength);
+    });
+
     it('should have patterns for major frameworks', () => {
       expect(reviewPatterns).toHaveProperty('react');
       expect(reviewPatterns).toHaveProperty('vue');
@@ -32,6 +63,13 @@ describe('review-patterns', () => {
       expect(reviewPatterns).toHaveProperty('express');
       expect(reviewPatterns).toHaveProperty('rust');
       expect(reviewPatterns).toHaveProperty('go');
+    });
+
+    it('should have patterns for fastapi', () => {
+      expect(reviewPatterns).toHaveProperty('fastapi');
+      expect(reviewPatterns.fastapi).toHaveProperty('async_patterns');
+      expect(reviewPatterns.fastapi).toHaveProperty('validation');
+      expect(reviewPatterns.fastapi).toHaveProperty('dependencies');
     });
 
     it('should have categories with arrays of patterns', () => {
@@ -101,6 +139,26 @@ describe('review-patterns', () => {
     it('should return null for invalid category', () => {
       expect(getPatternsForFrameworkCategory('react', 'nonexistent')).toBeNull();
     });
+
+    it('should be case-insensitive for framework name', () => {
+      const patterns1 = getPatternsForFrameworkCategory('react', 'hooks_rules');
+      const patterns2 = getPatternsForFrameworkCategory('REACT', 'hooks_rules');
+      const patterns3 = getPatternsForFrameworkCategory('React', 'hooks_rules');
+      expect(patterns1).toEqual(patterns2);
+      expect(patterns2).toEqual(patterns3);
+    });
+
+    it('should be case-sensitive for category name', () => {
+      // Categories are stored in lowercase/snake_case
+      const patterns = getPatternsForFrameworkCategory('react', 'Hooks_Rules');
+      expect(patterns).toBeNull();
+    });
+
+    it('should return same reference as direct access', () => {
+      const directPatterns = reviewPatterns.react.hooks_rules;
+      const functionPatterns = getPatternsForFrameworkCategory('react', 'hooks_rules');
+      expect(functionPatterns).toBe(directPatterns);
+    });
   });
 
   describe('getAvailableFrameworks', () => {
@@ -141,6 +199,23 @@ describe('review-patterns', () => {
       const categories = getCategoriesForFramework('nonexistent');
       expect(categories).toEqual([]);
     });
+
+    it('should be case-insensitive', () => {
+      const categories1 = getCategoriesForFramework('react');
+      const categories2 = getCategoriesForFramework('REACT');
+      const categories3 = getCategoriesForFramework('React');
+      expect(categories1).toEqual(categories2);
+      expect(categories2).toEqual(categories3);
+    });
+
+    it('should return categories for all frameworks', () => {
+      const frameworks = getAvailableFrameworks();
+      frameworks.forEach(framework => {
+        const categories = getCategoriesForFramework(framework);
+        expect(Array.isArray(categories)).toBe(true);
+        expect(categories.length).toBeGreaterThan(0);
+      });
+    });
   });
 
   describe('hasPatternsFor', () => {
@@ -174,6 +249,18 @@ describe('review-patterns', () => {
     it('should return false for non-existing categories', () => {
       expect(hasCategory('nonexistent')).toBe(false);
     });
+
+    it('should be case-sensitive (categories are lowercase)', () => {
+      expect(hasCategory('Security')).toBe(false);
+      expect(hasCategory('PERFORMANCE')).toBe(false);
+    });
+
+    it('should return false for non-string input', () => {
+      expect(hasCategory(123)).toBe(false);
+      expect(hasCategory(null)).toBe(false);
+      expect(hasCategory(undefined)).toBe(false);
+      expect(hasCategory({})).toBe(false);
+    });
   });
 
   describe('getPatternCount', () => {
@@ -185,6 +272,29 @@ describe('review-patterns', () => {
 
     it('should return 0 for invalid framework', () => {
       expect(getPatternCount('nonexistent')).toBe(0);
+    });
+
+    it('should be case-insensitive', () => {
+      const count1 = getPatternCount('react');
+      const count2 = getPatternCount('REACT');
+      const count3 = getPatternCount('React');
+      expect(count1).toBe(count2);
+      expect(count2).toBe(count3);
+    });
+
+    it('should return correct count for each framework', () => {
+      const frameworks = getAvailableFrameworks();
+      frameworks.forEach(framework => {
+        const count = getPatternCount(framework);
+        // Manually count patterns
+        const categories = getCategoriesForFramework(framework);
+        let manualCount = 0;
+        categories.forEach(category => {
+          const patterns = getPatternsForFrameworkCategory(framework, category);
+          manualCount += patterns.length;
+        });
+        expect(count).toBe(manualCount);
+      });
     });
   });
 
@@ -218,6 +328,51 @@ describe('review-patterns', () => {
     it('should return empty array when no matches', () => {
       const results = searchPatterns('xyznonexistentxyz');
       expect(results).toEqual([]);
+    });
+
+    it('should support limit option', () => {
+      const allResults = searchPatterns('error');
+      const limitedResults = searchPatterns('error', { limit: 3 });
+      expect(limitedResults.length).toBe(3);
+      expect(allResults.length).toBeGreaterThan(3);
+      // Limited results should be a subset of all results
+      limitedResults.forEach((result, index) => {
+        expect(result).toEqual(allResults[index]);
+      });
+    });
+
+    it('should support offset option', () => {
+      const allResults = searchPatterns('error');
+      const offsetResults = searchPatterns('error', { offset: 2 });
+      // Offset results should skip first 2
+      expect(offsetResults[0]).toEqual(allResults[2]);
+    });
+
+    it('should support combined limit and offset options', () => {
+      const allResults = searchPatterns('error');
+      const paginatedResults = searchPatterns('error', { limit: 2, offset: 3 });
+      expect(paginatedResults.length).toBe(2);
+      expect(paginatedResults[0]).toEqual(allResults[3]);
+      expect(paginatedResults[1]).toEqual(allResults[4]);
+    });
+
+    it('should return empty array when offset exceeds results', () => {
+      const results = searchPatterns('error', { offset: 1000 });
+      expect(results).toEqual([]);
+    });
+
+    it('should handle empty keyword', () => {
+      // Empty string matches all patterns
+      const results = searchPatterns('');
+      expect(results.length).toBe(getTotalPatternCount());
+    });
+
+    it('should handle special regex characters in keyword', () => {
+      // Test that special characters are treated as literals
+      const results = searchPatterns('(');
+      results.forEach(result => {
+        expect(result.pattern).toContain('(');
+      });
     });
   });
 
@@ -438,6 +593,190 @@ describe('review-patterns', () => {
           expect(patterns).toContain(result.pattern);
         });
       });
+    });
+  });
+
+  describe('Framework-Specific Pattern Content', () => {
+    describe('React patterns', () => {
+      it('should have hooks-related patterns', () => {
+        const hooksPatterns = getPatternsForFrameworkCategory('react', 'hooks_rules');
+        const joined = hooksPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('useeffect');
+        expect(joined).toContain('usestate');
+        expect(joined).toContain('dependency');
+      });
+
+      it('should have state management patterns', () => {
+        const statePatterns = getPatternsForFrameworkCategory('react', 'state_management');
+        const joined = statePatterns.join(' ').toLowerCase();
+        expect(joined).toContain('prop');
+        expect(joined).toContain('state');
+      });
+
+      it('should have performance patterns', () => {
+        const perfPatterns = getPatternsForFrameworkCategory('react', 'performance');
+        const joined = perfPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('memo');
+        expect(joined).toContain('render');
+      });
+    });
+
+    describe('Vue patterns', () => {
+      it('should have reactivity patterns', () => {
+        const reactivityPatterns = getPatternsForFrameworkCategory('vue', 'reactivity');
+        const joined = reactivityPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('reactive');
+        expect(joined).toContain('computed');
+      });
+
+      it('should have composition API patterns', () => {
+        const compositionPatterns = getPatternsForFrameworkCategory('vue', 'composition_api');
+        const joined = compositionPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('ref');
+        expect(joined).toContain('setup');
+      });
+    });
+
+    describe('Angular patterns', () => {
+      it('should have change detection patterns', () => {
+        const cdPatterns = getPatternsForFrameworkCategory('angular', 'change_detection');
+        const joined = cdPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('change detection');
+        expect(joined).toContain('ngfor');
+      });
+
+      it('should have RxJS patterns', () => {
+        const rxjsPatterns = getPatternsForFrameworkCategory('angular', 'rxjs');
+        const joined = rxjsPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('subscribe');
+        expect(joined).toContain('observable');
+      });
+    });
+
+    describe('Django patterns', () => {
+      it('should have ORM patterns', () => {
+        const ormPatterns = getPatternsForFrameworkCategory('django', 'orm');
+        const joined = ormPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('n+1');
+        expect(joined).toContain('select_related');
+      });
+
+      it('should have security patterns', () => {
+        const securityPatterns = getPatternsForFrameworkCategory('django', 'security');
+        const joined = securityPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('debug');
+        expect(joined).toContain('secret_key');
+      });
+    });
+
+    describe('FastAPI patterns', () => {
+      it('should have async patterns', () => {
+        const asyncPatterns = getPatternsForFrameworkCategory('fastapi', 'async_patterns');
+        const joined = asyncPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('async');
+        expect(joined).toContain('await');
+      });
+
+      it('should have validation patterns', () => {
+        const validationPatterns = getPatternsForFrameworkCategory('fastapi', 'validation');
+        const joined = validationPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('pydantic');
+        expect(joined).toContain('response');
+      });
+    });
+
+    describe('Rust patterns', () => {
+      it('should have safety patterns', () => {
+        const safetyPatterns = getPatternsForFrameworkCategory('rust', 'safety');
+        const joined = safetyPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('unsafe');
+        expect(joined).toContain('unwrap');
+      });
+
+      it('should have error handling patterns', () => {
+        const errorPatterns = getPatternsForFrameworkCategory('rust', 'error_handling');
+        const joined = errorPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('result');
+        expect(joined).toContain('panic');
+      });
+
+      it('should have async patterns', () => {
+        const asyncPatterns = getPatternsForFrameworkCategory('rust', 'async_rust');
+        const joined = asyncPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('async');
+        expect(joined).toContain('tokio');
+      });
+    });
+
+    describe('Go patterns', () => {
+      it('should have concurrency patterns', () => {
+        const concurrencyPatterns = getPatternsForFrameworkCategory('go', 'concurrency');
+        const joined = concurrencyPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('goroutine');
+        expect(joined).toContain('mutex');
+        expect(joined).toContain('channel');
+      });
+
+      it('should have error handling patterns', () => {
+        const errorPatterns = getPatternsForFrameworkCategory('go', 'error_handling');
+        const joined = errorPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('error');
+        expect(joined).toContain('panic');
+      });
+    });
+
+    describe('Express patterns', () => {
+      it('should have async handling patterns', () => {
+        const asyncPatterns = getPatternsForFrameworkCategory('express', 'async_handling');
+        const joined = asyncPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('async');
+        expect(joined).toContain('promise');
+      });
+
+      it('should have security patterns', () => {
+        const securityPatterns = getPatternsForFrameworkCategory('express', 'security');
+        const joined = securityPatterns.join(' ').toLowerCase();
+        expect(joined).toContain('helmet');
+        expect(joined).toContain('cors');
+        expect(joined).toContain('rate limit');
+      });
+
+      it('should have middleware patterns', () => {
+        const middlewarePatterns = getPatternsForFrameworkCategory('express', 'middleware');
+        const joined = middlewarePatterns.join(' ').toLowerCase();
+        expect(joined).toContain('middleware');
+        expect(joined).toContain('next');
+      });
+    });
+  });
+
+  describe('Caching and Performance', () => {
+    it('should return same array reference for getAvailableFrameworks', () => {
+      const frameworks1 = getAvailableFrameworks();
+      const frameworks2 = getAvailableFrameworks();
+      // Should be the exact same cached array reference
+      expect(frameworks1).toBe(frameworks2);
+    });
+
+    it('should return same array reference for getAvailableCategories', () => {
+      const categories1 = getAvailableCategories();
+      const categories2 = getAvailableCategories();
+      // Should be the exact same cached array reference
+      expect(categories1).toBe(categories2);
+    });
+
+    it('should provide O(1) framework lookup', () => {
+      // This tests the hasPatternsFor function uses the Set
+      // Run it many times to verify consistent fast performance
+      const iterations = 1000;
+      const start = Date.now();
+      for (let i = 0; i < iterations; i++) {
+        hasPatternsFor('react');
+        hasPatternsFor('nonexistent');
+      }
+      const elapsed = Date.now() - start;
+      // Should complete in well under 100ms for 1000 iterations
+      expect(elapsed).toBeLessThan(100);
     });
   });
 });

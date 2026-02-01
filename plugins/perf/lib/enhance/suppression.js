@@ -18,6 +18,9 @@ const DEFAULT_CONFIG = {
   severity: {}
 };
 
+// Maximum config file size (1MB) to prevent DoS via large files
+const MAX_CONFIG_SIZE = 1024 * 1024;
+
 /**
  * Load suppression config from project root
  * @param {string} projectRoot - Path to project root
@@ -33,6 +36,12 @@ function loadConfig(projectRoot) {
   for (const configPath of configPaths) {
     if (fs.existsSync(configPath)) {
       try {
+        // Check file size before reading to prevent DoS
+        const stats = fs.statSync(configPath);
+        if (stats.size > MAX_CONFIG_SIZE) {
+          console.error(`[WARN] Config file too large (${stats.size} bytes), using defaults`);
+          continue;
+        }
         const content = fs.readFileSync(configPath, 'utf8');
         const userConfig = JSON.parse(content);
         return mergeConfig(DEFAULT_CONFIG, userConfig);

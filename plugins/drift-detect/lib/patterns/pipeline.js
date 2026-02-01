@@ -15,8 +15,12 @@
 
 const path = require('path');
 const fs = require('fs');
+const fsPromises = require('fs').promises;
 const slopPatterns = require('./slop-patterns');
 const analyzers = require('./slop-analyzers');
+
+// Concurrent file reads per batch
+const FILE_READ_BATCH_SIZE = 50;
 
 /**
  * Global exclusions - files that should NEVER be flagged
@@ -58,6 +62,39 @@ const THOROUGHNESS = {
   DEEP: 'deep'
 };
 
+// Default timeout for pipeline execution (5 minutes)
+const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+
+/**
+ * Read multiple files asynchronously in batches
+ * @param {string[]} files - Array of file paths
+ * @param {number} batchSize - Concurrent reads per batch
+ * @returns {Promise<Map<string, {content: string|null, error: Error|null}>>}
+ */
+async function batchReadFiles(files, batchSize = FILE_READ_BATCH_SIZE) {
+  const results = new Map();
+
+  for (let i = 0; i < files.length; i += batchSize) {
+    const batch = files.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(async (file) => {
+        try {
+          const content = await fsPromises.readFile(file, 'utf8');
+          return { file, content, error: null };
+        } catch (err) {
+          return { file, content: null, error: err };
+        }
+      })
+    );
+
+    for (const result of batchResults) {
+      results.set(result.file, { content: result.content, error: result.error });
+    }
+  }
+
+  return results;
+}
+
 /**
  * Run the slop detection pipeline
  *
@@ -68,16 +105,25 @@ const THOROUGHNESS = {
  * @param {string} [options.language] - Filter to specific language
  * @param {string} [options.mode='report'] - report | apply
  * @param {Object} [options.cliTools] - Pre-detected CLI tools (from detectAvailableTools)
- * @returns {Object} Pipeline results: { findings, summary, phase3Prompt, missingTools }
+ * @param {number} [options.timeout] - Timeout in ms (default: 5 minutes)
+ * @returns {Promise<Object>} Pipeline results: { findings, summary, phase3Prompt, missingTools }
  */
-function runPipeline(repoPath, options = {}) {
+async function runPipeline(repoPath, options = {}) {
   const thoroughness = options.thoroughness || THOROUGHNESS.NORMAL;
   const mode = options.mode || 'report';
   const language = options.language || null;
+  const timeout = options.timeout || DEFAULT_TIMEOUT_MS;
+  const startTime = Date.now();
 
   const findings = [];
   const missingTools = [];
   let cliTools = options.cliTools || null;
+  let timedOut = false;
+
+  // Helper to check if timeout exceeded
+  function isTimedOut() {
+    return Date.now() - startTime > timeout;
+  }
 
   // Get target files - limit to 200 to prevent memory exhaustion
   // Users can pass targetFiles explicitly for larger scans
@@ -91,30 +137,54 @@ function runPipeline(repoPath, options = {}) {
     targetFiles = result.files;
   }
 
+  // Pre-load all file contents asynchronously (used by Phase 1 and Phase 1b)
+  let fileContents;
+  try {
+    fileContents = await batchReadFiles(targetFiles);
+  } catch (err) {
+    console.error('[WARN] File pre-loading failed:', err.message);
+    fileContents = new Map();
+  }
+
   // Phase 1: Built-in regex patterns (always runs)
   // Wrapped in try-catch to prevent crashes on malformed files
   try {
-    const phase1Results = runPhase1(repoPath, targetFiles, language);
+    const phase1Results = runPhase1(repoPath, targetFiles, language, fileContents);
     findings.push(...phase1Results);
   } catch (err) {
-    // Continue with empty phase1 results rather than crash
+    // Log but continue with empty phase1 results rather than crash
+    console.error('[WARN] Phase 1 failed:', err.message);
+  }
+
+  // Check timeout after Phase 1
+  if (isTimedOut()) {
+    console.error('[WARN] Pipeline timeout after Phase 1');
+    timedOut = true;
   }
 
   // Phase 1b: Multi-pass analyzers (if normal or deep)
   // Wrapped in try-catch as these are expensive and can fail
-  if (thoroughness !== THOROUGHNESS.QUICK) {
+  if (!timedOut && thoroughness !== THOROUGHNESS.QUICK) {
     try {
-      const multiPassResults = runMultiPassAnalyzers(repoPath, targetFiles);
+      // runMultiPassAnalyzers is async to support non-blocking I/O (PERF-007)
+      const multiPassResults = await runMultiPassAnalyzers(repoPath, targetFiles, fileContents);
       findings.push(...multiPassResults);
     } catch (err) {
-      // Continue with partial results rather than crash
+      // Log but continue with partial results rather than crash
+      console.error('[WARN] Phase 1b failed:', err.message);
+    }
+
+    // Check timeout after Phase 1b
+    if (isTimedOut()) {
+      console.error('[WARN] Pipeline timeout after Phase 1b');
+      timedOut = true;
     }
   }
 
   // Phase 2: CLI tools (only if deep and tools available)
   // Detect project languages for language-aware tool recommendations
   let detectedLanguages = [];
-  if (thoroughness === THOROUGHNESS.DEEP) {
+  if (!timedOut && thoroughness === THOROUGHNESS.DEEP) {
     // Lazy-load CLI enhancers to avoid circular dependencies
     const cliEnhancers = require('./cli-enhancers');
 
@@ -155,7 +225,9 @@ function runPipeline(repoPath, options = {}) {
       thoroughness,
       mode,
       filesAnalyzed: targetFiles.length,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      timedOut,
+      elapsedMs: Date.now() - startTime
     }
   };
 }
@@ -166,10 +238,12 @@ function runPipeline(repoPath, options = {}) {
  * @param {string} repoPath - Repository root
  * @param {string[]} targetFiles - Files to analyze
  * @param {string|null} language - Optional language filter
+ * @param {Map<string, {content: string|null, error: Error|null}>} [fileContents] - Pre-loaded file contents (optional)
  * @returns {Array} Findings with HIGH certainty
  */
-function runPhase1(repoPath, targetFiles, language) {
+function runPhase1(repoPath, targetFiles, language, fileContents) {
   const findings = [];
+  const contentMap = fileContents || new Map();
 
   // Get patterns (filtered by language if specified)
   const patterns = language
@@ -192,13 +266,20 @@ function runPhase1(repoPath, targetFiles, language) {
       if (fileLanguage !== language && !isJsFamily) continue;
     }
 
+    // Get pre-loaded content from map, fallback to synchronous read
     const filePath = path.isAbsolute(file) ? file : path.join(repoPath, file);
+    const readResult = contentMap.get(file) || contentMap.get(filePath);
 
     let content;
-    try {
-      content = fs.readFileSync(filePath, 'utf8');
-    } catch {
-      continue; // Skip unreadable files
+    if (readResult && !readResult.error && readResult.content !== null) {
+      content = readResult.content;
+    } else {
+      // Fallback to synchronous read (for backward compatibility with direct calls)
+      try {
+        content = fs.readFileSync(filePath, 'utf8');
+      } catch {
+        continue; // Skip unreadable files
+      }
     }
 
     const lines = content.split('\n');
@@ -292,10 +373,12 @@ function runPhase1(repoPath, targetFiles, language) {
  *
  * @param {string} repoPath - Repository root
  * @param {string[]} targetFiles - Files to analyze
- * @returns {Array} Findings with MEDIUM certainty
+ * @param {Map<string, {content: string|null, error: Error|null}>} [fileContents] - Pre-loaded file contents (optional)
+ * @returns {Promise<Array>} Findings with MEDIUM certainty
  */
-function runMultiPassAnalyzers(repoPath, targetFiles) {
+async function runMultiPassAnalyzers(repoPath, targetFiles, fileContents) {
   const findings = [];
+  const contentMap = fileContents || new Map();
 
   // Skip expensive analyzers for large file sets to prevent memory exhaustion
   const isLargeRepo = targetFiles.length > 100;
@@ -312,13 +395,20 @@ function runMultiPassAnalyzers(repoPath, targetFiles) {
     // Skip globally excluded files (pattern definition files)
     if (slopPatterns.isFileExcluded(file, GLOBAL_EXCLUSIONS)) continue;
 
+    // Get pre-loaded content from map, fallback to synchronous read
     const filePath = path.isAbsolute(file) ? file : path.join(repoPath, file);
+    const readResult = contentMap.get(file) || contentMap.get(filePath);
 
     let content;
-    try {
-      content = fs.readFileSync(filePath, 'utf8');
-    } catch {
-      continue;
+    if (readResult && !readResult.error && readResult.content !== null) {
+      content = readResult.content;
+    } else {
+      // Fallback to synchronous read (for backward compatibility with direct calls)
+      try {
+        content = fs.readFileSync(filePath, 'utf8');
+      } catch {
+        continue;
+      }
     }
 
     // Doc/code ratio analysis (multi-language)
@@ -377,7 +467,8 @@ function runMultiPassAnalyzers(repoPath, targetFiles) {
   const overEngPattern = multiPassPatterns.over_engineering_metrics;
   if (overEngPattern && !isLargeRepo) {
     try {
-      const overEngResult = analyzers.analyzeOverEngineering(repoPath, {
+      // analyzeOverEngineering is async to avoid blocking I/O (PERF-007)
+      const overEngResult = await analyzers.analyzeOverEngineering(repoPath, {
         fileRatioThreshold: overEngPattern.fileRatioThreshold || 20,
         linesPerExportThreshold: overEngPattern.linesPerExportThreshold || 500,
         depthThreshold: overEngPattern.depthThreshold || 4
@@ -465,12 +556,20 @@ function runMultiPassAnalyzers(repoPath, targetFiles) {
       // Skip globally excluded files (pattern definition files)
       if (slopPatterns.isFileExcluded(file, GLOBAL_EXCLUSIONS)) continue;
 
+      // Get pre-loaded content from map, fallback to synchronous read
       const filePath = path.isAbsolute(file) ? file : path.join(repoPath, file);
+      const readResult = contentMap.get(file) || contentMap.get(filePath);
+
       let content;
-      try {
-        content = fs.readFileSync(filePath, 'utf8');
-      } catch {
-        continue;
+      if (readResult && !readResult.error && readResult.content !== null) {
+        content = readResult.content;
+      } else {
+        // Fallback to synchronous read (for backward compatibility with direct calls)
+        try {
+          content = fs.readFileSync(filePath, 'utf8');
+        } catch {
+          continue;
+        }
       }
 
       const deadCodeViolations = analyzers.analyzeDeadCode(content, { filePath: file });
@@ -504,12 +603,20 @@ function runMultiPassAnalyzers(repoPath, targetFiles) {
       // Honor pattern exclude globs (e.g., *.config.*)
       if (slopPatterns.isFileExcluded(file, stubPattern.exclude)) continue;
 
+      // Get pre-loaded content from map, fallback to synchronous read
       const filePath = path.isAbsolute(file) ? file : path.join(repoPath, file);
+      const readResult = contentMap.get(file) || contentMap.get(filePath);
+
       let content;
-      try {
-        content = fs.readFileSync(filePath, 'utf8');
-      } catch {
-        continue;
+      if (readResult && !readResult.error && readResult.content !== null) {
+        content = readResult.content;
+      } else {
+        // Fallback to synchronous read (for backward compatibility with direct calls)
+        try {
+          content = fs.readFileSync(filePath, 'utf8');
+        } catch {
+          continue;
+        }
       }
 
       const stubViolations = analyzers.analyzeStubFunctions(content, { filePath: file });

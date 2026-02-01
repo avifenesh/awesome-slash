@@ -187,16 +187,6 @@ function validateVersions() {
     }
   }
 
-  const mcpPath = path.join(ROOT_DIR, 'mcp-server', 'index.js');
-  if (fs.existsSync(mcpPath)) {
-    const mcpContent = fs.readFileSync(mcpPath, 'utf8');
-    const match = mcpContent.match(/version:\s*'([^']+)'/);
-    if (!match) {
-      errors.push('mcp-server/index.js version not found');
-    } else if (match[1] !== version) {
-      errors.push(`mcp-server/index.js version ${match[1]} does not match package.json ${version}`);
-    }
-  }
 }
 
 function validateMappings() {

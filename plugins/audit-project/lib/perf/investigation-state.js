@@ -13,6 +13,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { getStateDir } = require('../platform/state-dir');
 const { validateInvestigationState, assertValid } = require('./schemas');
+const { writeJsonAtomic, writeFileAtomic } = require('../utils/atomic-write');
 
 const SCHEMA_VERSION = 1;
 const INVESTIGATION_FILE = 'investigation.json';
@@ -169,6 +170,7 @@ function readInvestigation(basePath = process.cwd()) {
 
 /**
  * Write investigation.json
+ * Increments version for optimistic locking
  * @param {object} state
  * @param {string} basePath
  * @returns {boolean}
@@ -176,36 +178,70 @@ function readInvestigation(basePath = process.cwd()) {
 function writeInvestigation(state, basePath = process.cwd()) {
   ensurePerfDirs(basePath);
   const investigationPath = getInvestigationPath(basePath);
-  const nextState = { ...state, updatedAt: new Date().toISOString() };
+  const nextState = {
+    ...state,
+    updatedAt: new Date().toISOString(),
+    _version: (state._version || 0) + 1
+  };
   assertValid(validateInvestigationState(nextState), 'Invalid investigation state');
-  fs.writeFileSync(investigationPath, JSON.stringify(nextState, null, 2), 'utf8');
+  writeJsonAtomic(investigationPath, nextState);
   return true;
 }
 
 /**
  * Update investigation.json with partial updates
+ * Uses optimistic locking with version check and retry
  * @param {object} updates
  * @param {string} basePath
  * @returns {object|null}
  */
 function updateInvestigation(updates, basePath = process.cwd()) {
-  const current = readInvestigation(basePath) || {};
-  const nextState = { ...current };
+  const MAX_RETRIES = 3;
 
-  for (const [key, value] of Object.entries(updates)) {
-    if (value === null) {
-      nextState[key] = null;
-    } else if (
-      value && typeof value === 'object' && !Array.isArray(value) &&
-      nextState[key] && typeof nextState[key] === 'object' && !Array.isArray(nextState[key])
-    ) {
-      nextState[key] = { ...nextState[key], ...value };
-    } else {
-      nextState[key] = value;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const current = readInvestigation(basePath) || {};
+    const initialVersion = current._version || 0;
+    const nextState = { ...current };
+
+    for (const [key, value] of Object.entries(updates)) {
+      // Skip internal version field from updates
+      if (key === '_version') continue;
+
+      if (value === null) {
+        nextState[key] = null;
+      } else if (
+        value && typeof value === 'object' && !Array.isArray(value) &&
+        nextState[key] && typeof nextState[key] === 'object' && !Array.isArray(nextState[key])
+      ) {
+        nextState[key] = { ...nextState[key], ...value };
+      } else {
+        nextState[key] = value;
+      }
+    }
+
+    // Preserve version for write (writeInvestigation will increment it)
+    nextState._version = initialVersion;
+
+    writeInvestigation(nextState, basePath);
+
+    // Re-read to verify our write succeeded
+    const afterWrite = readInvestigation(basePath);
+    if (afterWrite && afterWrite._version === initialVersion + 1) {
+      return afterWrite; // Success
+    }
+
+    // Version conflict - retry after brief delay
+    if (attempt < MAX_RETRIES - 1) {
+      const delay = Math.floor(Math.random() * 50) + 10;
+      const start = Date.now();
+      while (Date.now() - start < delay) {
+        // Busy wait (synchronous delay)
+      }
     }
   }
 
-  writeInvestigation(nextState, basePath);
+  // All retries exhausted
+  console.error('[WARN] updateInvestigation: max retries exceeded, possible version conflict');
   return readInvestigation(basePath);
 }
 

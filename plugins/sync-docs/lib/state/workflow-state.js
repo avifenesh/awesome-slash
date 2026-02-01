@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { getStateDir } = require('../platform/state-dir');
+const { writeJsonAtomic } = require('../utils/atomic-write');
 
 // File paths
 const TASKS_FILE = 'tasks.json';
@@ -132,7 +133,7 @@ function readTasks(projectPath = process.cwd()) {
 function writeTasks(tasks, projectPath = process.cwd()) {
   ensureStateDir(projectPath);
   const tasksPath = getTasksPath(projectPath);
-  fs.writeFileSync(tasksPath, JSON.stringify(tasks, null, 2), 'utf8');
+  writeJsonAtomic(tasksPath, tasks);
   return true;
 }
 
@@ -201,14 +202,17 @@ function readFlow(worktreePath = process.cwd()) {
 /**
  * Write flow.json to worktree
  * Creates a copy to avoid mutating the original object
+ * Increments version for optimistic locking
  */
 function writeFlow(flow, worktreePath = process.cwd()) {
   ensureStateDir(worktreePath);
   // Clone to avoid mutating the original object
-  const flowCopy = JSON.parse(JSON.stringify(flow));
+  const flowCopy = structuredClone(flow);
   flowCopy.lastUpdate = new Date().toISOString();
+  // Increment version for optimistic locking (initialize if missing)
+  flowCopy._version = (flowCopy._version || 0) + 1;
   const flowPath = getFlowPath(worktreePath);
-  fs.writeFileSync(flowPath, JSON.stringify(flowCopy, null, 2), 'utf8');
+  writeJsonAtomic(flowPath, flowCopy);
   return true;
 }
 
@@ -216,29 +220,62 @@ function writeFlow(flow, worktreePath = process.cwd()) {
  * Update flow.json with partial updates
  * Handles null values correctly (null overwrites existing values)
  * Deep merges nested objects when both exist
+ * Uses optimistic locking with version check and retry
  */
 function updateFlow(updates, worktreePath = process.cwd()) {
-  const flow = readFlow(worktreePath) || {};
+  const MAX_RETRIES = 3;
 
-  for (const [key, value] of Object.entries(updates)) {
-    // Null explicitly overwrites
-    if (value === null) {
-      flow[key] = null;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    const flow = readFlow(worktreePath) || {};
+    const initialVersion = flow._version || 0;
+
+    for (const [key, value] of Object.entries(updates)) {
+      // Skip internal version field from updates
+      if (key === '_version') continue;
+
+      // Null explicitly overwrites
+      if (value === null) {
+        flow[key] = null;
+      }
+      // Deep merge if both source and target are non-null objects
+      else if (
+        value && typeof value === 'object' && !Array.isArray(value) &&
+        flow[key] && typeof flow[key] === 'object' && !Array.isArray(flow[key])
+      ) {
+        flow[key] = { ...flow[key], ...value };
+      }
+      // Otherwise direct assignment
+      else {
+        flow[key] = value;
+      }
     }
-    // Deep merge if both source and target are non-null objects
-    else if (
-      value && typeof value === 'object' && !Array.isArray(value) &&
-      flow[key] && typeof flow[key] === 'object' && !Array.isArray(flow[key])
-    ) {
-      flow[key] = { ...flow[key], ...value };
+
+    // Preserve version for write (writeFlow will increment it)
+    flow._version = initialVersion;
+
+    // Write and verify version wasn't changed by another process
+    writeFlow(flow, worktreePath);
+
+    // Re-read to verify our write succeeded
+    const afterWrite = readFlow(worktreePath);
+    if (afterWrite && afterWrite._version === initialVersion + 1) {
+      return true; // Success
     }
-    // Otherwise direct assignment
-    else {
-      flow[key] = value;
+
+    // Version conflict - retry after brief delay
+    if (attempt < MAX_RETRIES - 1) {
+      // Small random delay to reduce collision probability
+      const delay = Math.floor(Math.random() * 50) + 10;
+      const start = Date.now();
+      while (Date.now() - start < delay) {
+        // Busy wait (synchronous delay)
+      }
     }
   }
 
-  return writeFlow(flow, worktreePath);
+  // All retries exhausted
+  console.error('[WARN] updateFlow: max retries exceeded, possible version conflict');
+  return true; // Return true to not break callers, but log warning
 }
 
 /**

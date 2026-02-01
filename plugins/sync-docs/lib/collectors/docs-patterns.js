@@ -11,7 +11,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 const DEFAULT_OPTIONS = {
   cwd: process.cwd()
@@ -31,24 +31,18 @@ function findRelatedDocs(changedFiles, options = {}) {
   // Find all markdown files
   const docFiles = findMarkdownFiles(basePath);
 
-  // Cache doc file contents to avoid redundant disk reads
-  const docContentCache = new Map();
-  for (const doc of docFiles) {
-    try {
-      docContentCache.set(doc, fs.readFileSync(path.join(basePath, doc), 'utf8'));
-    } catch {
-      // Skip unreadable docs
-    }
-  }
-
   for (const file of changedFiles) {
     const basename = path.basename(file).replace(/\.[^.]+$/, '');
     const modulePath = file.replace(/\.[^.]+$/, '');
     const dirName = path.dirname(file);
 
     for (const doc of docFiles) {
-      const content = docContentCache.get(doc);
-      if (!content) continue;
+      let content;
+      try {
+        content = fs.readFileSync(path.join(basePath, doc), 'utf8');
+      } catch {
+        continue;
+      }
 
       const references = [];
 
@@ -216,6 +210,18 @@ function findLineNumber(content, search) {
 }
 
 /**
+ * Validate git ref format (e.g., HEAD, HEAD~1, branch names)
+ * @param {string} ref - Git ref to validate
+ * @returns {boolean} True if valid
+ */
+function isValidGitRef(ref) {
+  if (typeof ref !== 'string' || !ref) return false;
+  // Allow: HEAD, HEAD~N, HEAD^N, branch names (alphanumeric, /, -, _, .)
+  // Reject: shell metacharacters, spaces, null bytes
+  return /^[a-zA-Z0-9_./-]+(?:[~^][0-9]+)?$/.test(ref);
+}
+
+/**
  * Get exports from a file at a specific git ref
  * @param {string} filePath - File path
  * @param {string} ref - Git ref (HEAD, HEAD~1, etc.)
@@ -225,26 +231,27 @@ function findLineNumber(content, search) {
 function getExportsFromGit(filePath, ref, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
 
+  // Validate ref to prevent command injection
+  if (!isValidGitRef(ref)) {
+    return [];
+  }
+
   try {
-    // Use spawnSync with args array to avoid shell interpolation (security)
-    const result = spawnSync('git', ['show', `${ref}:${filePath}`], {
+    // Use execFileSync with arguments array to prevent command injection
+    // git show requires the ref:path as a single argument
+    const content = execFileSync('git', ['show', `${ref}:${filePath}`], {
       cwd: opts.cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
-    if (result.status !== 0) {
-      return [];
-    }
-    const content = result.stdout;
-
     const exports = [];
 
-    // Export patterns (all with g flag to avoid infinite loop in while/exec)
+    // Export patterns
     const patterns = [
       /export\s+(?:function|class|const|let|var)\s+(\w+)/g,
       /export\s+\{([^}]+)\}/g,
-      /module\.exports\s*=\s*\{([^}]+)\}/g
+      /module\.exports\s*=\s*\{([^}]+)\}/
     ];
 
     for (const pattern of patterns) {
@@ -309,17 +316,16 @@ function checkChangelog(changedFiles, options = {}) {
 
   const hasUnreleased = changelog.includes('## [Unreleased]');
 
-  // Get recent commits - use spawnSync to avoid shell injection
+  // Get recent commits
   let recentCommits = [];
   try {
-    const result = spawnSync('git', ['log', '--oneline', '-10', 'HEAD'], {
+    // Use execFileSync with arguments array for safer execution
+    const output = execFileSync('git', ['log', '--oneline', '-10', 'HEAD'], {
       cwd: basePath,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
-    if (result.status === 0 && result.stdout) {
-      recentCommits = result.stdout.trim().split('\n');
-    }
+    recentCommits = output.trim().split('\n');
   } catch {
     // Git command failed
   }

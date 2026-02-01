@@ -45,7 +45,6 @@ const EXCLUDE_PATTERNS = [
   /INSTALLATION\.md$/,
   /CROSS_PLATFORM\.md$/,
   /ARCHITECTURE\.md$/,
-  /MCP-TOOLS\.md$/,
   /examples?\//,
   /\.git\//,
   /node_modules\//,

@@ -74,7 +74,7 @@ function formatFindings(result, compact, maxFindings = 10) {
   }
 }
 
-function main() {
+async function main() {
   const args = process.argv.slice(2);
 
   // Help
@@ -109,8 +109,8 @@ Examples:
   }
 
   try {
-    // runPipeline takes (repoPath, options) - synchronous function
-    const result = runPipeline(options.path, {
+    // runPipeline takes (repoPath, options) - async function
+    const result = await runPipeline(options.path, {
       mode: options.mode,
       thoroughness: options.thoroughness
     });
@@ -128,4 +128,7 @@ Examples:
   }
 }
 
-main();
+main().catch(err => {
+  console.error(`Fatal error: ${err.message}`);
+  process.exit(1);
+});

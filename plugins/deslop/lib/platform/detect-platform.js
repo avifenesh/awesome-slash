@@ -102,16 +102,24 @@ const _existsCache = new CacheManager({ maxSize: 100, ttl: 60000 });
  * @returns {Promise<string|null>} Detected platform or null
  */
 async function detectFromFiles(configs, existsChecker) {
-  const checks = await Promise.all(
-    configs.map(({ file }) => existsChecker(file))
-  );
+  try {
+    const checks = await Promise.all(
+      configs.map(({ file }) => existsChecker(file).catch(() => false))
+    );
 
-  for (let i = 0; i < checks.length; i++) {
-    if (checks[i]) {
-      return configs[i].platform;
+    for (let i = 0; i < checks.length; i++) {
+      if (checks[i]) {
+        return configs[i].platform;
+      }
     }
+    return null;
+  } catch (error) {
+    // Log unexpected errors but return null to allow detection to continue
+    if (process.env.DEBUG) {
+      console.error(`[detect-platform] detectFromFiles error: ${error.message}`);
+    }
+    return null;
   }
-  return null;
 }
 
 /**
@@ -179,23 +187,30 @@ async function detectDeployment() {
  * @returns {Promise<string>} Project type identifier
  */
 async function detectProjectType() {
-  const checks = await Promise.all([
-    existsCached('package.json'),
-    existsCached('requirements.txt'),
-    existsCached('pyproject.toml'),
-    existsCached('setup.py'),
-    existsCached('Cargo.toml'),
-    existsCached('go.mod'),
-    existsCached('pom.xml'),
-    existsCached('build.gradle')
-  ]);
+  try {
+    const checks = await Promise.all([
+      existsCached('package.json').catch(() => false),
+      existsCached('requirements.txt').catch(() => false),
+      existsCached('pyproject.toml').catch(() => false),
+      existsCached('setup.py').catch(() => false),
+      existsCached('Cargo.toml').catch(() => false),
+      existsCached('go.mod').catch(() => false),
+      existsCached('pom.xml').catch(() => false),
+      existsCached('build.gradle').catch(() => false)
+    ]);
 
-  if (checks[0]) return 'nodejs';
-  if (checks[1] || checks[2] || checks[3]) return 'python';
-  if (checks[4]) return 'rust';
-  if (checks[5]) return 'go';
-  if (checks[6] || checks[7]) return 'java';
-  return 'unknown';
+    if (checks[0]) return 'nodejs';
+    if (checks[1] || checks[2] || checks[3]) return 'python';
+    if (checks[4]) return 'rust';
+    if (checks[5]) return 'go';
+    if (checks[6] || checks[7]) return 'java';
+    return 'unknown';
+  } catch (error) {
+    if (process.env.DEBUG) {
+      console.error(`[detect-platform] detectProjectType error: ${error.message}`);
+    }
+    return 'unknown';
+  }
 }
 
 /**
@@ -283,40 +298,78 @@ async function detect(forceRefresh = false) {
     }
   }
 
-  const [
-    ci,
-    deployment,
-    projectType,
-    packageManager,
-    branchStrategy,
-    mainBranch,
-    hasPlanFile,
-    hasTechDebtFile
-  ] = await Promise.all([
-    detectCI(),
-    detectDeployment(),
-    detectProjectType(),
-    detectPackageManager(),
-    detectBranchStrategy(),
-    detectMainBranch(),
-    existsCached('PLAN.md'),
-    existsCached('TECHNICAL_DEBT.md')
-  ]);
+  try {
+    const [
+      ci,
+      deployment,
+      projectType,
+      packageManager,
+      branchStrategy,
+      mainBranch,
+      hasPlanFile,
+      hasTechDebtFile
+    ] = await Promise.all([
+      detectCI().catch((err) => {
+        if (process.env.DEBUG) console.error(`[detect-platform] detectCI failed: ${err.message}`);
+        return null;
+      }),
+      detectDeployment().catch((err) => {
+        if (process.env.DEBUG) console.error(`[detect-platform] detectDeployment failed: ${err.message}`);
+        return null;
+      }),
+      detectProjectType().catch((err) => {
+        if (process.env.DEBUG) console.error(`[detect-platform] detectProjectType failed: ${err.message}`);
+        return 'unknown';
+      }),
+      detectPackageManager().catch((err) => {
+        if (process.env.DEBUG) console.error(`[detect-platform] detectPackageManager failed: ${err.message}`);
+        return null;
+      }),
+      detectBranchStrategy().catch((err) => {
+        if (process.env.DEBUG) console.error(`[detect-platform] detectBranchStrategy failed: ${err.message}`);
+        return 'single-branch';
+      }),
+      detectMainBranch().catch((err) => {
+        if (process.env.DEBUG) console.error(`[detect-platform] detectMainBranch failed: ${err.message}`);
+        return 'main';
+      }),
+      existsCached('PLAN.md').catch(() => false),
+      existsCached('TECHNICAL_DEBT.md').catch(() => false)
+    ]);
 
-  const detection = {
-    ci,
-    deployment,
-    projectType,
-    packageManager,
-    branchStrategy,
-    mainBranch,
-    hasPlanFile,
-    hasTechDebtFile,
-    timestamp: new Date().toISOString()
-  };
+    const detection = {
+      ci,
+      deployment,
+      projectType,
+      packageManager,
+      branchStrategy,
+      mainBranch,
+      hasPlanFile,
+      hasTechDebtFile,
+      timestamp: new Date().toISOString()
+    };
 
-  _detectionCache.set('detection', detection);
-  return detection;
+    _detectionCache.set('detection', detection);
+    return detection;
+  } catch (error) {
+    // Return sensible defaults if detection fails entirely
+    const fallback = {
+      ci: null,
+      deployment: null,
+      projectType: 'unknown',
+      packageManager: null,
+      branchStrategy: 'single-branch',
+      mainBranch: 'main',
+      hasPlanFile: false,
+      hasTechDebtFile: false,
+      timestamp: new Date().toISOString(),
+      error: error.message
+    };
+    if (process.env.DEBUG) {
+      console.error(`[detect-platform] detect() failed, returning fallback: ${error.message}`);
+    }
+    return fallback;
+  }
 }
 
 /**

@@ -14,7 +14,7 @@ describe('perf checkpoint', () => {
 
   it('handles no-op commits gracefully', () => {
     const childProcess = require('child_process');
-    const execSpy = jest.spyOn(childProcess, 'execSync').mockImplementation(() => {
+    const execSpy = jest.spyOn(childProcess, 'execFileSync').mockImplementation(() => {
       throw new Error('not a git repo');
     });
 
@@ -35,8 +35,7 @@ describe('perf checkpoint', () => {
   it('detects duplicate checkpoint messages', () => {
     jest.resetModules();
     jest.doMock('child_process', () => ({
-      execSync: jest.fn(() => 'perf: phase baseline [perf-123] baseline=n/a delta=n/a\n'),
-      execFileSync: jest.fn()
+      execFileSync: jest.fn(() => 'perf: phase baseline [perf-123] baseline=n/a delta=n/a\n')
     }));
 
     const freshCheckpoint = require('../lib/perf/checkpoint');
