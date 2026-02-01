@@ -1,5 +1,5 @@
-const { runValidation: runCountsValidation, getActualCounts } = require('../scripts/validate-counts');
-const { runValidation: runCrossPlatformValidation, validateCommandPrefixes } = require('../scripts/validate-cross-platform-docs');
+const { runValidation: runCountsValidation, getActualCounts, extractCountsFromDocs, checkVersionAlignment, checkProjectMemoryAlignment } = require('../scripts/validate-counts');
+const { runValidation: runCrossPlatformValidation, validateCommandPrefixes, validateStateDirReferences, validateFeatureParity, validateInstallationInstructions, validateMCPConfigurations } = require('../scripts/validate-cross-platform-docs');
 
 describe('validate-counts', () => {
   describe('getActualCounts', () => {
@@ -63,6 +63,69 @@ describe('validate-counts', () => {
       const result = runCountsValidation();
       const { high, medium, low } = result.summary.bySeverity;
       expect(high + medium + low).toBe(result.summary.issueCount);
+    });
+  });
+
+  describe('extractCountsFromDocs', () => {
+    test('returns object with all doc files', () => {
+      const counts = extractCountsFromDocs();
+      expect(counts['README.md']).toBeDefined();
+      expect(counts['CLAUDE.md']).toBeDefined();
+      expect(counts['package.json']).toBeDefined();
+    });
+
+    test('extracts plugin counts from docs', () => {
+      const counts = extractCountsFromDocs();
+      Object.values(counts).forEach(doc => {
+        if (doc.plugins !== undefined) {
+          expect(typeof doc.plugins).toBe('number');
+          expect(doc.plugins).toBeGreaterThan(0);
+        }
+      });
+    });
+
+    test('handles missing files gracefully', () => {
+      const counts = extractCountsFromDocs();
+      // Should not throw, may have error property for missing files
+      expect(counts).toBeDefined();
+    });
+  });
+
+  describe('checkVersionAlignment', () => {
+    test('returns mainVersion', () => {
+      const result = checkVersionAlignment();
+      expect(result).toHaveProperty('mainVersion');
+      expect(result.mainVersion).toMatch(/^\d+\.\d+\.\d+/);
+    });
+
+    test('returns issues array', () => {
+      const result = checkVersionAlignment();
+      expect(result).toHaveProperty('issues');
+      expect(Array.isArray(result.issues)).toBe(true);
+    });
+
+    test('issue has expected properties', () => {
+      const result = checkVersionAlignment();
+      result.issues.forEach(issue => {
+        expect(issue).toHaveProperty('file');
+        expect(issue).toHaveProperty('expected');
+        expect(issue).toHaveProperty('actual');
+      });
+    });
+  });
+
+  describe('checkProjectMemoryAlignment', () => {
+    test('returns alignment info', () => {
+      const result = checkProjectMemoryAlignment();
+      expect(result).toBeDefined();
+      // May have aligned, similarity, or error/warning
+    });
+
+    test('similarity is percentage string when aligned defined', () => {
+      const result = checkProjectMemoryAlignment();
+      if (result.similarity !== undefined) {
+        expect(result.similarity).toMatch(/%$/);
+      }
     });
   });
 });
@@ -139,6 +202,43 @@ describe('validate-cross-platform-docs', () => {
       issues.forEach(issue => {
         expect(validSeverities).toContain(issue.severity);
       });
+    });
+  });
+
+  describe('validateStateDirReferences', () => {
+    test('returns array', () => {
+      const issues = validateStateDirReferences();
+      expect(Array.isArray(issues)).toBe(true);
+    });
+  });
+
+  describe('validateFeatureParity', () => {
+    test('returns featuresByPlatform and issues', () => {
+      const result = validateFeatureParity();
+      expect(result).toHaveProperty('featuresByPlatform');
+      expect(result).toHaveProperty('issues');
+    });
+
+    test('all required features tracked', () => {
+      const result = validateFeatureParity();
+      const allFeatures = Object.values(result.featuresByPlatform)
+        .flatMap(set => Array.from(set));
+      expect(allFeatures).toContain('/next-task');
+      expect(allFeatures).toContain('/sync-docs');
+    });
+  });
+
+  describe('validateInstallationInstructions', () => {
+    test('returns array', () => {
+      const issues = validateInstallationInstructions();
+      expect(Array.isArray(issues)).toBe(true);
+    });
+  });
+
+  describe('validateMCPConfigurations', () => {
+    test('returns array', () => {
+      const issues = validateMCPConfigurations();
+      expect(Array.isArray(issues)).toBe(true);
     });
   });
 });
