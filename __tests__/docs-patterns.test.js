@@ -5,7 +5,6 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync } = require('child_process');
 
 const {
   DEFAULT_OPTIONS,
@@ -21,7 +20,6 @@ const {
 
 describe('docs-patterns', () => {
   let testDir;
-  let gitRepo;
 
   beforeEach(() => {
     testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'docs-patterns-test-'));

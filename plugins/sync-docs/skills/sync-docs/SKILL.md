@@ -78,7 +78,11 @@ if (scope === 'all') {
   try {
     const { stdout: refOutput } = await exec("git symbolic-ref refs/remotes/origin/HEAD");
     // Parse "refs/remotes/origin/branch-name" to extract "branch-name"
-    base = refOutput.trim().split('/').pop();
+    const rawBase = refOutput.trim().split('/').pop();
+    // Sanitize branch name to prevent shell injection (only allow alphanumeric, dash, underscore, dot)
+    if (/^[a-zA-Z0-9._-]+$/.test(rawBase)) {
+      base = rawBase;
+    }
   } catch (e) {
     base = 'main'; // fallback to main if symbolic-ref fails
   }

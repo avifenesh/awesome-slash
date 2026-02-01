@@ -78,15 +78,15 @@ lib/                        # Shared library (canonical source)
 └── index.js                # Main exports
 
 plugins/                    # 9 plugins, 40 agents (30 file-based + 10 role-based), 25 skills
-├── next-task/              # Master workflow (12 agents, 4 skills)
-├── enhance/                # Enhancement analyzers (9 agents, 10 skills)
+├── next-task/              # Master workflow (11 agents, 3 skills)
+├── enhance/                # Enhancement analyzers (9 agents, 9 skills)
 ├── ship/                   # PR workflow (4 commands)
 ├── perf/                   # Performance investigation (6 agents, 8 skills)
 ├── audit-project/          # Multi-agent review (10 role-based agents, 3 commands)
 ├── deslop/                 # AI slop cleanup (1 agent, 2 skills)
 ├── drift-detect/           # Plan drift detection (1 agent, 1 skill)
 ├── repo-map/               # AST repo mapping (1 agent, 1 skill)
-└── sync-docs/              # Documentation sync (2 agents, 3 skills)
+└── sync-docs/              # Documentation sync (1 agent, 1 skill)
 
 adapters/                   # Platform-specific adapters
 ├── opencode-plugin/        # Native OpenCode plugin
