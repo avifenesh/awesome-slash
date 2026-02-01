@@ -8,7 +8,7 @@ A permanent reference library on improving LLM instruction following, constraint
 
 1. [Instruction Hierarchy & Priority Handling](#1-instruction-hierarchy--priority-handling)
 2. [Constraint Enforcement Techniques](#2-constraint-enforcement-techniques)
-3. [Output Validation & Retry Patterns](#3-output-validation--retry-patterns)
+3. [Output Validation Patterns](#3-output-validation-patterns)
 4. [Hallucination Prevention & Grounding](#4-hallucination-prevention--grounding)
 5. [Multi-Turn Consistency](#5-multi-turn-consistency)
 6. [Safety & Guardrails](#6-safety--guardrails)
@@ -117,30 +117,14 @@ From [Palantir's Best Practices](https://www.palantir.com/docs/foundry/aip/best-
 
 ---
 
-## 3. Output Validation & Retry Patterns
+## 3. Output Validation Patterns
 
 ### Validation Architecture
 
 After LLM generates output:
 1. Validate against data models/schemas
-2. If invalid, trigger error handling (retry or cleanup)
+2. If invalid, trigger error handling
 3. Log failure patterns for improvement
-
-### Retry Strategies
-
-**Exponential Backoff** (recommended over fixed delays):
-```
-Attempt 1: Immediate retry
-Attempt 2: Wait 1 second
-Attempt 3: Wait 2 seconds
-Attempt 4: Wait 4 seconds
-... (up to maximum retries)
-```
-
-Benefits:
-- Prevents retry storms during systematic issues
-- Balances persistence with resource conservation
-- Prevents cascading failures
 
 ### Key Libraries
 

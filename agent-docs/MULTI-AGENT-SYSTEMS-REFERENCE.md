@@ -11,12 +11,11 @@ A research reference on multi-agent LLM orchestration patterns, frameworks, comm
 3. [Agent Communication Protocols](#agent-communication-protocols)
 4. [Task Decomposition Strategies](#task-decomposition-strategies)
 5. [Coordination Mechanisms](#coordination-mechanisms)
-6. [Failure Handling & Recovery](#failure-handling--recovery)
-7. [Framework Comparison](#framework-comparison)
-8. [Implementation Patterns with Code](#implementation-patterns-with-code)
-9. [Scaling Considerations](#scaling-considerations)
-10. [Case Studies](#case-studies)
-11. [Sources](#sources)
+6. [Framework Comparison](#framework-comparison)
+7. [Implementation Patterns with Code](#implementation-patterns-with-code)
+8. [Scaling Considerations](#scaling-considerations)
+9. [Case Studies](#case-studies)
+10. [Sources](#sources)
 
 ---
 
@@ -411,94 +410,6 @@ For mission-critical workflows:
 - Maintains agreement integrity with up to 33% malicious/failing agents
 - Reduces attack success rates from 46.34% to 19.37% (50%+ reduction)
 - Essential for financial transactions and security-critical operations
-
----
-
-## Failure Handling & Recovery
-
-### Failure Statistics
-
-**Production failure rates:** 41-86.7%
-
-**Root causes:**
-| Cause | Percentage |
-|-------|------------|
-| Specification problems | 41.77% |
-| Coordination failures | 36.94% |
-| Other | 21.29% |
-
-### Recovery Strategies
-
-**1. Retry Mechanism**
-```python
-try:
-    execute_task()
-except TransientError:
-    wait(backoff)
-    retry_with_modified_settings()
-```
-
-**2. Task Reassignment**
-```python
-if agent_fails:
-    select_alternative_agent(by_availability, by_fit)
-    reassign_task()
-```
-
-**3. Checkpointing**
-```python
-for step in long_task:
-    execute(step)
-    save_checkpoint(state)
-
-on_failure:
-    restore_last_checkpoint()
-    resume_from_checkpoint()
-```
-
-**4. Human Escalation**
-```python
-if automated_recovery_fails:
-    escalate_to_human_expert()
-```
-
-### Architectural Patterns for Recovery
-
-**Three-Structure Hybrid System:**
-
-1. **Production Structure**: Agents handling normal tasks
-2. **Recovery Structure**: Deep reasoning for error recovery
-3. **Mediator Structure**: Filters/redirects between production and recovery
-
-### Decentralized Fault Tolerance
-
-**Local Voting Protocol (LVP):**
-- Eliminates single points of failure
-- Controllers coordinate using local information
-- Continuous feedback loops for agent scoring
-- Task execution continues even without global communication
-
-### Monitoring & Detection
-
-**Heartbeat mechanism:**
-```python
-while agent_running:
-    send_heartbeat(central_monitor)
-    sleep(interval)
-
-# Monitor side
-if no_heartbeat_within(timeout):
-    flag_agent_as_faulty()
-    trigger_recovery()
-```
-
-### Best Practices
-
-1. **Design for graceful degradation**
-2. **Implement failure isolation**
-3. **Localized containment** prevents cascade failures
-4. **Logging for recovery** (atomicity and durability)
-5. **Treat coordination like distributed systems challenge**
 
 ---
 
@@ -1052,11 +963,6 @@ def enforce_budget(agent_output):
 - [Coordination Mechanisms in Multi-Agent Systems](https://apxml.com/courses/agentic-llm-memory-architectures/chapter-5-multi-agent-systems/coordination-mechanisms-mas)
 - [Patterns for Democratic Multi-Agent AI: Debate-Based Consensus](https://medium.com/@edoardo.schepis/patterns-for-democratic-multi-agent-ai-debate-based-consensus-part-1-8ef80557ff8a)
 - [A Taxonomy of Hierarchical Multi-Agent Systems](https://arxiv.org/html/2508.12683)
-
-### Failure Handling & Recovery
-- [Multi-Agent Coordination Strategies | Galileo](https://galileo.ai/blog/multi-agent-coordination-strategies)
-- [Why Multi-Agent LLM Systems Fail | Augment Code](https://www.augmentcode.com/guides/why-multi-agent-llm-systems-fail-and-how-to-fix-them)
-- [Implementing Error Handling in Multi-Agent Systems](https://procodebase.com/article/implementing-error-handling-and-recovery-in-multi-agent-systems)
 
 ### Scaling & Performance
 - [Patterns for Building a Scalable Multi-Agent System | Microsoft ISE](https://devblogs.microsoft.com/ise/multi-agent-systems-at-scale/)

@@ -15,12 +15,13 @@ A comprehensive guide to prompt engineering techniques, based on official docume
 7. [Negative Prompting & Anti-Patterns](#7-negative-prompting--anti-patterns)
 8. [Extended Thinking & Reasoning Models](#8-extended-thinking--reasoning-models)
 9. [Agentic Prompting & Tool Use](#9-agentic-prompting--tool-use)
-10. [Context Window Optimization](#10-context-window-optimization)
-11. [Testing & Iteration](#11-testing--iteration)
-12. [Prompt Versioning](#12-prompt-versioning)
-13. [Model-Specific Guidance](#13-model-specific-guidance)
-14. [Common Anti-Patterns to Avoid](#14-common-anti-patterns-to-avoid)
-15. [System Prompt Template](#15-system-prompt-template)
+10. [Testing & Iteration](#10-testing--iteration)
+11. [Prompt Versioning](#11-prompt-versioning)
+12. [Model-Specific Guidance](#12-model-specific-guidance)
+13. [Common Anti-Patterns to Avoid](#13-common-anti-patterns-to-avoid)
+14. [System Prompt Template](#14-system-prompt-template)
+
+> For context window optimization, see [CONTEXT-OPTIMIZATION-REFERENCE.md](CONTEXT-OPTIMIZATION-REFERENCE.md)
 
 ---
 
@@ -608,67 +609,11 @@ guess missing parameters.
 
 ---
 
-## 10. Context Window Optimization
-
-### Current Landscape (2025)
-
-| Model | Context Window |
-|-------|----------------|
-| GPT-4.1 | 1M tokens |
-| Gemini 1.5 Pro | 1M+ tokens |
-| Claude 3.5/4 | 200K tokens |
-| Llama 4 | 10M tokens |
-
-### Key Challenges
-
-1. **Lost-in-the-middle effect**: Models weigh beginning and end more heavily
-2. **Quadratic memory scaling**: Standard attention scales O(n²)
-3. **Contextual forgetting**: Long-range dependencies degrade
-
-### Optimization Techniques
-
-| Technique | Description |
-|-----------|-------------|
-| **Truncation** | Remove less important content |
-| **RAG** | Retrieve only relevant chunks |
-| **Summarization** | Compress verbose content |
-| **Memory buffering** | Maintain rolling context |
-| **Sliding window attention** | Attend to fixed-size windows |
-| **KV cache optimization** | Reduce redundant computation |
-
-### Token Estimation
-
-| Content Type | Formula |
-|--------------|---------|
-| English text | Words x 1.3 |
-| Code (Python/JS) | Lines x 18 |
-| Academic text | Words x 1.4 |
-
-### Efficiency Tips
-
-1. **JSON/YAML over prose** for structured data (more token-efficient)
-2. **Model routing**: Use smaller models when content fits
-3. **Prioritize critical instructions** at start and end of prompts
-4. **Use structured formats** to compress information density
-
-### Multi-Window Workflows (Claude 4.5)
-
-For tasks spanning multiple context windows:
-
-1. Use first window to set up framework (tests, scripts)
-2. Write tests in structured format (e.g., `tests.json`)
-3. Create setup scripts (`init.sh`) for graceful restarts
-4. Use git for state tracking across sessions
-5. Consider fresh contexts over compaction
-
-**Sources:**
-- [Agenta Context Length Techniques](https://agenta.ai/blog/top-6-techniques-to-manage-context-length-in-llms)
-- [Chroma Context Rot Research](https://research.trychroma.com/context-rot)
-- [Deepchecks Token Limits Solutions](https://www.deepchecks.com/5-approaches-to-solve-llm-token-limits/)
+> For context window optimization, RAG, and token management, see [CONTEXT-OPTIMIZATION-REFERENCE.md](CONTEXT-OPTIMIZATION-REFERENCE.md)
 
 ---
 
-## 11. Testing & Iteration
+## 10. Testing & Iteration
 
 ### Core Principle
 
@@ -726,7 +671,7 @@ Modern platforms use advanced models (GPT-5.1, Claude Sonnet 4.5) to score outpu
 
 ---
 
-## 12. Prompt Versioning
+## 11. Prompt Versioning
 
 ### Core Principle
 
@@ -775,7 +720,7 @@ Organizations using version control for prompts see:
 
 ---
 
-## 13. Model-Specific Guidance
+## 12. Model-Specific Guidance
 
 ### Claude 4.x (Anthropic)
 
@@ -829,7 +774,7 @@ Organizations using version control for prompts see:
 
 ---
 
-## 14. Common Anti-Patterns to Avoid
+## 13. Common Anti-Patterns to Avoid
 
 ### Structural Anti-Patterns
 
@@ -868,7 +813,7 @@ Organizations using version control for prompts see:
 
 ---
 
-## 15. System Prompt Template
+## 14. System Prompt Template
 
 ### Complete Template
 

@@ -1,37 +1,32 @@
 # AI Agent Architecture & Design Patterns Reference Guide (2024-2026)
 
 > **Compiled:** January 2026
-> **Purpose:** Comprehensive reference for AI agent design patterns, frameworks, and best practices
+> **Purpose:** Reference for AI agent reasoning patterns, state management, and agent loops
 
 ---
 
 ## Executive Summary
 
-This document synthesizes the latest research and best practices for building AI agents. Key takeaways:
+Key principles for building AI agents:
 
-1. **Start Simple**: Success in LLM agents is about building the right system for your needs, not the most sophisticated. Start with simple prompts, optimize with comprehensive evaluation, and add multi-step agentic systems only when simpler solutions fall short.
+1. **Start Simple**: Build the right system for your needs, not the most sophisticated. Start with simple prompts, optimize with evaluation, and add agentic systems only when simpler solutions fall short.
 
 2. **ReAct is the Default**: The ReAct (Reason + Act) pattern serves as a solid foundation for most agent use cases, combining chain-of-thought reasoning with tool use.
 
-3. **State Management is Critical**: Modern agents require sophisticated memory systems, including hierarchical memory (short-term/long-term) and checkpointing for recovery.
+3. **State Management is Critical**: Modern agents require sophisticated memory systems, including hierarchical memory (short-term/long-term) and checkpointing.
 
-4. **Error Recovery is First-Class**: Build error recovery, fallback strategies, and circuit breakers from the start, not as afterthoughts.
-
-5. **Frameworks are Evolving Rapidly**: LangGraph leads for production agents, while OpenAI's Agents SDK (replacing Swarm) and Claude's Agent SDK represent the platform-native approaches.
+> For multi-agent orchestration and framework comparisons, see [MULTI-AGENT-SYSTEMS-REFERENCE.md](MULTI-AGENT-SYSTEMS-REFERENCE.md)
 
 ---
 
 ## Table of Contents
 
 1. [Core Reasoning Patterns](#1-core-reasoning-patterns)
-2. [Agent Frameworks Comparison](#2-agent-frameworks-comparison)
-3. [State and Memory Management](#3-state-and-memory-management)
-4. [Error Recovery Strategies](#4-error-recovery-strategies)
-5. [Agent Loop Design](#5-agent-loop-design)
-6. [Multi-Agent Orchestration](#6-multi-agent-orchestration)
-7. [Tool Use Best Practices](#7-tool-use-best-practices)
-8. [Comparison Tables](#8-comparison-tables)
-9. [Key Citations and Sources](#9-key-citations-and-sources)
+2. [State and Memory Management](#2-state-and-memory-management)
+3. [Agent Loop Design](#3-agent-loop-design)
+4. [Tool Use Best Practices](#4-tool-use-best-practices)
+5. [Comparison Tables](#5-comparison-tables)
+6. [Key Citations and Sources](#6-key-citations-and-sources)
 
 ---
 
@@ -83,8 +78,8 @@ The store has 20 apples.
 Thought: I need to find the current weather in Tokyo
 Action: get_weather(city="Tokyo")
 Observation: {"temp": 22, "condition": "sunny"}
-Thought: The weather is 22°C and sunny. I have the answer.
-Final Answer: Tokyo is currently 22°C and sunny.
+Thought: The weather is 22C and sunny. I have the answer.
+Final Answer: Tokyo is currently 22C and sunny.
 ```
 
 **Implementation Approach:**
@@ -295,148 +290,9 @@ def tree_of_thoughts(problem, depth=3, breadth=5):
 
 ---
 
-## 2. Agent Frameworks Comparison
+## 2. State and Memory Management
 
-### 2.1 LangChain / LangGraph
-
-**Overview:** LangGraph is LangChain's graph-based extension for building stateful, multi-agent workflows. As of 2025, LangChain recommends LangGraph for all new agent implementations.
-
-**Key Features:**
-- Graph-based state machines for agent workflows
-- Built-in checkpointing and persistence
-- Human-in-the-loop support
-- Reducer-driven state management
-
-**Best For:**
-- Production-grade agents
-- Complex workflows with loops, retries, and multi-actor orchestration
-- Long-running stateful agents
-
-**Architecture:**
-```python
-from langgraph.graph import StateGraph
-
-# Define state schema
-class AgentState(TypedDict):
-    messages: list[Message]
-    next_step: str
-
-# Build graph
-graph = StateGraph(AgentState)
-graph.add_node("research", research_agent)
-graph.add_node("write", writing_agent)
-graph.add_edge("research", "write")
-
-# Compile with checkpointing
-app = graph.compile(checkpointer=MemorySaver())
-```
-
-**Production Users:** Klarna, Replit, Elastic, Uber, LinkedIn
-
-**Trade-offs:**
-- Higher learning curve than simple chains
-- Requires upfront state schema design
-- More powerful but more complex
-
----
-
-### 2.2 Claude Agent SDK
-
-**Overview:** Anthropic's framework for building agents that operate like humans, with "computer use" capabilities.
-
-**Key Concepts:**
-- **Give agents a computer**: File system access, shell commands, browser control
-- **Agent Loop**: Gather context → Take action → Verify work → Repeat
-- **Agent Skills**: Dynamic instruction loading from filesystem
-
-**Design Philosophy:**
-```
-Claude Code operates in a specific feedback loop:
-1. Gather context (read files, check status)
-2. Take action (edit, run commands)
-3. Verify work (run tests, check output)
-4. Repeat until complete
-```
-
-**Agent Skills (December 2025):**
-Organized folders of instructions, scripts, and resources that agents discover and load dynamically:
-- Progressive disclosure (load as needed)
-- Reduces upfront context consumption
-- Enables specialization
-
-**Best For:**
-- Terminal-native development agents
-- Tasks requiring deep computer interaction
-- Autonomous coding workflows
-
----
-
-### 2.3 OpenAI Agents SDK (formerly Swarm)
-
-**Overview:** Production-ready evolution of Swarm, released March 2025. Features explicit handoff patterns between specialized agents.
-
-**Key Features:**
-- **Agents**: Configurable LLMs with instructions and tools
-- **Handoffs**: Intelligent control transfer between agents
-- **Guardrails**: Safety checks for input/output validation
-- **Tracing**: Visualization for debugging
-
-**Migration Note:** OpenAI recommends migrating from Swarm to Agents SDK for all production use cases.
-
-**Best For:**
-- Customer support automation
-- Multi-step research
-- Content generation pipelines
-
----
-
-### 2.4 AutoGen
-
-**Overview:** Microsoft Research framework for multi-agent conversation-based workflows.
-
-**Key Characteristics:**
-- Conversation-driven orchestration
-- Agents interact through chat
-- Strong human-in-the-loop support
-- Two libraries: Core (low-level) and AgentChat (high-level)
-
-**When to Choose AutoGen:**
-- Dynamic conversational systems
-- Research and experimentation
-- Open-ended problem solving
-- When fine-grained control is needed
-
-**Maturity:** 48K+ GitHub stars, 7.4K forks, ~3.7K commits. Established since 2019.
-
----
-
-### 2.5 CrewAI
-
-**Overview:** Role-based orchestration framework where agents collaborate as a structured "crew."
-
-**Key Characteristics:**
-- Agents have roles, goals, and backstories
-- Event-driven orchestration
-- Explicit task sequences and hierarchies
-- YAML-driven configuration
-
-**When to Choose CrewAI:**
-- Business workflows requiring predictability
-- Multi-step task execution
-- AI-augmented enterprise systems
-- Rapid prototyping
-
-**Maturity:** 35K+ GitHub stars, 1.3M+ monthly PyPI installs. Fast growth since November 2023.
-
-**Key Difference from AutoGen:**
-- CrewAI: Role-based, structured workflows
-- AutoGen: Conversation-based, emergent behavior
-
----
-
-## 3. State and Memory Management
-
-### 3.1 The Context Window Challenge
+### 2.1 The Context Window Challenge
 
 **Problem:** LLMs can only "see" what's in their immediate context window. Traditional stateless operation limits what agents can achieve.
 
@@ -452,21 +308,21 @@ Organized folders of instructions, scripts, and resources that agents discover a
 
 ---
 
-### 3.2 Hierarchical Memory Architecture
+### 2.2 Hierarchical Memory Architecture
 
 **MemGPT Pattern:** Treat context windows like OS memory with a hierarchy:
 
 ```
-┌─────────────────────────────────────┐
-│         Main Context               │ ← "RAM" - Active working memory
-│  (Current conversation, plans)     │
-├─────────────────────────────────────┤
-│       Archival Memory              │ ← "Disk" - Long-term storage
-│  (Past conversations, facts)       │
-├─────────────────────────────────────┤
-│        Recall Memory               │ ← "Cache" - Quick retrieval
-│  (Recent interactions index)       │
-└─────────────────────────────────────┘
++-------------------------------------+
+|         Main Context               | <- "RAM" - Active working memory
+|  (Current conversation, plans)     |
++-------------------------------------+
+|       Archival Memory              | <- "Disk" - Long-term storage
+|  (Past conversations, facts)       |
++-------------------------------------+
+|        Recall Memory               | <- "Cache" - Quick retrieval
+|  (Recent interactions index)       |
++-------------------------------------+
 ```
 
 **Memory Types:**
@@ -487,7 +343,7 @@ memory_blocks = {
 
 ---
 
-### 3.3 State Persistence Patterns
+### 2.3 State Persistence Patterns
 
 **Checkpointing (LangGraph):**
 ```python
@@ -519,7 +375,7 @@ app = graph.compile(checkpointer=checkpointer)
 
 ---
 
-### 3.4 Agentic Memory (AgeMem) - 2025 Research
+### 2.4 Agentic Memory (AgeMem) - 2025 Research
 
 **Key Innovation:** Expose memory operations as tool-based actions that the agent autonomously manages.
 
@@ -534,156 +390,26 @@ app = graph.compile(checkpointer=checkpointer)
 
 ---
 
-## 4. Error Recovery Strategies
+## 3. Agent Loop Design
 
-### 4.1 Layered Recovery Approach
+### 3.1 The Core Agent Loop
 
 ```
-┌────────────────────────────────────────┐
-│         Circuit Breaker               │ ← Ultimate backup
-│   (Prevent cascade failures)          │
-├────────────────────────────────────────┤
-│           Fallback                    │ ← Plan B
-│   (Alternative paths/models)          │
-├────────────────────────────────────────┤
-│            Retry                      │ ← First line of defense
-│   (Transient error handling)          │
-└────────────────────────────────────────┘
-```
-
----
-
-### 4.2 Retry Strategies
-
-**Exponential Backoff with Jitter:**
-```python
-def retry_with_backoff(fn, max_retries=3, base_delay=1.0):
-    for attempt in range(max_retries):
-        try:
-            return fn()
-        except TransientError:
-            delay = base_delay * (2 ** attempt)
-            jitter = random.uniform(0, delay * 0.1)
-            time.sleep(delay + jitter)
-    raise MaxRetriesExceeded()
-```
-
-**Key Principles:**
-- Stagger retries to avoid thundering herd
-- Use jitter to spread load
-- Set maximum retry limits
-- Only retry transient errors
-
----
-
-### 4.3 Semantic Fallback
-
-**Problem:** LLM outputs can vary and may not meet task requirements even if the API call succeeds.
-
-**Solutions:**
-1. Maintain multiple prompt templates for the same task
-2. Use validation-first execution
-3. Implement response post-processors to coerce malformed responses
-4. Fall back to alternative models
-
-```python
-async def with_semantic_fallback(task, primary_prompt, fallback_prompts):
-    for prompt in [primary_prompt] + fallback_prompts:
-        response = await llm.complete(prompt)
-        if validator.is_valid(response):
-            return response
-    return graceful_degradation_response()
++--------------------------------------------------------------+
+|                                                              |
+|    +---------+    +---------+    +-------------+    +------+ |
+|    | Gather  |--->|  Take   |--->|   Verify    |--->|Decide| |
+|    | Context |    | Action  |    |   Work      |    |      | |
+|    +---------+    +---------+    +-------------+    +------+ |
+|         ^                                               |    |
+|         +-----------------------------------------------+    |
+|                        (if not complete)                     |
++--------------------------------------------------------------+
 ```
 
 ---
 
-### 4.4 Circuit Breaker Pattern
-
-**Purpose:** Prevent cascading failures by cutting off traffic to unhealthy components.
-
-```python
-class CircuitBreaker:
-    def __init__(self, threshold=5, cooldown=60):
-        self.failures = 0
-        self.threshold = threshold
-        self.cooldown = cooldown
-        self.last_failure = None
-        self.state = "closed"  # closed, open, half-open
-
-    def call(self, fn):
-        if self.state == "open":
-            if time.time() - self.last_failure > self.cooldown:
-                self.state = "half-open"
-            else:
-                raise CircuitOpenError()
-
-        try:
-            result = fn()
-            self.failures = 0
-            self.state = "closed"
-            return result
-        except Exception as e:
-            self.failures += 1
-            self.last_failure = time.time()
-            if self.failures >= self.threshold:
-                self.state = "open"
-            raise
-```
-
----
-
-### 4.5 Context Preservation for Recovery
-
-**Challenge:** AI agents maintain context that can't be restored with a simple restart.
-
-**Context Snapshots:**
-- Capture agent state at critical decision points
-- Before API calls, agent handoffs, after major processing
-- Allows recovery to pick up the decision trail
-
-**Memory State Separation:**
-- Separate learned patterns from temporary processing state
-- When tasks fail, preserve insights about patterns and preferences
-- Only reset the active working state
-
----
-
-### 4.6 Remediation Patterns
-
-**Journaling:**
-- Log every operation before applying
-- Enable undo operations
-
-**Immutable Versioned Data:**
-- Keep previous versions
-- Rollback by reverting to prior version
-
-**Append-Only Logs:**
-- Prevent bad data from overwriting good
-- Complete audit trail
-
----
-
-## 5. Agent Loop Design
-
-### 5.1 The Core Agent Loop
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│                                                              │
-│    ┌─────────┐    ┌─────────┐    ┌─────────────┐    ┌──────┐│
-│    │ Gather  │───►│  Take   │───►│   Verify    │───►│Decide││
-│    │ Context │    │ Action  │    │   Work      │    │      ││
-│    └─────────┘    └─────────┘    └─────────────┘    └──────┘│
-│         ▲                                               │    │
-│         └───────────────────────────────────────────────┘    │
-│                        (if not complete)                     │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
-
-### 5.2 Loop Termination Strategies
+### 3.2 Loop Termination Strategies
 
 **The Problem:** Agents can enter infinite loops, consuming resources and never completing.
 
@@ -727,7 +453,7 @@ The system running the agent, not the agent itself, must guarantee termination.
 
 ---
 
-### 5.3 Completion Criteria Best Practices
+### 3.3 Completion Criteria Best Practices
 
 **Problem:** Vague criteria cause premature exits or excessive cycling.
 
@@ -747,7 +473,7 @@ Agent tracks completion by counting unchecked boxes. Works best for tasks with m
 
 ---
 
-### 5.4 Testing for Loop Vulnerabilities
+### 3.4 Testing for Loop Vulnerabilities
 
 **Adversarial Tests:**
 
@@ -769,125 +495,9 @@ Agent tracks completion by counting unchecked boxes. Works best for tasks with m
 
 ---
 
-## 6. Multi-Agent Orchestration
+## 4. Tool Use Best Practices
 
-### 6.1 Supervisor Pattern
-
-```
-                    ┌──────────────┐
-                    │  Supervisor  │
-                    │    Agent     │
-                    └──────┬───────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-    ┌──────▼─────┐  ┌──────▼─────┐  ┌──────▼─────┐
-    │  Research  │  │   Code     │  │  Writing   │
-    │   Agent    │  │   Agent    │  │   Agent    │
-    └────────────┘  └────────────┘  └────────────┘
-```
-
-**Characteristics:**
-- Central orchestrator coordinates all interactions
-- Top-down task decomposition and delegation
-- Good for structured, predictable workflows
-- Easier to debug and monitor
-
-**When to Use:**
-- Workflows with clear task boundaries
-- Consistency is critical
-- Need centralized decision-making
-
----
-
-### 6.2 Swarm Pattern
-
-```
-    ┌─────────┐       ┌─────────┐
-    │ Agent A │◄─────►│ Agent B │
-    └────┬────┘       └────┬────┘
-         │                 │
-         │    ┌─────────┐  │
-         └───►│ Agent C │◄─┘
-              └────┬────┘
-                   │
-              ┌────▼────┐
-              │ Agent D │
-              └─────────┘
-```
-
-**Characteristics:**
-- Peer-to-peer communication
-- Autonomous coordination
-- Shared context and working memory
-- Emergent problem-solving
-
-**When to Use:**
-- Dynamic, changing environments
-- Parallel processing needs
-- Distributed problem-solving
-- Flexibility and scalability are priorities
-
----
-
-### 6.3 Hierarchical Pattern
-
-```
-                 ┌────────────────┐
-                 │ Executive      │
-                 │ (Strategy)     │
-                 └───────┬────────┘
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-    ┌────▼────┐    ┌─────▼─────┐   ┌─────▼─────┐
-    │ Manager │    │  Manager  │   │  Manager  │
-    │ (R&D)   │    │  (Ops)    │   │  (QA)     │
-    └────┬────┘    └─────┬─────┘   └─────┬─────┘
-         │               │               │
-    ┌────▼────┐    ┌─────▼─────┐   ┌─────▼─────┐
-    │ Workers │    │  Workers  │   │  Workers  │
-    └─────────┘    └───────────┘   └───────────┘
-```
-
-**Characteristics:**
-- Multiple layers of agents
-- Higher-level agents coordinate lower-level
-- Communication flows top-down
-- Efficient for top-down control tasks
-
----
-
-### 6.4 Sequential Pattern (Pipeline)
-
-```
-┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
-│ Agent 1 │───►│ Agent 2 │───►│ Agent 3 │───►│ Agent 4 │
-│ (Input) │    │(Process)│    │(Refine) │    │(Output) │
-└─────────┘    └─────────┘    └─────────┘    └─────────┘
-```
-
-**When to Use:**
-- Multi-stage workflows with clear dependencies
-- Each stage has specialized requirements
-- Output of one stage feeds the next
-
----
-
-### 6.5 Choosing the Right Pattern
-
-| Pattern | Best For | Trade-offs |
-|---------|----------|------------|
-| **Supervisor** | Predictable workflows, consistency | Less flexible, single point of failure |
-| **Swarm** | Dynamic environments, scalability | Harder to debug, emergent complexity |
-| **Hierarchical** | Complex organizations, layered decisions | More overhead, slower adaptation |
-| **Sequential** | Clear pipelines, staged processing | Rigid, no parallel execution |
-
----
-
-## 7. Tool Use Best Practices
-
-### 7.1 Function Definition Guidelines
+### 4.1 Function Definition Guidelines
 
 **Be Specific and Descriptive:**
 ```json
@@ -917,7 +527,7 @@ Agent tracks completion by counting unchecked boxes. Works best for tasks with m
 
 ---
 
-### 7.2 Tool Definition Best Practices
+### 4.2 Tool Definition Best Practices
 
 1. **Use Strict Mode** (OpenAI)
    - Enables structured outputs
@@ -944,7 +554,7 @@ Agent tracks completion by counting unchecked boxes. Works best for tasks with m
 
 ---
 
-### 7.3 Handling Tool Calls
+### 4.3 Handling Tool Calls
 
 ```python
 # Always expect multiple tool calls
@@ -960,35 +570,35 @@ async def process_response(response):
 
 ---
 
-### 7.4 The Agent Loop with Tools
+### 4.4 The Agent Loop with Tools
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                       Agent Loop                            │
-│                                                             │
-│  1. User Input                                              │
-│         │                                                   │
-│         ▼                                                   │
-│  2. LLM Decides ──────────────────────────┐                │
-│         │                                  │                │
-│         ▼                                  ▼                │
-│  3. Tool Call(s)?  ──YES──►  Execute Tools                 │
-│         │                         │                         │
-│         │ NO                      ▼                         │
-│         │                  Return Observations              │
-│         │                         │                         │
-│         ▼                         │                         │
-│  4. Generate Response ◄───────────┘                        │
-│         │                                                   │
-│         ▼                                                   │
-│  5. Return to User                                          │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                       Agent Loop                            |
+|                                                             |
+|  1. User Input                                              |
+|         |                                                   |
+|         v                                                   |
+|  2. LLM Decides ----------------------+                     |
+|         |                             |                     |
+|         v                             v                     |
+|  3. Tool Call(s)?  --YES-->  Execute Tools                  |
+|         |                         |                         |
+|         | NO                      v                         |
+|         |                  Return Observations              |
+|         |                         |                         |
+|         v                         |                         |
+|  4. Generate Response <-----------+                         |
+|         |                                                   |
+|         v                                                   |
+|  5. Return to User                                          |
+|                                                             |
++-------------------------------------------------------------+
 ```
 
 ---
 
-### 7.5 Common Tool Issues
+### 4.5 Common Tool Issues
 
 | Issue | Cause | Solution |
 |-------|-------|----------|
@@ -999,9 +609,9 @@ async def process_response(response):
 
 ---
 
-## 8. Comparison Tables
+## 5. Comparison Tables
 
-### 8.1 Reasoning Patterns Comparison
+### 5.1 Reasoning Patterns Comparison
 
 | Pattern | Complexity | Token Cost | Best For | Limitations |
 |---------|------------|------------|----------|-------------|
@@ -1015,19 +625,7 @@ async def process_response(response):
 
 ---
 
-### 8.2 Framework Comparison
-
-| Framework | Best For | Learning Curve | Production Ready | Key Feature |
-|-----------|----------|----------------|------------------|-------------|
-| **LangGraph** | Complex agents | High | Yes | Graph-based state machines |
-| **Claude Agent SDK** | Dev agents | Medium | Yes | Computer-use capabilities |
-| **OpenAI Agents SDK** | Multi-agent | Medium | Yes | Handoff patterns |
-| **AutoGen** | Research/experimentation | Medium | Yes | Conversation-driven |
-| **CrewAI** | Business workflows | Low | Yes | Role-based orchestration |
-
----
-
-### 8.3 Memory Strategies Comparison
+### 5.2 Memory Strategies Comparison
 
 | Strategy | Persistence | Scalability | Implementation | Best For |
 |----------|-------------|-------------|----------------|----------|
@@ -1039,19 +637,7 @@ async def process_response(response):
 
 ---
 
-### 8.4 Error Recovery Strategy Comparison
-
-| Strategy | Recovery Time | Complexity | Use When |
-|----------|---------------|------------|----------|
-| **Simple Retry** | Fast | Low | Transient errors |
-| **Exponential Backoff** | Medium | Low | Rate limits, network issues |
-| **Semantic Fallback** | Medium | Medium | Output quality issues |
-| **Circuit Breaker** | Slow (cooldown) | Medium | Preventing cascade failures |
-| **Checkpointing** | Variable | High | Long-running workflows |
-
----
-
-## 9. Key Citations and Sources
+## 6. Key Citations and Sources
 
 ### Academic Papers
 
@@ -1068,7 +654,6 @@ async def process_response(response):
 
 - [LangGraph Documentation](https://docs.langchain.com/oss/python/langgraph/workflows-agents)
 - [Anthropic: Building Effective Agents](https://www.anthropic.com/engineering/building-effective-agents)
-- [OpenAI Agents SDK](https://github.com/openai/swarm) (Now migrated to Agents SDK)
 - [Claude Agent SDK](https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk)
 - [Claude Agent Skills](https://platform.claude.com/docs/en/agents-and-tools/agent-skills/overview)
 - [Anthropic Cookbook - Agents](https://github.com/anthropics/anthropic-cookbook/tree/main/patterns/agents)
@@ -1079,61 +664,15 @@ async def process_response(response):
 - [Self-Consistency Prompting Guide](https://www.promptingguide.ai/techniques/consistency)
 - [Tree of Thoughts Prompting Guide](https://www.promptingguide.ai/techniques/tot)
 - [Mastering LangGraph State Management](https://sparkco.ai/blog/mastering-langgraph-state-management-in-2025)
-- [Error Recovery and Fallback Strategies](https://www.gocodeo.com/post/error-recovery-and-fallback-strategies-in-ai-agent-development)
-- [Retries, Fallbacks, and Circuit Breakers](https://portkey.ai/blog/retries-fallbacks-and-circuit-breakers-in-llm-apps/)
-- [Multi-Agent AI Failure Recovery](https://galileo.ai/blog/multi-agent-ai-system-failure-recovery)
-
-### Framework Comparisons
-
-- [LangGraph vs AutoGen vs CrewAI](https://latenode.com/blog/platform-comparisons-alternatives/automation-platform-comparisons/langgraph-vs-autogen-vs-crewai-complete-ai-agent-framework-comparison-architecture-analysis-2025)
-- [CrewAI vs AutoGen](https://www.datacamp.com/tutorial/crewai-vs-langgraph-vs-autogen)
-- [Top AI Agent Frameworks 2025](https://www.codecademy.com/article/top-ai-agent-frameworks-in-2025)
-- [Complete Guide to Choosing an AI Agent Framework](https://www.langflow.org/blog/the-complete-guide-to-choosing-an-ai-agent-framework-in-2025)
 
 ### GitHub Repositories
 
 - [princeton-nlp/tree-of-thought-llm](https://github.com/princeton-nlp/tree-of-thought-llm)
 - [spcl/graph-of-thoughts](https://github.com/spcl/graph-of-thoughts)
 - [langchain-ai/langgraph](https://github.com/langchain-ai/langgraph)
-- [microsoft/autogen](https://github.com/microsoft/autogen)
-- [joaomdmoura/crewAI](https://github.com/joaomdmoura/crewAI)
 - [anthropics/anthropic-cookbook](https://github.com/anthropics/anthropic-cookbook)
 - [Awesome Agent Papers Collection](https://github.com/luo-junyu/Awesome-Agent-Papers)
 
 ---
 
-## Quick Reference: Decision Tree
-
-```
-Start Here: What kind of task?
-
-Simple single-step?
-  └──► Use basic prompting (no agent needed)
-
-Needs external data/tools?
-  └──► Use ReAct pattern
-
-Complex multi-step with clear plan?
-  └──► Use Plan-and-Execute
-
-Multiple valid approaches?
-  └──► Use Tree of Thoughts
-
-Need to learn from failures?
-  └──► Use Reflexion
-
-Multiple specialized agents needed?
-  ├──► Predictable workflow? → Supervisor pattern
-  ├──► Dynamic environment? → Swarm pattern
-  └──► Clear hierarchy? → Hierarchical pattern
-
-Need long-term memory?
-  └──► Implement hierarchical memory (MemGPT pattern)
-
-Production deployment?
-  └──► Add circuit breakers, checkpointing, and monitoring
-```
-
----
-
-*This document should be updated as new patterns and frameworks emerge. Last comprehensive review: January 2026.*
+*For multi-agent orchestration patterns and framework comparisons, see [MULTI-AGENT-SYSTEMS-REFERENCE.md](MULTI-AGENT-SYSTEMS-REFERENCE.md)*

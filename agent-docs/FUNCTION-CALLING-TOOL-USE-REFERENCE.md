@@ -280,32 +280,6 @@ Available in LangGraph/LangChain.
 }
 ```
 
-### Retry Strategies
-
-| Strategy | When to Use | Implementation |
-|----------|-------------|----------------|
-| **Exponential backoff** | Rate limits (429) | Wait 2^n seconds + jitter |
-| **Immediate retry** | Transient errors (503) | Max 3 attempts |
-| **No retry** | Validation errors (400) | Return error to model |
-| **Fallback model** | Tool invocation fails | Try GPT-4 instead of GPT-3.5 |
-
-### Circuit Breaker Pattern
-
-Prevent cascading failures:
-
-```python
-from circuitbreaker import circuit
-
-@circuit(failure_threshold=5, recovery_timeout=60)
-def call_external_api(params):
-    return api.execute(params)
-```
-
-States:
-- **Closed**: Normal operation
-- **Open**: Blocking calls (too many failures)
-- **Half-Open**: Testing recovery
-
 ### Error Handling Best Practices
 
 1. **Validate before execution**: Check parameters match schema
