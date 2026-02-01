@@ -20,7 +20,7 @@ You receive a structured fix request:
   "details": {
     // For CI failures
     "checkName": "lint",
-    "conclusion": "FAILURE",
+    "state": "FAILURE",
     "logs": "...",
 
     // For PR comments

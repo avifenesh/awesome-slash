@@ -104,7 +104,7 @@ PR body includes:
 Polls CI status every 15 seconds:
 
 ```bash
-gh pr checks $PR_NUMBER --json name,state,conclusion
+gh pr checks $PR_NUMBER --json name,state
 ```
 
 **States handled:**

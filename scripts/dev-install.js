@@ -159,6 +159,7 @@ function installClaude() {
   fs.mkdirSync(CLAUDE_PLUGINS_DIR, { recursive: true });
 
   // Copy each plugin directly from source
+  const installedPlugins = {};
   for (const plugin of PLUGINS) {
     const srcDir = path.join(SOURCE_DIR, 'plugins', plugin);
     const destDir = path.join(CLAUDE_PLUGINS_DIR, `${plugin}@awesome-slash`);
@@ -175,7 +176,36 @@ function installClaude() {
           return basename !== 'node_modules' && basename !== '.git';
         }
       });
+
+      // Register the plugin
+      installedPlugins[`${plugin}@awesome-slash`] = {
+        source: 'local',
+        installedAt: new Date().toISOString()
+      };
       log(`  [OK] ${plugin}`);
+    }
+  }
+
+  // Write installed_plugins.json
+  const installedPluginsPath = path.join(CLAUDE_PLUGINS_DIR, 'installed_plugins.json');
+  fs.writeFileSync(installedPluginsPath, JSON.stringify({
+    version: 2,
+    plugins: installedPlugins
+  }, null, 2));
+
+  // Enable plugins in settings.json
+  const settingsPath = path.join(HOME, '.claude', 'settings.json');
+  if (fs.existsSync(settingsPath)) {
+    try {
+      const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      settings.enabledPlugins = settings.enabledPlugins || {};
+      for (const plugin of PLUGINS) {
+        settings.enabledPlugins[`${plugin}@awesome-slash`] = true;
+      }
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      log('  [OK] Enabled in settings.json');
+    } catch (e) {
+      log(`  [WARN] Could not update settings.json: ${e.message}`);
     }
   }
 

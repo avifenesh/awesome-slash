@@ -64,7 +64,7 @@ echo "Waiting for CI to start (${INITIAL_WAIT}ms)..."
 sleep $((INITIAL_WAIT / 1000))
 
 # Check CI status
-gh pr checks $PR_NUMBER --json name,state,conclusion
+gh pr checks $PR_NUMBER --json name,state
 ```
 
 ## Phase 2: CI Status Check Loop
@@ -78,14 +78,14 @@ async function waitForCI(prNumber) {
     iteration++;
 
     // Get PR checks status
-    const checksOutput = await exec(`gh pr checks ${prNumber} --json name,state,conclusion`);
+    const checksOutput = await exec(`gh pr checks ${prNumber} --json name,state`);
     const checks = JSON.parse(checksOutput);
 
     // Categorize checks
     const pending = checks.filter(c => c.state === 'PENDING' || c.state === 'QUEUED');
     const running = checks.filter(c => c.state === 'IN_PROGRESS');
-    const failed = checks.filter(c => c.conclusion === 'FAILURE');
-    const passed = checks.filter(c => c.conclusion === 'SUCCESS');
+    const failed = checks.filter(c => c.state === 'FAILURE');
+    const passed = checks.filter(c => c.state === 'SUCCESS');
 
     console.log(`\n## CI Status Check #${iteration}`);
     console.log(`Pending: ${pending.length} | Running: ${running.length} | Failed: ${failed.length} | Passed: ${passed.length}`);
@@ -140,7 +140,7 @@ async function handleCIFailure(failed) {
   console.log("Delegating to ci-fixer (sonnet) for diagnosis and repair...\n");
 
   for (const check of failed) {
-    console.log(`- ${check.name}: ${check.conclusion}`);
+    console.log(`- ${check.name}: ${check.state}`);
     console.log(`  Details: ${check.detailsUrl}`);
 
     // Delegate to ci-fixer subagent (sonnet)
@@ -150,7 +150,7 @@ async function handleCIFailure(failed) {
         type: 'ci-failure',
         details: {
           checkName: check.name,
-          conclusion: check.conclusion,
+          state: check.state,
           detailsUrl: check.detailsUrl
         }
       }),
@@ -292,7 +292,7 @@ async function monitorPR(prNumber) {
 ### Checks
 | Check | Status | Time |
 |-------|--------|------|
-${checks.map(c => `| ${c.name} | ${c.conclusion} | ${c.duration} |`).join('\n')}
+${checks.map(c => `| ${c.name} | ${c.state} | ${c.duration} |`).join('\n')}
 
 ### Comments Addressed
 - ${commentsAddressed} comments resolved

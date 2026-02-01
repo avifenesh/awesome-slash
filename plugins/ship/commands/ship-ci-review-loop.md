@@ -115,11 +115,11 @@ wait_for_ci() {
   echo "Waiting for CI checks..."
 
   while true; do
-    CHECKS=$(gh pr checks $PR_NUMBER --json name,state,conclusion 2>/dev/null || echo "[]")
+    CHECKS=$(gh pr checks $PR_NUMBER --json name,state 2>/dev/null || echo "[]")
 
-    PENDING=$(echo "$CHECKS" | jq '[.[] | select(.state | IN("pending", "queued", "in_progress"))] | length')
-    FAILED=$(echo "$CHECKS" | jq '[.[] | select(.conclusion | IN("failure", "cancelled"))] | length')
-    PASSED=$(echo "$CHECKS" | jq '[.[] | select(.conclusion=="success")] | length')
+    PENDING=$(echo "$CHECKS" | jq '[.[] | select(.state | IN("PENDING", "QUEUED", "IN_PROGRESS"))] | length')
+    FAILED=$(echo "$CHECKS" | jq '[.[] | select(.state | IN("FAILURE", "CANCELLED"))] | length')
+    PASSED=$(echo "$CHECKS" | jq '[.[] | select(.state=="SUCCESS")] | length')
 
     if [ "$FAILED" -gt 0 ]; then
       echo "[ERROR] CI failed ($FAILED checks)"
