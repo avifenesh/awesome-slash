@@ -63,7 +63,7 @@
 
 ```
 lib/          → Shared library (canonical source)
-plugins/      → 9 plugins, 39 agents, 24 skills
+plugins/      → 9 plugins, 39 agents (29 file-based + 10 role-based), 24 skills
 adapters/     → Platform adapters (opencode-plugin/, opencode/, codex/)
 checklists/   → Action checklists (8 files)
 bin/cli.js    → npm CLI installer
