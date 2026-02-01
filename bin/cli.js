@@ -449,6 +449,40 @@ function installForOpenCode(installDir, options = {}) {
       content = content.replace(/^(---\n[\s\S]*?---\n)/, `$1${note}`);
     }
 
+    // Embed policy options directly for OpenCode (can't require() external files)
+    if (content.includes('policy') || content.includes('Phase 1')) {
+      const policySection = `
+## Phase 1: Policy Selection (Built-in Options)
+
+Ask the user these questions using AskUserQuestion:
+
+**Question 1 - Source**: "Where should I look for tasks?"
+- GitHub Issues - Use \`gh issue list\` to find issues
+- GitLab Issues - Use \`glab issue list\` to find issues
+- Local tasks.md - Read from PLAN.md, tasks.md, or TODO.md in the repo
+- Custom - User specifies their own source
+- Other - User describes source, you figure it out
+
+**Question 2 - Priority**: "What type of tasks to prioritize?"
+- All - Consider all tasks, pick by score
+- Bugs - Focus on bug fixes
+- Security - Security issues first
+- Features - New feature development
+
+**Question 3 - Stop Point**: "How far should I take this task?"
+- Merged - Until PR is merged to main
+- PR Created - Stop after creating PR
+- Implemented - Stop after local implementation
+
+After user answers, proceed to Phase 2 with the selected policy.
+
+`;
+      // Add after the OpenCode note if present, or after frontmatter
+      if (content.includes('OpenCode Note')) {
+        content = content.replace(/(Example:.*analyze the codebase\`\n\n)/, `$1${policySection}`);
+      }
+    }
+
     return content;
   }
 
