@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.7.2] - 2026-02-01
+
+### Fixed
+- **OpenCode Compatibility** - Comprehensive fixes for OpenCode integration
+  - Fixed subagent invocation documentation (@ mention syntax, not Task tool)
+  - Fixed code block transformation for all blocks (with/without language identifier)
+  - Fixed plugin prefix stripping in agent references
+  - Fixed skill name format (drift-analysis lowercase-hyphenated)
+  - Fixed skill installation location documentation (~/.opencode/skills/)
+  - Removed stale MCP server references from all documentation
+  - Removed MCP configuration from adapter install scripts
+
+### Changed
+- **Documentation Updates**
+  - Updated OPENCODE-REFERENCE.md with correct paths and installation details
+  - Updated ARCHITECTURE.md to remove MCP server section
+  - Updated CROSS_PLATFORM.md with OpenCode agent/skill locations
+  - Updated release checklist to remove MCP version references
+  - Removed update-mcp.md checklist reference from CLAUDE.md and AGENTS.md
+
+### Removed
+- **MCP Server Cleanup** - Removed all references to deleted MCP server
+  - marketplace.json mcpServer section removed
+  - adapter install.sh MCP configuration sections removed
+  - .npmignore mcp-server exclusions removed
+
 ## [3.7.2-rc.4] - 2026-02-01
 
 ### Fixed
