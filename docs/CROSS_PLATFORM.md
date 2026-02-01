@@ -91,18 +91,17 @@ claude --plugin-dir /path/to/awesome-slash/plugins/next-task
 - `/enhance` - Enhancement analyzer suite
 - `/sync-docs` - Documentation sync
 
-### Available Agents (40 total: 30 file-based + 10 role-based)
+### Available Agents (39 total: 29 file-based + 10 role-based)
 
 **Key agents shown below:**
 
-**next-task: Core Workflow (12 agents)**
+**next-task: Core Workflow (10 agents)**
 
 | Agent | Model | Purpose |
 |-------|-------|---------|
 | exploration-agent | opus | Deep codebase analysis |
 | planning-agent | opus | Design implementation plans |
 | implementation-agent | opus | Execute plans with quality code |
-| deslop-work | sonnet | Clean AI slop from changes |
 | test-coverage-checker | sonnet | Validate test coverage |
 | delivery-validator | sonnet | Autonomous delivery validation |
 | task-discoverer | sonnet | Find and prioritize tasks |
