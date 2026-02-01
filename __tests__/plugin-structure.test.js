@@ -34,13 +34,13 @@ describe('plugin structure', () => {
       expect(Array.isArray(pluginJson.skills)).toBe(true);
     });
 
-    test('has deslop-analyzer agent', () => {
-      const agentPath = path.join(deslopDir, 'agents', 'deslop-analyzer.md');
+    test('has deslop-agent (unified agent)', () => {
+      const agentPath = path.join(deslopDir, 'agents', 'deslop-agent.md');
       expect(fs.existsSync(agentPath)).toBe(true);
     });
 
-    test('deslop-analyzer.md has valid frontmatter', () => {
-      const agentPath = path.join(deslopDir, 'agents', 'deslop-analyzer.md');
+    test('deslop-agent.md has valid frontmatter', () => {
+      const agentPath = path.join(deslopDir, 'agents', 'deslop-agent.md');
       const content = fs.readFileSync(agentPath, 'utf8');
 
       expect(content.startsWith('---')).toBe(true);
@@ -49,39 +49,27 @@ describe('plugin structure', () => {
       expect(content.includes('model:')).toBe(true);
     });
 
-    test('has deslop-detection skill', () => {
-      const skillPath = path.join(deslopDir, 'skills', 'deslop-detection', 'SKILL.md');
+    test('has deslop skill (unified skill)', () => {
+      const skillPath = path.join(deslopDir, 'skills', 'deslop', 'SKILL.md');
       expect(fs.existsSync(skillPath)).toBe(true);
     });
 
-    test('deslop-detection skill has valid frontmatter', () => {
-      const skillPath = path.join(deslopDir, 'skills', 'deslop-detection', 'SKILL.md');
+    test('deslop skill has valid frontmatter', () => {
+      const skillPath = path.join(deslopDir, 'skills', 'deslop', 'SKILL.md');
       const content = fs.readFileSync(skillPath, 'utf8');
 
       expect(content.startsWith('---')).toBe(true);
-      expect(content.includes('name: deslop-detection')).toBe(true);
+      expect(content.includes('name: deslop')).toBe(true);
       expect(content.includes('description:')).toBe(true);
     });
 
-    test('has deslop-fixes skill', () => {
-      const skillPath = path.join(deslopDir, 'skills', 'deslop-fixes', 'SKILL.md');
-      expect(fs.existsSync(skillPath)).toBe(true);
-    });
+    test('plugin.json references unified agent and skill', () => {
+      const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
 
-    test('deslop-fixes skill has valid frontmatter', () => {
-      const skillPath = path.join(deslopDir, 'skills', 'deslop-fixes', 'SKILL.md');
-      const content = fs.readFileSync(skillPath, 'utf8');
-
-      expect(content.startsWith('---')).toBe(true);
-      expect(content.includes('name: deslop-fixes')).toBe(true);
-      expect(content.includes('description:')).toBe(true);
-    });
-
-    test('agent references skill', () => {
-      const agentPath = path.join(deslopDir, 'agents', 'deslop-analyzer.md');
-      const content = fs.readFileSync(agentPath, 'utf8');
-
-      expect(content.includes('deslop-detection')).toBe(true);
+      expect(pluginJson.agents).toContain('agents/deslop-agent.md');
+      expect(pluginJson.skills).toContain('skills/deslop/SKILL.md');
+      expect(pluginJson.agents.length).toBe(1);
+      expect(pluginJson.skills.length).toBe(1);
     });
   });
 

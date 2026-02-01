@@ -122,14 +122,19 @@ describe('next-task Phase 11 integration', () => {
   describe('next-task agent count', () => {
     const agentsDir = path.join(nextTaskDir, 'agents');
 
-    test('has 11 agents (not 12)', () => {
+    test('has 10 agents (deslop-work consolidated to deslop:deslop-agent)', () => {
       const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
-      expect(agents.length).toBe(11);
+      expect(agents.length).toBe(10);
     });
 
     test('does not include docs-updater', () => {
       const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
       expect(agents).not.toContain('docs-updater.md');
+    });
+
+    test('does not include deslop-work (consolidated to deslop:deslop-agent)', () => {
+      const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
+      expect(agents).not.toContain('deslop-work.md');
     });
   });
 

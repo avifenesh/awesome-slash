@@ -8,7 +8,7 @@
 
 AI models can write code. That's not the hard part anymore. The hard part is everything else—picking what to work on, managing branches, reviewing output, cleaning up artifacts, handling CI, addressing comments, deploying. **awesome-slash automates the entire workflow**, not just the coding.
 
-**9 plugins · 40 agents · 25 skills · 22k lines of lib code · 1,790 tests · 3 platforms**
+**9 plugins · 39 agents · 24 skills · 22k lines of lib code · 1,790 tests · 3 platforms**
 
 If you find this useful: [⭐ Star the repo](https://github.com/avifenesh/awesome-slash)
 
@@ -66,13 +66,14 @@ Each command works standalone. Together, they form complete workflows.
 
 ## Skills
 
-25 skills included across the plugins:
+24 skills included across the plugins:
 
 | Category | Skills |
 |----------|--------|
 | **Performance** | `perf:analyzer`, `perf:baseline`, `perf:benchmark`, `perf:code-paths`, `perf:investigation-logger`, `perf:profile`, `perf:theory`, `perf:theory-tester` |
 | **Enhancement** | `enhance:agent-prompts`, `enhance:claude-memory`, `enhance:docs`, `enhance:hooks`, `enhance:orchestrator`, `enhance:plugins`, `enhance:prompts`, `enhance:reporter`, `enhance:skills` |
-| **Workflow** | `next-task:orchestrate-review`, `next-task:discover-tasks`, `next-task:validate-delivery`, `next-task:update-docs` |
+| **Workflow** | `next-task:orchestrate-review`, `next-task:discover-tasks`, `next-task:validate-delivery` |
+| **Cleanup** | `deslop:deslop`, `sync-docs:sync-docs` |
 | **Analysis** | `drift-detect:drift-analysis`, `repo-map:repo-mapping` |
 
 Skills give your agents specialized capabilities. When you install a plugin, its skills become available to all agents in that session.
@@ -85,7 +86,7 @@ Skills give your agents specialized capabilities. When you install a plugin, its
 |---------|--------------|
 | [The Approach](#the-approach) | Why it's built this way |
 | [Commands](#commands) | All 9 commands overview |
-| [Skills](#skills) | 25 skills across plugins |
+| [Skills](#skills) | 24 skills across plugins |
 | [Command Details](#command-details) | Deep dive into each command |
 | [How Commands Work Together](#how-commands-work-together) | Standalone vs integrated |
 | [Design Philosophy](#design-philosophy) | The thinking behind the architecture |
@@ -110,7 +111,7 @@ Skills give your agents specialized capabilities. When you install a plugin, its
 5. **Planning** - Designs implementation approach
 6. **User Approval** - You review and approve the plan (last human interaction)
 7. **Implementation** - Executes the plan
-8. **Pre-Review** - Runs deslop-work and test-coverage-checker
+8. **Pre-Review** - Runs deslop-agent and test-coverage-checker
 9. **Review Loop** - Multi-agent review iterates until clean
 10. **Delivery Validation** - Verifies tests pass, build passes, requirements met
 11. **Docs Update** - Updates CHANGELOG and related documentation
@@ -127,13 +128,17 @@ Phase 9 uses the `orchestrate-review` skill to spawn parallel reviewers (code qu
 | exploration-agent | opus | Deep codebase analysis before planning |
 | planning-agent | opus | Designs step-by-step implementation plan |
 | implementation-agent | opus | Writes the actual code |
-| deslop-work | sonnet | Removes AI artifacts before review |
 | test-coverage-checker | sonnet | Validates tests exist and are meaningful |
 | delivery-validator | sonnet | Final checks before shipping |
-| docs-updater | sonnet | Updates documentation |
 | ci-monitor | haiku | Watches CI status |
 | ci-fixer | sonnet | Fixes CI failures and review comments |
 | simple-fixer | haiku | Executes mechanical edits |
+
+**Cross-plugin agent:**
+| Agent | Plugin | Role |
+|-------|--------|------|
+| deslop-agent | deslop | Removes AI artifacts before review |
+| sync-docs-agent | sync-docs | Updates documentation |
 
 **Usage:**
 
@@ -372,7 +377,7 @@ Findings are collected and categorized by severity (critical/high/medium/low). A
 | Analyzer | What it checks |
 |----------|----------------|
 | plugin-enhancer | Plugin structure, MCP tool definitions, security patterns |
-| agent-enhancer | Agent frontmatter, tool restrictions, prompt quality |
+| agent-enhancer | Agent frontmatter, prompt quality |
 | claudemd-enhancer | CLAUDE.md/AGENTS.md structure, token efficiency |
 | docs-enhancer | Documentation readability, RAG optimization |
 | prompt-enhancer | Prompt engineering patterns, clarity, examples |
@@ -483,13 +488,13 @@ When you run `/next-task`, it orchestrates everything:
     ↓
 implementation-agent writes code
     ↓
-deslop-work cleans AI artifacts
+deslop-agent cleans AI artifacts
     ↓
 Phase 9 review loop iterates until approved
     ↓
 delivery-validator checks requirements
     ↓
-docs-updater syncs documentation
+sync-docs-agent syncs documentation
     ↓
 /ship creates PR → monitors CI → merges
 ```
@@ -519,7 +524,7 @@ Frontier models write good code. That's solved. What's not solved:
 
 **1. One agent, one job, done extremely well**
 
-Same principle as good code: single responsibility. The exploration-agent explores. The implementation-agent implements. Phase 9 spawns multiple focused reviewers. No agent tries to do everything. 29 specialized agents, each with narrow scope and clear success criteria.
+Same principle as good code: single responsibility. The exploration-agent explores. The implementation-agent implements. Phase 9 spawns multiple focused reviewers. No agent tries to do everything. Specialized agents, each with narrow scope and clear success criteria.
 
 **2. Pipeline with gates, not a monolith**
 
@@ -566,8 +571,8 @@ Two JSON files track everything: what task, what phase. Sessions can die and res
 **10. Delegate everything automatable**
 
 Agents don't just write code. They:
-- Clean their own output (deslop-work)
-- Update documentation (docs-updater)
+- Clean their own output (deslop-agent)
+- Update documentation (sync-docs-agent)
 - Fix CI failures (ci-fixer)
 - Respond to review comments
 - Check for plan drift (drift-detect)

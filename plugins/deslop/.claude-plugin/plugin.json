@@ -18,10 +18,9 @@
     "slop-detection"
   ],
   "agents": [
-    "agents/deslop-analyzer.md"
+    "agents/deslop-agent.md"
   ],
   "skills": [
-    "skills/deslop-detection/SKILL.md",
-    "skills/deslop-fixes/SKILL.md"
+    "skills/deslop/SKILL.md"
   ]
 }

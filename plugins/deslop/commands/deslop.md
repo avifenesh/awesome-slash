@@ -1,6 +1,7 @@
 ---
 description: This skill should be used when the user asks to "clean up slop", "remove AI artifacts", "deslop the codebase", "find debug statements", "remove console.logs", "repo hygiene", or mentions "AI slop", "code cleanup", "slop detection".
-argument-hint: "[report|apply] [scope-path] [max-changes]"
+argument-hint: "[report|apply] [--scope=path] [--thoroughness=quick|normal|deep]"
+allowed-tools: Task, Read
 ---
 
 # /deslop - AI Slop Cleanup
@@ -22,105 +23,124 @@ When constraints conflict, follow this priority:
 Parse from $ARGUMENTS or use defaults:
 
 - **Mode**: `report` (default) or `apply`
-- **Scope**: Path or glob pattern (default: `.` = codebase)
-- **Max changes**: Number of changesets (default: 5)
+- **Scope**: `all` (default), `diff`, or path
+- **Thoroughness**: `quick`, `normal` (default), or `deep`
 
-For **diff-based cleanup** of new work only, use the `deslop-work` agent via `/next-task`.
+## Execution
 
-## Output Format
+### Phase 1: Spawn Deslop Agent
 
-<output_format>
+```javascript
+// Parse arguments
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const mode = args.includes('apply') ? 'apply' : 'report';
+const thoroughness = args.find(a => a.startsWith('--thoroughness='))?.split('=')[1] || 'normal';
+const scope = args.find(a => a.startsWith('--scope='))?.split('=')[1] ||
+              args.find(a => !a.startsWith('-') && a !== 'report' && a !== 'apply') || 'all';
 
-### Report Mode
+// Spawn agent to get findings
+const result = await Task({
+  subagent_type: "deslop:deslop-agent",
+  prompt: `Scan for AI slop patterns.
+Mode: ${mode}
+Scope: ${scope}
+Thoroughness: ${thoroughness}
+
+Return structured results between === DESLOP_RESULT === markers.`
+});
+```
+
+### Phase 2: Parse Agent Results
+
+Extract structured JSON from agent output:
+
+```javascript
+function parseDeslop(output) {
+  const match = output.match(/=== DESLOP_RESULT ===[\s\S]*?({[\s\S]*?})[\s\S]*?=== END_RESULT ===/);
+  return match ? JSON.parse(match[1]) : null;
+}
+
+const findings = parseDeslop(result);
+```
+
+### Phase 3: Handle Mode
+
+#### Report Mode (Default)
+
+Present findings as markdown table:
 
 ```markdown
 ## Slop Hotspots
 
-| Priority | File | Issue | Severity | Fix |
-|----------|------|-------|----------|-----|
-| 1 | src/api.js:42 | console.log | medium | remove |
-| 2 | src/auth.js:15 | empty catch | high | add_logging |
-
-## Cleanup Plan
-
-1. **Remove debug statements** (3 files, ~10 lines)
-   - Verification: `npm test`
-
-## Do Next
-- [ ] Run `/deslop apply` to fix automatically
-```
-
-### Apply Mode
-
-```markdown
-## Changeset 1: Remove debug statements
-
-**Changed**: src/api.js, src/utils.js
-**Diff**: -8 lines
-
-**Verification**: npm test [OK]
-
----
+| Priority | File | Issue | Certainty | Fix |
+|----------|------|-------|-----------|-----|
+| 1 | src/api.js:42 | console.log | HIGH | auto |
+| 2 | src/auth.js:15 | empty catch | HIGH | auto |
+| 3 | lib/utils.js:88 | excessive comments | MEDIUM | review |
 
 ## Summary
 
-**Files Changed**: 3
-**Lines Removed**: 12
-**Verification**: All passed
+- **HIGH certainty**: N (auto-fixable)
+- **MEDIUM certainty**: N (review required)
+- **LOW certainty**: N (flagged only)
 
-### Remaining (manual review needed)
-1. src/config.js:88 - potential hardcoded secret
+## Do Next
+
+- [ ] Run `/deslop apply` to auto-fix HIGH certainty items
+- [ ] Review MEDIUM certainty items manually
 ```
 
-</output_format>
+#### Apply Mode
 
-## Execution
+If fixes array is non-empty, spawn simple-fixer:
 
-### Phase A: Detection
+```javascript
+if (mode === 'apply' && findings.fixes?.length > 0) {
+  await Task({
+    subagent_type: "next-task:simple-fixer",
+    model: "haiku",
+    prompt: `Apply these slop fixes:
+${JSON.stringify(findings.fixes, null, 2)}
 
-Run the detection script to scan for slop patterns:
+For each fix:
+- remove-line: Delete the line at the specified line number
+- add-comment: Add "// Error intentionally ignored" to empty catch
+- remove-block: Delete the entire code block
+
+Use Edit tool to apply. Commit message: "fix: clean up AI slop (auto-applied)"`
+  });
+}
+```
+
+Present results:
+
+```markdown
+## Applied Fixes
+
+| File | Line | Fix |
+|------|------|-----|
+| src/api.js | 42 | remove-line (console.log) |
+| src/auth.js | 15 | add-comment (empty catch) |
+
+**Total**: N fixes applied
+
+## Remaining (manual review needed)
+
+| File | Line | Issue | Certainty |
+|------|------|-------|-----------|
+| lib/utils.js | 88 | excessive comments | MEDIUM |
+```
+
+## Verification Strategy
+
+After fixes are applied, run project's test command:
 
 ```bash
-PLUGIN_ROOT=$(node -e "const { getPluginRoot } = require('@awesome-slash/lib/cross-platform'); const root = getPluginRoot('deslop'); if (!root) { console.error('Error: Could not locate deslop plugin root'); process.exit(1); } console.log(root);")
-node "$PLUGIN_ROOT/scripts/detect.js" <scope> --compact
+npm test
+# or pytest, cargo test, go test ./...
 ```
 
-For deep analysis with all multi-pass analyzers:
-
-```bash
-PLUGIN_ROOT=$(node -e "const { getPluginRoot } = require('@awesome-slash/lib/cross-platform'); const root = getPluginRoot('deslop'); if (!root) { console.error('Error: Could not locate deslop plugin root'); process.exit(1); } console.log(root);")
-node "$PLUGIN_ROOT/scripts/detect.js" <scope> --deep --compact
-```
-
-Parse the output to identify top 10 hotspots, sorted by:
-1. Highest certainty first (HIGH before MEDIUM before LOW)
-2. Smallest diff size (lowest risk)
-
-### Phase B: Report Mode (Default)
-
-Present findings as a prioritized cleanup plan:
-
-1. List 3-7 actionable steps
-2. For each step: files affected, fix type, verification command
-3. End with "Do Next" checklist
-
-**Do NOT modify files in report mode.**
-
-### Phase C: Apply Mode
-
-Run detection with apply flag for auto-fixable patterns:
-
-```bash
-PLUGIN_ROOT=$(node -e "const { getPluginRoot } = require('@awesome-slash/lib/cross-platform'); const root = getPluginRoot('deslop'); if (!root) { console.error('Error: Could not locate deslop plugin root'); process.exit(1); } console.log(root);")
-node "$PLUGIN_ROOT/scripts/detect.js" <scope> --apply --max <max-changes> --compact
-```
-
-Then implement remaining manual fixes one changeset at a time:
-
-1. Make the change
-2. Show diff summary (`git diff --stat`)
-3. Run verification
-4. Continue or rollback on failure
+On failure: `git restore .` and report which change failed.
 
 ## Ignore Zones
 
@@ -129,31 +149,11 @@ Skip these paths (handled by detection script):
 - Vendored: `vendor/`, `node_modules/`, `**/*.min.*`
 - Generated: `**/*.gen.*`, lockfiles
 
-## Verification Strategy
-
-After each changeset, run project's test command:
-
-```bash
-# Node.js
-npm test
-
-# Python
-pytest
-
-# Rust
-cargo test
-
-# Go
-go test ./...
-```
-
-On failure: `git restore .` and report which change failed.
-
 ## Error Handling
 
 - Git not available: Exit with "Git required for rollback safety"
 - Invalid scope path: Exit with "Path not found: <path>"
-- Verification fails: Rollback with `git restore .`, report failure, continue with next changeset
+- Verification fails: Rollback with `git restore .`, report failure
 
 ## Additional Resources
 

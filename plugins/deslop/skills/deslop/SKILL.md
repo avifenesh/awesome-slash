@@ -1,35 +1,46 @@
 ---
-name: deslop-detection
-description: "Use when scanning for AI slop patterns, debug statements, or code cleanup. Wraps lib/patterns/pipeline.js + repo-map for AST-based detection with certainty levels."
+name: deslop
+description: "Clean AI slop from code. Use for cleanup, remove debug statements, find ghost code, repo hygiene."
 version: 1.0.0
-argument-hint: "<scope-path> [--thoroughness quick|normal|deep]"
+argument-hint: "[report|apply] [--scope=all|diff|path] [--thoroughness=quick|normal|deep]"
 ---
 
-# deslop-detection
+# deslop
 
-Scan codebase for AI slop patterns with certainty-based findings.
+Clean AI slop from code with certainty-based findings and auto-fixes.
 
 ## Input
 
-Arguments: `<scope-path> [--thoroughness quick|normal|deep] [--compact]`
+Arguments: `[report|apply] [--scope=<path>|all|diff] [--thoroughness=quick|normal|deep]`
 
-- **scope-path**: Directory or file to scan (default: `.`)
-- **--thoroughness**: Analysis depth (default: `normal`)
+- **Mode**: `report` (default) or `apply`
+- **Scope**: What to scan
+  - `all` (default): Entire codebase
+  - `diff`: Only files changed in current branch
+  - `<path>`: Specific directory or file
+- **Thoroughness**: Analysis depth (default: `normal`)
   - `quick`: Regex patterns only
   - `normal`: + multi-pass analyzers
   - `deep`: + CLI tools (jscpd, madge) if available
-- **--compact**: Reduce output verbosity
 
 ## Detection Pipeline
 
-### 1. Run Detection Script
+### Phase 1: Run Detection Script
 
 ```bash
 PLUGIN_ROOT=$(node -e "const { getPluginRoot } = require('@awesome-slash/lib/cross-platform'); const root = getPluginRoot('deslop'); if (!root) { console.error('Error: Could not locate deslop plugin root'); process.exit(1); } console.log(root);")
-node "$PLUGIN_ROOT/scripts/detect.js" <scope> --thoroughness <level> --json
+
+# For diff scope, get changed files first
+if [ "$SCOPE" = "diff" ]; then
+  BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+  FILES=$(git diff --name-only origin/${BASE}..HEAD 2>/dev/null || git diff --name-only HEAD~5..HEAD)
+  node "$PLUGIN_ROOT/scripts/detect.js" $FILES --thoroughness <level> --json
+else
+  node "$PLUGIN_ROOT/scripts/detect.js" <scope> --thoroughness <level> --json
+fi
 ```
 
-### 2. Repo-Map Enhancement (Optional)
+### Phase 2: Repo-Map Enhancement (Optional)
 
 If repo-map exists, enhance detection with AST-based analysis:
 
@@ -70,15 +81,27 @@ if (repoMap.exists(basePath)) {
 }
 ```
 
+### Phase 3: Aggregate and Prioritize
+
+Sort findings by:
+1. **Certainty**: HIGH before MEDIUM before LOW
+2. **Severity**: high before medium before low
+3. **Fix complexity**: auto-fixable before manual
+
+### Phase 4: Return Structured Results
+
+Skill returns structured JSON - does NOT apply fixes (orchestrator handles that).
+
 ## Output Format
 
-JSON structure:
+JSON structure between markers:
 
-```json
+```
+=== DESLOP_RESULT ===
 {
-  "scope": "path",
-  "filesScanned": 42,
-  "durationMs": 1234,
+  "mode": "report|apply",
+  "scope": "all|diff|path",
+  "filesScanned": N,
   "findings": [
     {
       "file": "src/api.js",
@@ -91,20 +114,29 @@ JSON structure:
       "fixType": "remove-line"
     }
   ],
+  "fixes": [
+    {
+      "file": "src/api.js",
+      "line": 42,
+      "fixType": "remove-line",
+      "pattern": "debug-statement"
+    }
+  ],
   "summary": {
-    "high": 5,
-    "medium": 12,
-    "low": 3,
-    "autoFixable": 5
+    "high": N,
+    "medium": N,
+    "low": N,
+    "autoFixable": N
   }
 }
+=== END_RESULT ===
 ```
 
 ## Certainty Levels
 
 | Level | Meaning | Action |
 |-------|---------|--------|
-| **HIGH** | Definitely slop, safe to auto-fix | Auto-fix |
+| **HIGH** | Definitely slop, safe to auto-fix | Auto-fix via simple-fixer |
 | **MEDIUM** | Likely slop, needs verification | Review first |
 | **LOW** | Possible slop, context-dependent | Flag only |
 
@@ -112,10 +144,12 @@ JSON structure:
 
 ### HIGH Certainty (Auto-Fixable)
 
-- `debug-statement`: console.log, console.debug
+- `debug-statement`: console.log, console.debug, print, println!
 - `debug-import`: Unused debug/logging imports
 - `placeholder-text`: "Lorem ipsum", "TODO: implement"
 - `empty-catch`: Empty catch blocks without comment
+- `trailing-whitespace`: Trailing whitespace
+- `mixed-indentation`: Mixed tabs/spaces
 
 ### MEDIUM Certainty (Review Required)
 
@@ -123,12 +157,21 @@ JSON structure:
 - `doc-code-ratio`: JSDoc > 3x function body
 - `stub-function`: Returns placeholder value only
 - `dead-code`: Unreachable after return/throw
+- `infrastructure-without-impl`: DB clients created but never used
 
 ### LOW Certainty (Flag Only)
 
 - `over-engineering`: File/export ratio > 20x
 - `buzzword-inflation`: Claims without evidence
 - `shotgun-surgery`: Files frequently change together
+
+## Fix Types
+
+| Fix Type | Action | Patterns |
+|----------|--------|----------|
+| `remove-line` | Delete line | debug-statement, debug-import |
+| `add-comment` | Add explanation | empty-catch |
+| `remove-block` | Delete code block | stub-function with TODO |
 
 ## Error Handling
 
@@ -138,5 +181,8 @@ JSON structure:
 
 ## Integration
 
-This skill is invoked by the deslop-analyzer agent.
-The command uses it via: `Skill: deslop-detection`
+This skill is invoked by:
+- `deslop-agent` for `/deslop` command
+- `/next-task` Phase 8 (pre-review gates) with `scope=diff`
+
+The orchestrator spawns `simple-fixer` to apply HIGH certainty fixes.

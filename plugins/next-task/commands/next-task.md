@@ -72,7 +72,7 @@ Each phase must complete before the next starts:
 | Gate | Requirement |
 |------|-------------|
 | Implementation | Agent completes all plan steps |
-| Pre-Review | deslop-work + test-coverage-checker (parallel) |
+| Pre-Review | deslop-agent + test-coverage-checker (parallel) |
 | Review Loop | Must approve (no open issues or override) |
 | Delivery | Tests pass, build passes |
 | Docs | Documentation updated |
@@ -276,14 +276,47 @@ await Task({
 
 ## Phase 8: Pre-Review Gates
 
-→ **Agents** (parallel): `next-task:deslop-work` + `next-task:test-coverage-checker` (sonnet)
+**Agents** (parallel): `deslop:deslop-agent` + `next-task:test-coverage-checker` (sonnet)
 
 ```javascript
 workflowState.startPhase('pre-review-gates');
-await Promise.all([
-  Task({ subagent_type: "next-task:deslop-work", prompt: `Clean AI slop from new work.` }),
+
+// Helper to parse deslop structured output
+function parseDeslop(output) {
+  const match = output.match(/=== DESLOP_RESULT ===[\s\S]*?({[\s\S]*?})[\s\S]*?=== END_RESULT ===/);
+  return match ? JSON.parse(match[1]) : { fixes: [] };
+}
+
+// Run deslop and test-coverage in parallel
+const [deslopResult, coverageResult] = await Promise.all([
+  Task({
+    subagent_type: "deslop:deslop-agent",
+    prompt: `Scan for AI slop patterns.
+Mode: apply
+Scope: diff
+Thoroughness: normal
+
+Return structured results between === DESLOP_RESULT === markers.`
+  }),
   Task({ subagent_type: "next-task:test-coverage-checker", prompt: `Validate test coverage.` })
 ]);
+
+// If fixes found, spawn simple-fixer
+const deslop = parseDeslop(deslopResult);
+if (deslop.fixes && deslop.fixes.length > 0) {
+  await Task({
+    subagent_type: "next-task:simple-fixer",
+    model: "haiku",
+    prompt: `Apply these slop fixes:
+${JSON.stringify(deslop.fixes, null, 2)}
+
+For each fix:
+- remove-line: Delete the line at the specified line number
+- add-comment: Add "// Error intentionally ignored" to empty catch
+
+Use Edit tool to apply. Commit message: "fix: clean up AI slop"`
+  });
+}
 ```
 
 <phase-9>

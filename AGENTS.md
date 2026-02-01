@@ -77,13 +77,13 @@ lib/                        # Shared library (canonical source)
 ├── utils/                  # Utilities (cache, shell-escape)
 └── index.js                # Main exports
 
-plugins/                    # 9 plugins, 40 agents (30 file-based + 10 role-based), 25 skills
-├── next-task/              # Master workflow (11 agents, 3 skills)
+plugins/                    # 9 plugins, 39 agents (29 file-based + 10 role-based), 24 skills
+├── next-task/              # Master workflow (10 agents, 3 skills)
 ├── enhance/                # Enhancement analyzers (9 agents, 9 skills)
 ├── ship/                   # PR workflow (4 commands)
 ├── perf/                   # Performance investigation (6 agents, 8 skills)
 ├── audit-project/          # Multi-agent review (10 role-based agents, 3 commands)
-├── deslop/                 # AI slop cleanup (1 agent, 2 skills)
+├── deslop/                 # AI slop cleanup (1 agent, 1 skill)
 ├── drift-detect/           # Plan drift detection (1 agent, 1 skill)
 ├── repo-map/               # AST repo mapping (1 agent, 1 skill)
 └── sync-docs/              # Documentation sync (1 agent, 1 skill)
@@ -116,15 +116,15 @@ Command (orchestration) → Agent (thin wrapper) → Skill (implementation)
 
 | Plugin | Commands | Agents | Skills | Purpose |
 |--------|----------|--------|--------|---------|
-| next-task | 3 | 12 | 4 | Master workflow orchestration |
-| enhance | 1 | 10 | 10 | Code quality analyzers |
+| next-task | 3 | 10 | 3 | Master workflow orchestration |
+| enhance | 1 | 9 | 9 | Code quality analyzers |
 | ship | 4 | 0 | 0 | PR creation and deployment |
 | perf | 1 | 6 | 8 | Performance investigation |
 | audit-project | 3 | 0 | 0 | Multi-agent code review |
-| deslop | 1 | 0 | 0 | AI slop cleanup |
+| deslop | 1 | 1 | 1 | AI slop cleanup |
 | drift-detect | 1 | 1 | 1 | Plan drift detection |
 | repo-map | 1 | 1 | 1 | AST-based repo mapping |
-| sync-docs | 1 | 0 | 0 | Documentation sync |
+| sync-docs | 1 | 1 | 1 | Documentation sync |
 </plugins>
 
 <commands>
@@ -157,7 +157,7 @@ awesome-slash                # Run installer
 <agents>
 ## Key Agents
 
-### next-task (12 agents)
+### next-task (10 agents)
 | Agent | Model | Purpose |
 |-------|-------|---------|
 | task-discoverer | sonnet | Find and rank tasks from sources |
@@ -165,14 +165,18 @@ awesome-slash                # Run installer
 | exploration-agent | opus | Deep codebase analysis |
 | planning-agent | opus | Design implementation plans |
 | implementation-agent | opus | Execute approved plans |
-| deslop-work | sonnet | Clean AI slop from new code |
 | test-coverage-checker | sonnet | Validate test coverage |
 | delivery-validator | sonnet | Autonomous completion validation |
 | ci-monitor | haiku | Monitor CI and PR comments |
 | ci-fixer | sonnet | Fix CI failures |
 | simple-fixer | haiku | Execute mechanical fixes |
 
-### enhance (10 agents)
+### deslop (1 agent)
+| Agent | Model | Purpose |
+|-------|-------|---------|
+| deslop-agent | sonnet | Clean AI slop patterns from code |
+
+### enhance (9 agents)
 | Agent | Model | Purpose |
 |-------|-------|---------|
 | enhancement-orchestrator | opus | Coordinate all enhancers |
@@ -204,7 +208,6 @@ Skills contain reusable implementation. Agents invoke skills to perform work.
 ### next-task Skills
 - `orchestrate-review` - Phase 9 review loop logic
 - `discover-tasks` - Task discovery and scoring
-- `update-docs` - Documentation update patterns
 - `validate-delivery` - Completion validation checks
 
 ### enhance Skills
@@ -223,9 +226,13 @@ Skills contain reusable implementation. Agents invoke skills to perform work.
 - `analyzer`, `code-paths`, `theory` - Analysis
 - `theory-tester`, `investigation-logger` - Testing
 
+### deslop Skills
+- `deslop` - AI slop detection and cleanup
+
 ### Other Skills
 - `drift-analysis` - Plan drift detection
 - `repo-mapping` - AST repo map generation
+- `sync-docs` - Documentation sync with code
 </skills>
 
 <state-files>

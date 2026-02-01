@@ -12,7 +12,7 @@ describe('consolidation counts verification', () => {
       expect(plugins.length).toBe(9);
     });
 
-    test('has exactly 30 file-based agents', () => {
+    test('has exactly 29 file-based agents', () => {
       let agentCount = 0;
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
@@ -26,10 +26,10 @@ describe('consolidation counts verification', () => {
         }
       });
 
-      expect(agentCount).toBe(30);
+      expect(agentCount).toBe(29);
     });
 
-    test('has exactly 25 skills', () => {
+    test('has exactly 24 skills', () => {
       let skillCount = 0;
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
@@ -47,7 +47,7 @@ describe('consolidation counts verification', () => {
         }
       });
 
-      expect(skillCount).toBe(25);
+      expect(skillCount).toBe(24);
     });
   });
 
@@ -85,13 +85,13 @@ describe('consolidation counts verification', () => {
   describe('next-task plugin counts', () => {
     const nextTaskDir = path.join(pluginsDir, 'next-task');
 
-    test('has exactly 11 agents (reduced from 12)', () => {
+    test('has exactly 10 agents (reduced from 11, deslop-work removed)', () => {
       const agentsDir = path.join(nextTaskDir, 'agents');
       const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
-      expect(agents.length).toBe(11);
+      expect(agents.length).toBe(10);
     });
 
-    test('has exactly 3 skills (reduced from 4)', () => {
+    test('has exactly 3 skills', () => {
       const skillsDir = path.join(nextTaskDir, 'skills');
       const skills = fs.readdirSync(skillsDir).filter(f =>
         fs.statSync(path.join(skillsDir, f)).isDirectory()
@@ -102,6 +102,11 @@ describe('consolidation counts verification', () => {
     test('docs-updater agent removed', () => {
       const agentsDir = path.join(nextTaskDir, 'agents');
       expect(fs.existsSync(path.join(agentsDir, 'docs-updater.md'))).toBe(false);
+    });
+
+    test('deslop-work agent removed (consolidated to deslop:deslop-agent)', () => {
+      const agentsDir = path.join(nextTaskDir, 'agents');
+      expect(fs.existsSync(path.join(agentsDir, 'deslop-work.md'))).toBe(false);
     });
 
     test('docs-update skill removed', () => {
@@ -135,26 +140,65 @@ describe('consolidation counts verification', () => {
   describe('documentation counts match', () => {
     test('CLAUDE.md has correct counts', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
-      expect(content).toContain('40 agents');
-      expect(content).toContain('30 file-based');
-      expect(content).toContain('25 skills');
+      expect(content).toContain('39 agents');
+      expect(content).toContain('29 file-based');
+      expect(content).toContain('24 skills');
     });
 
     test('README.md has correct counts', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-      expect(content).toContain('40 agents');
-      expect(content).toContain('25 skills');
+      expect(content).toContain('39 agents');
+      expect(content).toContain('24 skills');
+    });
+  });
+
+  describe('deslop plugin counts', () => {
+    const deslopDir = path.join(pluginsDir, 'deslop');
+
+    test('has exactly 1 agent (consolidated)', () => {
+      const agentsDir = path.join(deslopDir, 'agents');
+      const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
+      expect(agents.length).toBe(1);
+    });
+
+    test('has exactly 1 skill (consolidated)', () => {
+      const skillsDir = path.join(deslopDir, 'skills');
+      const skills = fs.readdirSync(skillsDir).filter(f =>
+        fs.statSync(path.join(skillsDir, f)).isDirectory()
+      );
+      expect(skills.length).toBe(1);
+    });
+
+    test('old agent removed', () => {
+      const agentsDir = path.join(deslopDir, 'agents');
+      expect(fs.existsSync(path.join(agentsDir, 'deslop-analyzer.md'))).toBe(false);
+    });
+
+    test('old skills removed', () => {
+      const skillsDir = path.join(deslopDir, 'skills');
+      expect(fs.existsSync(path.join(skillsDir, 'deslop-detection'))).toBe(false);
+      expect(fs.existsSync(path.join(skillsDir, 'deslop-fixes'))).toBe(false);
+    });
+
+    test('new agent exists', () => {
+      const agentsDir = path.join(deslopDir, 'agents');
+      expect(fs.existsSync(path.join(agentsDir, 'deslop-agent.md'))).toBe(true);
+    });
+
+    test('new skill exists', () => {
+      const skillsDir = path.join(deslopDir, 'skills');
+      expect(fs.existsSync(path.join(skillsDir, 'deslop', 'SKILL.md'))).toBe(true);
     });
   });
 
   describe('per-plugin breakdown', () => {
     const expectedCounts = {
-      'next-task': { agents: 11, skills: 3 },
+      'next-task': { agents: 10, skills: 3 },
       'enhance': { agents: 9, skills: 9 },
       'ship': { agents: 0, skills: 0 },
       'perf': { agents: 6, skills: 8 },
       'audit-project': { agents: 0, skills: 0 },
-      'deslop': { agents: 1, skills: 2 },
+      'deslop': { agents: 1, skills: 1 },
       'drift-detect': { agents: 1, skills: 1 },
       'repo-map': { agents: 1, skills: 1 },
       'sync-docs': { agents: 1, skills: 1 }
