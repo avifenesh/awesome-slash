@@ -56,7 +56,7 @@ const pathArg = args.find(a => !a.startsWith('--') && a !== 'report' && a !== 'a
 ### Step 2: Spawn sync-docs-agent
 
 ```javascript
-const result = await Task({
+const agentOutput = await Task({
   subagent_type: "sync-docs:sync-docs-agent",
   model: "sonnet",
   prompt: `Sync documentation with code state.
@@ -82,7 +82,7 @@ function parseSyncDocsResult(output) {
   return JSON.parse(match[1]);
 }
 
-const result = parseSyncDocsResult(result);
+const result = parseSyncDocsResult(agentOutput);
 // result now contains: { mode, scope, validation, discovery, issues, fixes, changelog, summary }
 ```
 

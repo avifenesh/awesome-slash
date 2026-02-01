@@ -235,11 +235,20 @@ function getExportsFromGit(filePath, ref, options = {}) {
   }
 
   try {
-    const content = execSync(`git show ${ref}:${filePath}`, {
+    // Use spawnSync with args array to prevent command injection
+    const { spawnSync } = require('child_process');
+    const result = spawnSync('git', ['show', `${ref}:${filePath}`], {
       cwd: opts.cwd,
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe']
     });
+
+    if (result.error || result.status !== 0) {
+      gitCache.set(cacheKey, []);
+      return [];
+    }
+
+    const content = result.stdout;
 
     const exports = [];
 

@@ -429,7 +429,16 @@ function runValidation() {
 
   // Process install issues
   installIssues.forEach(issue => {
-    if (!issue.error) {
+    if (issue.error) {
+      // Surface missing docs as high severity validation errors
+      issues.push({
+        type: 'installation',
+        severity: 'high',
+        file: 'N/A',
+        message: issue.error,
+        autoFix: false
+      });
+    } else {
       issues.push({
         type: 'installation',
         severity: 'medium',
@@ -442,7 +451,16 @@ function runValidation() {
 
   // Process MCP issues
   mcpIssues.forEach(issue => {
-    if (!issue.error) {
+    if (issue.error) {
+      // Surface missing MCP docs as medium severity validation errors
+      issues.push({
+        type: 'mcp-config',
+        severity: 'medium',
+        file: 'N/A',
+        message: issue.error,
+        autoFix: false
+      });
+    } else {
       issues.push({
         type: 'mcp-config',
         severity: 'low',
