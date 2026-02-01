@@ -38,8 +38,9 @@ node ../../scripts/detect.js . --thoroughness normal --compact --max 50
 **For diff scope** (only changed files):
 ```bash
 BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
-FILES=$(git diff --name-only origin/${BASE}..HEAD 2>/dev/null || git diff --name-only HEAD~5..HEAD)
-node ../../scripts/detect.js $FILES --thoroughness normal --compact
+# Use newline-separated list to safely handle filenames with special chars
+git diff --name-only origin/${BASE}..HEAD 2>/dev/null | \
+  xargs -d '\n' node ../../scripts/detect.js --thoroughness normal --compact
 ```
 
 **Note**: The relative path `../../scripts/detect.js` navigates from `skills/deslop/` up to the plugin root where `scripts/` lives.
