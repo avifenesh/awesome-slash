@@ -2,7 +2,7 @@
 
 Complete reference for all agents in awesome-slash.
 
-**TL;DR:** 40 agents across 9 plugins (8 have agents). opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 40 -->
+**TL;DR:** 39 agents across 9 plugins (8 have agents). opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 39 -->
 
 ---
 
@@ -10,13 +10,13 @@ Complete reference for all agents in awesome-slash.
 
 | Plugin | Agents | Jump to |
 |--------|--------|---------|
-| next-task | 11 | [task-discoverer](#task-discoverer), [worktree-manager](#worktree-manager), [exploration-agent](#exploration-agent), [planning-agent](#planning-agent), [implementation-agent](#implementation-agent), [deslop-work](#deslop-work), [test-coverage-checker](#test-coverage-checker), [delivery-validator](#delivery-validator), [ci-monitor](#ci-monitor), [ci-fixer](#ci-fixer), [simple-fixer](#simple-fixer) |
+| next-task | 10 | [task-discoverer](#task-discoverer), [worktree-manager](#worktree-manager), [exploration-agent](#exploration-agent), [planning-agent](#planning-agent), [implementation-agent](#implementation-agent), [test-coverage-checker](#test-coverage-checker), [delivery-validator](#delivery-validator), [ci-monitor](#ci-monitor), [ci-fixer](#ci-fixer), [simple-fixer](#simple-fixer) |
 | audit-project | 10 | [code-quality-reviewer](#code-quality-reviewer), [security-expert](#security-expert), [performance-engineer](#performance-engineer), [test-quality-guardian](#test-quality-guardian), [architecture-reviewer](#architecture-reviewer), [database-specialist](#database-specialist), [api-designer](#api-designer), [frontend-specialist](#frontend-specialist), [backend-specialist](#backend-specialist), [devops-reviewer](#devops-reviewer) |
 | enhance | 9 | [enhancement-orchestrator](#enhancement-orchestrator), [plugin-enhancer](#plugin-enhancer), [agent-enhancer](#agent-enhancer), [claudemd-enhancer](#claudemd-enhancer), [docs-enhancer](#docs-enhancer), [prompt-enhancer](#prompt-enhancer), [hooks-enhancer](#hooks-enhancer), [skills-enhancer](#skills-enhancer), [enhancement-reporter](#enhancement-reporter) |
 | drift-detect | 1 | [plan-synthesizer](#plan-synthesizer) |
 | repo-map | 1 | [map-validator](#map-validator) |
 | perf | 6 | [perf-orchestrator](#perf-orchestrator), [perf-theory-gatherer](#perf-theory-gatherer), [perf-theory-tester](#perf-theory-tester), [perf-code-paths](#perf-code-paths), [perf-investigation-logger](#perf-investigation-logger), [perf-analyzer](#perf-analyzer) |
-| deslop | 1 | [deslop-analyzer](#deslop-analyzer) |
+| deslop | 1 | [deslop-agent](#deslop-agent) |
 | sync-docs | 1 | [sync-docs-agent](#sync-docs-agent) |
 
 **Design principle:** Each agent has a single responsibility. Complex work is decomposed into specialized agents that do one thing extremely well, then orchestrated together.
@@ -29,7 +29,7 @@ Complete reference for all agents in awesome-slash.
 
 ## Overview
 
-awesome-slash uses 40 specialized agents across 9 plugins (8 have agents - ship uses commands only). Each agent is optimized for a specific task and assigned a model based on complexity:
+awesome-slash uses 39 specialized agents across 9 plugins (8 have agents - ship uses commands only). Each agent is optimized for a specific task and assigned a model based on complexity:
 
 | Model | Use Case | Cost |
 |-------|----------|------|
@@ -38,7 +38,7 @@ awesome-slash uses 40 specialized agents across 9 plugins (8 have agents - ship 
 | haiku | Mechanical execution, no judgment | Low |
 
 **Agent types:**
-- **File-based agents** (30) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 30 -->
+- **File-based agents** (29) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 29 -->
 - **Role-based agents** (10) - Defined inline via Task tool with specialized prompts <!-- AGENT_COUNT_ROLE_BASED: 10 -->
 
 ---
@@ -164,26 +164,6 @@ awesome-slash uses 40 specialized agents across 9 plugins (8 have agents - ship 
 
 ---
 
-### deslop-work
-
-**Model:** sonnet
-**Purpose:** Clean AI artifacts from new code before review.
-
-**What it does:**
-1. Analyzes git diff (only new changes)
-2. Invokes `/deslop` pipeline
-3. Applies HIGH certainty fixes
-4. Flags LOW certainty for review
-
-**Tools available:**
-- Bash (git only)
-- Skill (for /deslop)
-- Read, Edit
-
-**Why sonnet:** Slop detection is pattern-based. Sonnet handles patterns well and is faster/cheaper than opus.
-
----
-
 ### test-coverage-checker
 
 **Model:** sonnet
@@ -303,6 +283,30 @@ awesome-slash uses 40 specialized agents across 9 plugins (8 have agents - ship 
 - Bash (git, npm)
 - Read, Edit
 - Grep, Glob
+
+---
+
+## deslop Plugin Agents
+
+### deslop-agent
+
+**Model:** sonnet
+**Purpose:** Clean AI slop from code with certainty-based findings.
+
+**What it does:**
+1. Parses arguments (mode, scope, thoroughness)
+2. Invokes deslop skill to run detection
+3. Returns structured findings with certainty levels
+4. HIGH certainty items marked for auto-fix by orchestrator
+
+**Tools available:**
+- Bash (git, node)
+- Skill (for deslop)
+- Read, Glob, Grep
+
+**Why sonnet:** Slop detection is pattern-based. Sonnet handles patterns well and is faster/cheaper than opus.
+
+**Cross-plugin usage:** Also used by next-task Phase 8 with `scope=diff` to clean new code before review.
 
 ---
 
