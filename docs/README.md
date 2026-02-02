@@ -18,7 +18,6 @@ AI models can write code. The bottleneck is everything else—picking tasks, man
 | Use with OpenCode or Codex | [CROSS_PLATFORM.md](./CROSS_PLATFORM.md) |
 | See all slop patterns | [reference/SLOP-PATTERNS.md](./reference/SLOP-PATTERNS.md) |
 | See all agents | [reference/AGENTS.md](./reference/AGENTS.md) |
-| See MCP tools | [reference/MCP-TOOLS.md](./reference/MCP-TOOLS.md) |
 | Understand the architecture | [ARCHITECTURE.md](./ARCHITECTURE.md) |
 
 ---
@@ -47,7 +46,6 @@ AI models can write code. The bottleneck is everything else—picking tasks, man
 |----------|-------------|
 | [reference/AGENTS.md](./reference/AGENTS.md) | All 39 agents: purpose, model, tools, restrictions. <!-- AGENT_COUNT_TOTAL: 39 --> |
 | [reference/SLOP-PATTERNS.md](./reference/SLOP-PATTERNS.md) | All detection patterns by language, severity, auto-fix. |
-| [reference/MCP-TOOLS.md](./reference/MCP-TOOLS.md) | MCP server tools: parameters, returns, platform config. |
 
 ### Platform & Architecture
 

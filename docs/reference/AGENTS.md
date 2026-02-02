@@ -23,7 +23,6 @@ Complete reference for all agents in awesome-slash.
 
 **Related docs:**
 - [/next-task Workflow](../workflows/NEXT-TASK.md) - How agents work together
-- [MCP Tools](./MCP-TOOLS.md) - Tools agents use
 
 ---
 
@@ -750,4 +749,3 @@ Agents have restricted tool access for safety:
 **Related:**
 - [/next-task Workflow](../workflows/NEXT-TASK.md) - How agents orchestrate together
 - [/ship Workflow](../workflows/SHIP.md) - Shipping agents in action
-- [MCP Tools](./MCP-TOOLS.md) - Tools available to agents

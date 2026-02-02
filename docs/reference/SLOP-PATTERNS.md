@@ -22,7 +22,6 @@ Complete reference for patterns detected by `/deslop`.
 
 **Related docs:**
 - [/deslop in README](../../README.md#deslop) - Command usage
-- [MCP Tools - slop_detect](./MCP-TOOLS.md#slop_detect) - Programmatic access
 
 ---
 
@@ -359,5 +358,4 @@ This avoids scanning all 60+ patterns on every check.
 
 **Related:**
 - [/deslop Command](../../README.md#deslop) - How to use the command
-- [MCP Tools - slop_detect](./MCP-TOOLS.md#slop_detect) - Programmatic access
-- [Agent Reference - deslop-work](./AGENTS.md#deslop-work) - The cleanup agent
+- [Agent Reference - deslop-agent](./AGENTS.md#deslop-agent) - The cleanup agent

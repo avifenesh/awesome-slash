@@ -700,7 +700,6 @@ This project is built on research, not guesswork.
 |-------|------|
 | Slop Patterns | [docs/reference/SLOP-PATTERNS.md](./docs/reference/SLOP-PATTERNS.md) |
 | Agent Reference | [docs/reference/AGENTS.md](./docs/reference/AGENTS.md) |
-| MCP Tools | [docs/reference/MCP-TOOLS.md](./docs/reference/MCP-TOOLS.md) |
 
 ---
 

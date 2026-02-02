@@ -20,7 +20,6 @@ Complete technical reference for the `/ship` workflow.
 **Related docs:**
 - [/next-task Workflow](./NEXT-TASK.md) - The full workflow that calls /ship
 - [Agent Reference](../reference/AGENTS.md) - ci-monitor, ci-fixer details
-- [MCP Tools](../reference/MCP-TOOLS.md) - workflow_status, workflow_abort
 
 ---
 
@@ -453,4 +452,3 @@ Done! PR #156 merged.
 **Related:**
 - [/next-task Workflow](./NEXT-TASK.md) - The full workflow that calls /ship
 - [Agent Reference](../reference/AGENTS.md) - ci-monitor, ci-fixer details
-- [MCP Tools](../reference/MCP-TOOLS.md) - Programmatic access

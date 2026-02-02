@@ -274,8 +274,7 @@ Same as RC but:
 1. **mcp-server/index.js** - Add to TOOLS array and toolHandlers
 2. **.claude-plugin/marketplace.json** - Add to `mcpServer.tools` array
 3. **bin/cli.js** - Update MCP tools console output (OpenCode + Codex)
-4. **docs/reference/MCP-TOOLS.md** - Document the tool
-5. **README.md** - Add to MCP tools table if user-facing
+4. **README.md** - Add to MCP tools table if user-facing
 
 ### If Library Module Changed
 
@@ -693,7 +692,6 @@ const toolHandlers = {
 ```
 
 **3. Update docs:**
-- `docs/reference/MCP-TOOLS.md` - Full tool documentation
 - `README.md` - Add to features if user-facing
 
 ---

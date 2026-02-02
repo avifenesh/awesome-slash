@@ -21,6 +21,5 @@ Use this checklist when modifying the repo-map plugin or library.
 
 - [ ] `README.md` command list updated
 - [ ] `docs/ARCHITECTURE.md` and `docs/USAGE.md` updated
-- [ ] `docs/reference/MCP-TOOLS.md` updated
 - [ ] `docs/reference/AGENTS.md` updated for map-validator
 - [ ] `npm test` passes
