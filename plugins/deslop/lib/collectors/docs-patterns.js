@@ -15,15 +15,31 @@ const { execFileSync } = require('child_process');
 
 // Lazy-load repo-map to avoid circular dependencies
 let repoMapModule = null;
+let repoMapLoadError = null;
+
+/**
+ * Get the repo-map module, loading it lazily
+ * @returns {{module: Object|null, error: string|null}}
+ */
 function getRepoMap() {
-  if (!repoMapModule) {
+  if (!repoMapModule && !repoMapLoadError) {
     try {
       repoMapModule = require('../repo-map');
-    } catch {
+    } catch (err) {
+      // Module not found or failed to load - store error for diagnostics
+      repoMapLoadError = err.message || 'Failed to load repo-map module';
       repoMapModule = null;
     }
   }
   return repoMapModule;
+}
+
+/**
+ * Get the repo-map load error if any
+ * @returns {string|null}
+ */
+function getRepoMapLoadError() {
+  return repoMapLoadError;
 }
 
 const DEFAULT_OPTIONS = {
@@ -35,6 +51,13 @@ const MAX_SCAN_DEPTH = 5;
 const MAX_DOC_FILES = 200;
 const INTERNAL_DIRS = ['internal', 'private', 'utils', 'helpers', '__tests__', 'test', 'tests'];
 const ENTRY_NAMES = ['index', 'main', 'app', 'server', 'cli', 'bin'];
+
+// Regex patterns for export detection (extracted for performance)
+const EXPORT_PATTERNS = [
+  /export\s+(?:function|class|const|let|var)\s+(\w+)/g,
+  /export\s+\{([^}]+)\}/g,
+  /module\.exports\s*=\s*\{([^}]+)\}/
+];
 
 /**
  * Escape special regex characters in a string
@@ -49,7 +72,7 @@ function escapeRegex(str) {
  * Check if an export should be considered internal (skip documentation checks)
  * @param {string} name - Export name
  * @param {string} filePath - File path
- * @returns {boolean}
+ * @returns {boolean} True if export should be considered internal/private
  */
 function isInternalExport(name, filePath) {
   // Underscore prefix convention
@@ -72,7 +95,7 @@ function isInternalExport(name, filePath) {
 /**
  * Check if a file is likely an entry point (should have docs but not flagged as undocumented)
  * @param {string} filePath - File path
- * @returns {boolean}
+ * @returns {boolean} True if file appears to be an entry point (index.js, main.js, etc.)
  */
 function isEntryPoint(filePath) {
   const basename = path.basename(filePath);
@@ -83,8 +106,10 @@ function isEntryPoint(filePath) {
 /**
  * Ensure repo-map is available, creating it if possible
  * @param {Object} options - Options
- * @param {string} options.cwd - Working directory
- * @param {Function} options.askUser - Callback to ask user questions (optional)
+ * @param {string} [options.cwd=process.cwd()] - Working directory
+ * @param {Function} [options.askUser] - Async callback to ask user questions.
+ *   Signature: async ({question: string, header: string, options: Array<{label, description}>}) => string
+ *   Returns the selected option label or null if declined.
  * @returns {Promise<{available: boolean, map: Object|null, fallbackReason: string|null, installInstructions?: string}>}
  */
 async function ensureRepoMap(options = {}) {
@@ -209,11 +234,14 @@ function getExportsFromRepoMap(filePath, map) {
  * Find exports that are not documented in any markdown file
  * @param {string[]} changedFiles - List of changed file paths
  * @param {Object} options - Options
+ * @param {Object} [options.repoMapStatus] - Pre-fetched repo-map status (avoids redundant calls)
  * @returns {Array<{type: string, severity: string, file: string, name: string, line: number, certainty: string}>}
  */
 function findUndocumentedExports(changedFiles, options = {}) {
   const opts = { ...DEFAULT_OPTIONS, ...options };
-  const repoMapStatus = ensureRepoMapSync(opts);
+  
+  // Use pre-fetched status if provided, otherwise fetch
+  const repoMapStatus = opts.repoMapStatus || ensureRepoMapSync(opts);
   
   if (!repoMapStatus.available || !repoMapStatus.map) {
     return []; // Can't detect without repo-map
@@ -296,6 +324,7 @@ function findRelatedDocs(changedFiles, options = {}) {
       try {
         content = fs.readFileSync(path.join(basePath, doc), 'utf8');
       } catch {
+        // File unreadable (permissions, deleted after scan, etc.) - skip
         continue;
       }
 
@@ -382,6 +411,7 @@ function analyzeDocIssues(docPath, changedFile, options = {}) {
   try {
     content = fs.readFileSync(path.join(basePath, docPath), 'utf8');
   } catch {
+    // Doc file unreadable - no issues to report
     return issues;
   }
 
@@ -523,18 +553,14 @@ function getExportsFromGit(filePath, ref, options = {}) {
 
     const exports = [];
 
-    // Export patterns
-    const patterns = [
-      /export\s+(?:function|class|const|let|var)\s+(\w+)/g,
-      /export\s+\{([^}]+)\}/g,
-      /module\.exports\s*=\s*\{([^}]+)\}/
-    ];
-
-    for (const pattern of patterns) {
+    // Use module-level patterns - clone regex to reset lastIndex for global patterns
+    for (const pattern of EXPORT_PATTERNS) {
+      // Create new regex to avoid lastIndex issues with global patterns
+      const regex = new RegExp(pattern.source, pattern.flags);
       let match;
-      while ((match = pattern.exec(content)) !== null) {
+      while ((match = regex.exec(content)) !== null) {
         if (match[1].includes(',')) {
-          // Multiple exports
+          // Multiple exports (e.g., export { a, b, c })
           const names = match[1].split(',').map(s => s.trim().split(/\s+as\s+/)[0].trim());
           exports.push(...names.filter(n => n && /^\w+$/.test(n)));
         } else {
@@ -545,6 +571,7 @@ function getExportsFromGit(filePath, ref, options = {}) {
 
     return [...new Set(exports)];
   } catch {
+    // Git command failed (file not in repo, invalid ref, etc.) - return empty
     return [];
   }
 }
@@ -655,9 +682,9 @@ function collect(options = {}) {
         symbols: repoMapStatus.map.stats?.totalSymbols || 0
       } : null
     },
-    // New: undocumented exports detection
+    // New: undocumented exports detection (pass repoMapStatus to avoid redundant call)
     undocumentedExports: repoMapStatus.available 
-      ? findUndocumentedExports(changedFiles, opts)
+      ? findUndocumentedExports(changedFiles, { ...opts, repoMapStatus })
       : []
   };
 }
@@ -680,5 +707,7 @@ module.exports = {
   isInternalExport,
   isEntryPoint,
   // Utilities
-  escapeRegex
+  escapeRegex,
+  // Diagnostic
+  getRepoMapLoadError
 };

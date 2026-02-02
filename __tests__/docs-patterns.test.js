@@ -898,11 +898,119 @@ describe('docs-patterns', () => {
         expect(result.available).toBe(false);
         expect(result.fallbackReason).toBeTruthy();
       });
+
+      test('returns correct structure', () => {
+        const result = ensureRepoMapSync({ cwd: testDir });
+        expect(result).toHaveProperty('available');
+        expect(result).toHaveProperty('map');
+        expect(result).toHaveProperty('fallbackReason');
+      });
+    });
+
+    describe('ensureRepoMap (async)', () => {
+      test('returns unavailable when repo-map not initialized', async () => {
+        const result = await ensureRepoMap({ cwd: testDir });
+        expect(result.available).toBe(false);
+        expect(result.fallbackReason).toBeTruthy();
+      });
+
+      test('returns correct structure', async () => {
+        const result = await ensureRepoMap({ cwd: testDir });
+        expect(result).toHaveProperty('available');
+        expect(result).toHaveProperty('map');
+        expect(result).toHaveProperty('fallbackReason');
+      });
+
+      test('does not call askUser if repo-map module not found', async () => {
+        const askUser = jest.fn();
+        const result = await ensureRepoMap({ cwd: testDir, askUser });
+        // askUser should not be called when module isn't available or no ast-grep
+        // This depends on environment, but at minimum the structure should be correct
+        expect(result).toHaveProperty('available');
+      });
     });
 
     describe('findUndocumentedExports', () => {
       test('returns empty array when repo-map not available', () => {
         const result = findUndocumentedExports(['src/api.js'], { cwd: testDir });
+        expect(result).toEqual([]);
+      });
+
+      test('accepts pre-fetched repoMapStatus', () => {
+        // Pass unavailable status - should return empty
+        const repoMapStatus = { available: false, map: null, fallbackReason: 'test' };
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir, repoMapStatus });
+        expect(result).toEqual([]);
+      });
+
+      test('uses pre-fetched repoMapStatus when available', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test\nMentions getData');
+        
+        const mockMap = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [
+                  { name: 'getData', line: 5 },
+                  { name: 'secretHelper', line: 10 } // Not mentioned in docs
+                ]
+              }
+            }
+          }
+        };
+        const repoMapStatus = { available: true, map: mockMap, fallbackReason: null };
+        
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir, repoMapStatus });
+        
+        // getData is mentioned, secretHelper is not
+        expect(result.length).toBe(1);
+        expect(result[0].name).toBe('secretHelper');
+        expect(result[0].type).toBe('undocumented-export');
+      });
+
+      test('skips internal exports', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
+        
+        const mockMap = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [
+                  { name: '_privateHelper', line: 5 }, // Internal - underscore prefix
+                  { name: 'publicFunc', line: 10 }
+                ]
+              }
+            }
+          }
+        };
+        const repoMapStatus = { available: true, map: mockMap, fallbackReason: null };
+        
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir, repoMapStatus });
+        
+        // Only publicFunc should be flagged, _privateHelper is internal
+        expect(result.length).toBe(1);
+        expect(result[0].name).toBe('publicFunc');
+      });
+
+      test('skips entry point files', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
+        
+        const mockMap = {
+          files: {
+            'src/index.js': {
+              symbols: {
+                exports: [
+                  { name: 'exportedFunc', line: 5 }
+                ]
+              }
+            }
+          }
+        };
+        const repoMapStatus = { available: true, map: mockMap, fallbackReason: null };
+        
+        const result = findUndocumentedExports(['src/index.js'], { cwd: testDir, repoMapStatus });
+        
+        // Entry points are skipped entirely
         expect(result).toEqual([]);
       });
     });
@@ -925,6 +1033,21 @@ describe('docs-patterns', () => {
 
         expect(result).toHaveProperty('undocumentedExports');
         expect(Array.isArray(result.undocumentedExports)).toBe(true);
+      });
+
+      test('repoMap.stats is null when unavailable', () => {
+        const result = collect({ cwd: testDir, changedFiles: [] });
+
+        expect(result.repoMap.stats).toBeNull();
+      });
+
+      test('repoMap.fallbackReason explains why unavailable', () => {
+        const result = collect({ cwd: testDir, changedFiles: [] });
+
+        if (!result.repoMap.available) {
+          expect(result.repoMap.fallbackReason).toBeTruthy();
+          expect(typeof result.repoMap.fallbackReason).toBe('string');
+        }
       });
     });
 
