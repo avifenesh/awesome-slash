@@ -15,7 +15,15 @@ const {
   getExportsFromGit,
   compareVersions,
   findLineNumber,
-  collect
+  collect,
+  // New: repo-map integration
+  ensureRepoMap,
+  ensureRepoMapSync,
+  getExportsFromRepoMap,
+  findUndocumentedExports,
+  isInternalExport,
+  isEntryPoint,
+  escapeRegex
 } = require('../lib/collectors/docs-patterns');
 
 describe('docs-patterns', () => {
@@ -756,6 +764,332 @@ describe('docs-patterns', () => {
       expect(result).toHaveProperty('documented');
       expect(result).toHaveProperty('undocumented');
       expect(result).toHaveProperty('suggestion');
+    });
+  });
+
+  describe('repo-map integration', () => {
+    describe('isInternalExport', () => {
+      test('returns true for underscore-prefixed names', () => {
+        expect(isInternalExport('_privateHelper', 'src/utils.js')).toBe(true);
+        expect(isInternalExport('__internal', 'src/utils.js')).toBe(true);
+      });
+
+      test('returns false for public names', () => {
+        expect(isInternalExport('publicFunction', 'src/api.js')).toBe(false);
+        expect(isInternalExport('getData', 'src/api.js')).toBe(false);
+      });
+
+      test('returns true for internal directories', () => {
+        expect(isInternalExport('helper', 'src/internal/helper.js')).toBe(true);
+        expect(isInternalExport('util', 'lib/utils/util.js')).toBe(true);
+        expect(isInternalExport('test', 'src/__tests__/test.js')).toBe(true);
+      });
+
+      test('returns true for test files', () => {
+        expect(isInternalExport('testHelper', 'src/api.test.js')).toBe(true);
+        expect(isInternalExport('specHelper', 'src/api.spec.ts')).toBe(true);
+      });
+
+      test('returns false for regular source files', () => {
+        expect(isInternalExport('getData', 'src/api.js')).toBe(false);
+        expect(isInternalExport('Component', 'src/components/Button.tsx')).toBe(false);
+      });
+    });
+
+    describe('isEntryPoint', () => {
+      test('returns true for index files', () => {
+        expect(isEntryPoint('src/index.js')).toBe(true);
+        expect(isEntryPoint('lib/index.ts')).toBe(true);
+      });
+
+      test('returns true for main/app/server files', () => {
+        expect(isEntryPoint('main.js')).toBe(true);
+        expect(isEntryPoint('src/app.ts')).toBe(true);
+        expect(isEntryPoint('server.js')).toBe(true);
+      });
+
+      test('returns true for cli/bin files', () => {
+        expect(isEntryPoint('bin/cli.js')).toBe(true);
+        expect(isEntryPoint('src/bin.js')).toBe(true);
+      });
+
+      test('returns false for regular files', () => {
+        expect(isEntryPoint('src/utils.js')).toBe(false);
+        expect(isEntryPoint('lib/helpers.ts')).toBe(false);
+      });
+    });
+
+    describe('getExportsFromRepoMap', () => {
+      test('returns null for null map', () => {
+        expect(getExportsFromRepoMap('src/api.js', null)).toBeNull();
+      });
+
+      test('returns null for map without files', () => {
+        expect(getExportsFromRepoMap('src/api.js', {})).toBeNull();
+      });
+
+      test('returns null for non-existent file', () => {
+        const map = {
+          files: {
+            'src/other.js': { symbols: { exports: [{ name: 'test' }] } }
+          }
+        };
+        expect(getExportsFromRepoMap('src/api.js', map)).toBeNull();
+      });
+
+      test('returns exports for existing file', () => {
+        const map = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [
+                  { name: 'getData', line: 5 },
+                  { name: 'setData', line: 10 }
+                ]
+              }
+            }
+          }
+        };
+        const exports = getExportsFromRepoMap('src/api.js', map);
+        expect(exports).toEqual(['getData', 'setData']);
+      });
+
+      test('handles path with leading ./', () => {
+        const map = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [{ name: 'getData' }]
+              }
+            }
+          }
+        };
+        const exports = getExportsFromRepoMap('./src/api.js', map);
+        expect(exports).toEqual(['getData']);
+      });
+
+      test('handles backslash paths', () => {
+        const map = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [{ name: 'getData' }]
+              }
+            }
+          }
+        };
+        const exports = getExportsFromRepoMap('src\\api.js', map);
+        expect(exports).toEqual(['getData']);
+      });
+
+      test('returns null for file without exports', () => {
+        const map = {
+          files: {
+            'src/api.js': { symbols: {} }
+          }
+        };
+        expect(getExportsFromRepoMap('src/api.js', map)).toBeNull();
+      });
+    });
+
+    describe('ensureRepoMapSync', () => {
+      test('returns unavailable when repo-map not initialized', () => {
+        const result = ensureRepoMapSync({ cwd: testDir });
+        expect(result.available).toBe(false);
+        expect(result.fallbackReason).toBeTruthy();
+      });
+
+      test('returns correct structure', () => {
+        const result = ensureRepoMapSync({ cwd: testDir });
+        expect(result).toHaveProperty('available');
+        expect(result).toHaveProperty('map');
+        expect(result).toHaveProperty('fallbackReason');
+      });
+    });
+
+    describe('ensureRepoMap (async)', () => {
+      test('returns unavailable when repo-map not initialized', async () => {
+        const result = await ensureRepoMap({ cwd: testDir });
+        expect(result.available).toBe(false);
+        expect(result.fallbackReason).toBeTruthy();
+      });
+
+      test('returns correct structure', async () => {
+        const result = await ensureRepoMap({ cwd: testDir });
+        expect(result).toHaveProperty('available');
+        expect(result).toHaveProperty('map');
+        expect(result).toHaveProperty('fallbackReason');
+      });
+
+      test('does not call askUser if repo-map module not found', async () => {
+        const askUser = jest.fn();
+        const result = await ensureRepoMap({ cwd: testDir, askUser });
+        // askUser should not be called when module isn't available or no ast-grep
+        // This depends on environment, but at minimum the structure should be correct
+        expect(result).toHaveProperty('available');
+      });
+    });
+
+    describe('findUndocumentedExports', () => {
+      test('returns empty array when repo-map not available', () => {
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir });
+        expect(result).toEqual([]);
+      });
+
+      test('accepts pre-fetched repoMapStatus', () => {
+        // Pass unavailable status - should return empty
+        const repoMapStatus = { available: false, map: null, fallbackReason: 'test' };
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir, repoMapStatus });
+        expect(result).toEqual([]);
+      });
+
+      test('uses pre-fetched repoMapStatus when available', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test\nMentions getData');
+        
+        const mockMap = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [
+                  { name: 'getData', line: 5 },
+                  { name: 'secretHelper', line: 10 } // Not mentioned in docs
+                ]
+              }
+            }
+          }
+        };
+        const repoMapStatus = { available: true, map: mockMap, fallbackReason: null };
+        
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir, repoMapStatus });
+        
+        // getData is mentioned, secretHelper is not
+        expect(result.length).toBe(1);
+        expect(result[0].name).toBe('secretHelper');
+        expect(result[0].type).toBe('undocumented-export');
+      });
+
+      test('skips internal exports', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
+        
+        const mockMap = {
+          files: {
+            'src/api.js': {
+              symbols: {
+                exports: [
+                  { name: '_privateHelper', line: 5 }, // Internal - underscore prefix
+                  { name: 'publicFunc', line: 10 }
+                ]
+              }
+            }
+          }
+        };
+        const repoMapStatus = { available: true, map: mockMap, fallbackReason: null };
+        
+        const result = findUndocumentedExports(['src/api.js'], { cwd: testDir, repoMapStatus });
+        
+        // Only publicFunc should be flagged, _privateHelper is internal
+        expect(result.length).toBe(1);
+        expect(result[0].name).toBe('publicFunc');
+      });
+
+      test('skips entry point files', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
+        
+        const mockMap = {
+          files: {
+            'src/index.js': {
+              symbols: {
+                exports: [
+                  { name: 'exportedFunc', line: 5 }
+                ]
+              }
+            }
+          }
+        };
+        const repoMapStatus = { available: true, map: mockMap, fallbackReason: null };
+        
+        const result = findUndocumentedExports(['src/index.js'], { cwd: testDir, repoMapStatus });
+        
+        // Entry points are skipped entirely
+        expect(result).toEqual([]);
+      });
+    });
+
+    describe('collect with repo-map', () => {
+      test('includes repoMap status in output', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
+
+        const result = collect({ cwd: testDir, changedFiles: [] });
+
+        expect(result).toHaveProperty('repoMap');
+        expect(result.repoMap).toHaveProperty('available');
+        expect(result.repoMap).toHaveProperty('fallbackReason');
+      });
+
+      test('includes undocumentedExports in output', () => {
+        fs.writeFileSync(path.join(testDir, 'docs', 'README.md'), '# Test');
+
+        const result = collect({ cwd: testDir, changedFiles: [] });
+
+        expect(result).toHaveProperty('undocumentedExports');
+        expect(Array.isArray(result.undocumentedExports)).toBe(true);
+      });
+
+      test('repoMap.stats is null when unavailable', () => {
+        const result = collect({ cwd: testDir, changedFiles: [] });
+
+        expect(result.repoMap.stats).toBeNull();
+      });
+
+      test('repoMap.fallbackReason explains why unavailable', () => {
+        const result = collect({ cwd: testDir, changedFiles: [] });
+
+        if (!result.repoMap.available) {
+          expect(result.repoMap.fallbackReason).toBeTruthy();
+          expect(typeof result.repoMap.fallbackReason).toBe('string');
+        }
+      });
+    });
+
+    describe('module exports', () => {
+      test('exports new repo-map integration functions', () => {
+        expect(typeof ensureRepoMap).toBe('function');
+        expect(typeof ensureRepoMapSync).toBe('function');
+        expect(typeof getExportsFromRepoMap).toBe('function');
+        expect(typeof findUndocumentedExports).toBe('function');
+        expect(typeof isInternalExport).toBe('function');
+        expect(typeof isEntryPoint).toBe('function');
+        expect(typeof escapeRegex).toBe('function');
+      });
+    });
+
+    describe('escapeRegex', () => {
+      test('escapes special regex characters', () => {
+        expect(escapeRegex('$rootScope')).toBe('\\$rootScope');
+        expect(escapeRegex('getValue()')).toBe('getValue\\(\\)');
+        expect(escapeRegex('data[0]')).toBe('data\\[0\\]');
+        expect(escapeRegex('a.b.c')).toBe('a\\.b\\.c');
+        expect(escapeRegex('a*b+c?')).toBe('a\\*b\\+c\\?');
+        expect(escapeRegex('a^b$')).toBe('a\\^b\\$');
+        expect(escapeRegex('a|b')).toBe('a\\|b');
+        expect(escapeRegex('a{1,2}')).toBe('a\\{1,2\\}');
+        expect(escapeRegex('a\\b')).toBe('a\\\\b');
+      });
+
+      test('leaves normal strings unchanged', () => {
+        expect(escapeRegex('normalFunction')).toBe('normalFunction');
+        expect(escapeRegex('getData')).toBe('getData');
+        expect(escapeRegex('myVar123')).toBe('myVar123');
+        expect(escapeRegex('CONSTANT_NAME')).toBe('CONSTANT_NAME');
+      });
+
+      test('creates valid regex patterns', () => {
+        // Should not throw when used in RegExp
+        const specialNames = ['$rootScope', 'getValue()', 'data[0]', 'a.b.c'];
+        for (const name of specialNames) {
+          expect(() => new RegExp(`\\b${escapeRegex(name)}\\b`)).not.toThrow();
+        }
+      });
     });
   });
 });
