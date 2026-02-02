@@ -30,6 +30,21 @@ const DEFAULT_OPTIONS = {
   cwd: process.cwd()
 };
 
+// Constants for configuration
+const MAX_SCAN_DEPTH = 5;
+const MAX_DOC_FILES = 200;
+const INTERNAL_DIRS = ['internal', 'private', 'utils', 'helpers', '__tests__', 'test', 'tests'];
+const ENTRY_NAMES = ['index', 'main', 'app', 'server', 'cli', 'bin'];
+
+/**
+ * Escape special regex characters in a string
+ * @param {string} str - String to escape
+ * @returns {string} Escaped string safe for use in RegExp
+ */
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /**
  * Check if an export should be considered internal (skip documentation checks)
  * @param {string} name - Export name
@@ -41,9 +56,8 @@ function isInternalExport(name, filePath) {
   if (name.startsWith('_')) return true;
   
   // Internal directory patterns
-  const internalDirs = ['internal', 'private', 'utils', 'helpers', '__tests__', 'test', 'tests'];
   const pathLower = filePath.toLowerCase();
-  for (const dir of internalDirs) {
+  for (const dir of INTERNAL_DIRS) {
     if (pathLower.includes(`/${dir}/`) || pathLower.includes(`\\${dir}\\`)) {
       return true;
     }
@@ -62,9 +76,8 @@ function isInternalExport(name, filePath) {
  */
 function isEntryPoint(filePath) {
   const basename = path.basename(filePath);
-  const entryNames = ['index', 'main', 'app', 'server', 'cli', 'bin'];
   const nameWithoutExt = basename.replace(/\.[^.]+$/, '').toLowerCase();
-  return entryNames.includes(nameWithoutExt);
+  return ENTRY_NAMES.includes(nameWithoutExt);
 }
 
 /**
@@ -239,7 +252,8 @@ function findUndocumentedExports(changedFiles, options = {}) {
       
       // Check if mentioned in any doc
       // Use word boundary to avoid partial matches
-      const namePattern = new RegExp(`\\b${exp.name}\\b`);
+      // Escape regex metacharacters to prevent injection/errors
+      const namePattern = new RegExp(`\\b${escapeRegex(exp.name)}\\b`);
       if (!namePattern.test(allDocContent)) {
         issues.push({
           type: 'undocumented-export',
@@ -327,7 +341,7 @@ function findMarkdownFiles(basePath) {
   const excludeDirs = ['node_modules', 'dist', 'build', '.git', 'coverage', 'vendor'];
 
   function scan(dir, depth = 0) {
-    if (depth > 5 || files.length > 200) return;
+    if (depth > MAX_SCAN_DEPTH || files.length > MAX_DOC_FILES) return;
 
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -664,5 +678,7 @@ module.exports = {
   getExportsFromRepoMap,
   findUndocumentedExports,
   isInternalExport,
-  isEntryPoint
+  isEntryPoint,
+  // Utilities
+  escapeRegex
 };

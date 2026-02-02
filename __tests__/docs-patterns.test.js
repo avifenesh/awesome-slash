@@ -22,7 +22,8 @@ const {
   getExportsFromRepoMap,
   findUndocumentedExports,
   isInternalExport,
-  isEntryPoint
+  isEntryPoint,
+  escapeRegex
 } = require('../lib/collectors/docs-patterns');
 
 describe('docs-patterns', () => {
@@ -935,6 +936,36 @@ describe('docs-patterns', () => {
         expect(typeof findUndocumentedExports).toBe('function');
         expect(typeof isInternalExport).toBe('function');
         expect(typeof isEntryPoint).toBe('function');
+        expect(typeof escapeRegex).toBe('function');
+      });
+    });
+
+    describe('escapeRegex', () => {
+      test('escapes special regex characters', () => {
+        expect(escapeRegex('$rootScope')).toBe('\\$rootScope');
+        expect(escapeRegex('getValue()')).toBe('getValue\\(\\)');
+        expect(escapeRegex('data[0]')).toBe('data\\[0\\]');
+        expect(escapeRegex('a.b.c')).toBe('a\\.b\\.c');
+        expect(escapeRegex('a*b+c?')).toBe('a\\*b\\+c\\?');
+        expect(escapeRegex('a^b$')).toBe('a\\^b\\$');
+        expect(escapeRegex('a|b')).toBe('a\\|b');
+        expect(escapeRegex('a{1,2}')).toBe('a\\{1,2\\}');
+        expect(escapeRegex('a\\b')).toBe('a\\\\b');
+      });
+
+      test('leaves normal strings unchanged', () => {
+        expect(escapeRegex('normalFunction')).toBe('normalFunction');
+        expect(escapeRegex('getData')).toBe('getData');
+        expect(escapeRegex('myVar123')).toBe('myVar123');
+        expect(escapeRegex('CONSTANT_NAME')).toBe('CONSTANT_NAME');
+      });
+
+      test('creates valid regex patterns', () => {
+        // Should not throw when used in RegExp
+        const specialNames = ['$rootScope', 'getValue()', 'data[0]', 'a.b.c'];
+        for (const name of specialNames) {
+          expect(() => new RegExp(`\\b${escapeRegex(name)}\\b`)).not.toThrow();
+        }
       });
     });
   });

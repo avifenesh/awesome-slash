@@ -119,6 +119,7 @@ module.exports = {
   getExportsFromRepoMap: docsPatterns.getExportsFromRepoMap,
   findUndocumentedExports: docsPatterns.findUndocumentedExports,
   isInternalExport: docsPatterns.isInternalExport,
+  isEntryPoint: docsPatterns.isEntryPoint,
 
   // Constants
   DEFAULT_OPTIONS
