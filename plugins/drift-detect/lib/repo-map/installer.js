@@ -1,6 +1,6 @@
 /**
  * ast-grep installation detection and helpers
- * 
+ *
  * @module lib/repo-map/installer
  */
 
@@ -185,14 +185,14 @@ function getMinimumVersion() {
  */
 function meetsMinimumVersion(version) {
   if (!version) return false;
-  
+
   // Parse version (e.g., "0.25.0" or "0.25.0-beta.1")
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)/);
   if (!match) return false;
-  
+
   const [, major, minor, patch] = match.map(Number);
   const [reqMajor, reqMinor, reqPatch] = getMinimumVersion().split('.').map(Number);
-  
+
   if (major > reqMajor) return true;
   if (major < reqMajor) return false;
   if (minor > reqMinor) return true;

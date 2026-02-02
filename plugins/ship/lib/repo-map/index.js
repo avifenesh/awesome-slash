@@ -1,9 +1,9 @@
 /**
  * Repo Map - AST-based repository symbol mapping
- * 
+ *
  * Uses ast-grep (sg) for accurate symbol extraction across multiple languages.
  * Generates a cached map of exports, functions, classes, and imports.
- * 
+ *
  * @module lib/repo-map
  */
 
@@ -125,7 +125,7 @@ async function update(basePath, options = {}) {
 
   // Incremental update
   const result = await updater.incrementalUpdate(basePath, existing);
-  
+
   if (result.success) {
     cache.save(basePath, result.map);
   }
@@ -145,7 +145,7 @@ function status(basePath) {
   }
 
   const staleness = updater.checkStaleness(basePath, map);
-  
+
   return {
     exists: true,
     status: {
