@@ -16,6 +16,11 @@ function estimateTokens(text) {
   return Math.ceil(text.length / 4);
 }
 
+// Pre-compiled regex patterns for performance (avoid compiling in hot paths)
+const FENCE_START_REGEX = /^(\s*)```(\w*)\s*$/;
+const FENCE_END_REGEX = /^(\s*)```\s*$/;
+const BAD_EXAMPLE_REGEX = /<bad[_-]?example>([\s\S]*?)<\/bad[_-]?example>/gi;
+
 /**
  * Extract fenced code blocks from markdown content
  * @param {string} content - Markdown content
@@ -35,8 +40,8 @@ function extractCodeBlocks(content) {
     const lineNum = i + 1; // 1-indexed
 
     // Check for code fence start (``` with optional language)
-    const fenceStartMatch = line.match(/^(\s*)```(\w*)\s*$/);
-    const fenceEndMatch = line.match(/^(\s*)```\s*$/);
+    const fenceStartMatch = line.match(FENCE_START_REGEX);
+    const fenceEndMatch = line.match(FENCE_END_REGEX);
 
     if (!inCodeBlock && fenceStartMatch) {
       // Start of code block
@@ -88,11 +93,11 @@ function extractCodeBlocks(content) {
 function isInsideBadExample(content, position) {
   if (!content || position < 0) return false;
 
-  // Find all bad-example tag ranges
-  const badExampleRegex = /<bad[_-]?example>([\s\S]*?)<\/bad[_-]?example>/gi;
+  // Find all bad-example tag ranges (use fresh regex instance for stateful exec)
+  const regex = new RegExp(BAD_EXAMPLE_REGEX.source, BAD_EXAMPLE_REGEX.flags);
   let match;
 
-  while ((match = badExampleRegex.exec(content)) !== null) {
+  while ((match = regex.exec(content)) !== null) {
     const start = match.index;
     const end = start + match[0].length;
     if (position >= start && position <= end) {
@@ -1064,6 +1069,9 @@ const promptPatterns = {
         // Skip empty blocks
         if (!block.code.trim()) continue;
 
+        // Skip very large blocks (>50KB) for performance
+        if (block.code.length > 50000) continue;
+
         try {
           JSON.parse(block.code);
         } catch (err) {
@@ -1105,6 +1113,9 @@ const promptPatterns = {
 
         // Skip empty blocks
         if (!block.code.trim()) continue;
+
+        // Skip very large blocks (>20KB) for performance - Function constructor is slow
+        if (block.code.length > 20000) continue;
 
         try {
           // Use Function constructor to check syntax without executing
@@ -1313,6 +1324,7 @@ function getAutoFixablePatterns() {
 module.exports = {
   promptPatterns,
   estimateTokens,
+  extractCodeBlocks,
   getAllPatterns,
   getPatternsByCertainty,
   getPatternsByCategory,

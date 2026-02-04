@@ -846,9 +846,11 @@ const x = 1;
     expect(blocks[0].language).toBe('javascript');
     expect(blocks[0].code).toBe('const x = 1;');
     expect(blocks[0].startLine).toBeGreaterThan(0);
+    expect(blocks[0].endLine).toBeGreaterThan(blocks[0].startLine);
 
     expect(blocks[1].language).toBe('json');
     expect(blocks[1].code).toBe('{"key": "value"}');
+    expect(blocks[1].endLine).toBeGreaterThan(blocks[1].startLine);
   });
 
   it('should handle code blocks without language tag', () => {
@@ -1290,6 +1292,33 @@ Example JSON:
     const report = promptAnalyzer.generateReport(result);
 
     expect(report).toContain('Code Validation Issues');
+  });
+
+  it('should detect multiple code validation issues in one file', () => {
+    const promptPath = path.join(tempDir, 'multi-issues.md');
+    fs.writeFileSync(promptPath, `
+# Test
+
+Invalid JSON:
+\`\`\`json
+{"key": "value",}
+\`\`\`
+
+Invalid JS:
+\`\`\`javascript
+const x = {bad syntax
+\`\`\`
+
+Mismatched tag:
+\`\`\`json
+const y = require('module');
+\`\`\`
+`);
+
+    const result = promptAnalyzer.analyzePrompt(promptPath);
+
+    expect(result.codeValidationIssues).toBeDefined();
+    expect(result.codeValidationIssues.length).toBeGreaterThanOrEqual(1);
   });
 });
 
