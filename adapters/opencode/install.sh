@@ -12,9 +12,15 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 # Use $HOME which works correctly on all platforms including Git Bash on Windows
 # (Git Bash sets HOME to Unix-style path like /c/Users/username)
-OPENCODE_CONFIG_DIR="${HOME}/.opencode"
+# OpenCode global config follows XDG Base Directory Specification:
+# - Default: ~/.config/opencode/
+# - Override: $XDG_CONFIG_HOME/opencode/ (if XDG_CONFIG_HOME is set)
+OPENCODE_CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/opencode"
 OPENCODE_COMMANDS_DIR="${OPENCODE_CONFIG_DIR}/commands/awesome-slash"
 LIB_DIR="${OPENCODE_COMMANDS_DIR}/lib"
+
+# Legacy path for cleanup (incorrect, pre-XDG location)
+LEGACY_OPENCODE_DIR="${HOME}/.opencode"
 
 # Detect OS for platform-specific notes
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
@@ -232,6 +238,42 @@ if [ -f "$REPO_ROOT/scripts/migrate-opencode.js" ]; then
   echo "  [OK] Native agents configured"
 else
   echo "  [SKIP] Migration script not found"
+fi
+echo
+
+# Clean up legacy paths (~/.opencode/ - incorrect, pre-XDG location)
+echo "[CLEANUP] Checking for legacy installations..."
+LEGACY_COMMANDS_DIR="${LEGACY_OPENCODE_DIR}/commands/awesome-slash"
+LEGACY_PLUGINS_DIR="${LEGACY_OPENCODE_DIR}/plugins/awesome-slash"
+LEGACY_AGENTS_DIR="${LEGACY_OPENCODE_DIR}/agents"
+
+cleaned_legacy=false
+if [ -d "$LEGACY_COMMANDS_DIR" ]; then
+  rm -rf "$LEGACY_COMMANDS_DIR"
+  echo "  [DEL] Removed legacy ~/.opencode/commands/awesome-slash"
+  cleaned_legacy=true
+fi
+if [ -d "$LEGACY_PLUGINS_DIR" ]; then
+  rm -rf "$LEGACY_PLUGINS_DIR"
+  echo "  [DEL] Removed legacy ~/.opencode/plugins/awesome-slash"
+  cleaned_legacy=true
+fi
+if [ -d "$LEGACY_AGENTS_DIR" ]; then
+  # Only remove known agent files, not the whole directory
+  for agent in plan-synthesizer.md enhancement-reporter.md ci-fixer.md deslop-work.md \
+               simple-fixer.md perf-analyzer.md perf-code-paths.md exploration-agent.md \
+               implementation-agent.md planning-agent.md task-discoverer.md delivery-validator.md; do
+    if [ -f "$LEGACY_AGENTS_DIR/$agent" ]; then
+      rm "$LEGACY_AGENTS_DIR/$agent"
+      cleaned_legacy=true
+    fi
+  done
+  if [ "$cleaned_legacy" = true ]; then
+    echo "  [DEL] Removed legacy agent files from ~/.opencode/agents"
+  fi
+fi
+if [ "$cleaned_legacy" = false ]; then
+  echo "  [OK] No legacy installations found"
 fi
 echo
 
