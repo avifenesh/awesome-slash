@@ -103,6 +103,14 @@ function analyzePrompt(promptPath, options = {}) {
   // Calculate token count
   results.tokenCount = estimateTokens(content);
 
+  // Strip bad example sections before analysis
+  // These intentionally show anti-patterns and should not be flagged
+  const BAD_EXAMPLE_TAG_PATTERN = /<bad[_\- ]?example>[\s\S]*?<\/bad[_\- ]?example>/gi;
+  const BAD_EXAMPLE_CODE_PATTERN = /```[^\n]*bad[^\n]*\n[\s\S]*?```/gi;
+  const contentForAnalysis = content
+    .replace(BAD_EXAMPLE_TAG_PATTERN, '')
+    .replace(BAD_EXAMPLE_CODE_PATTERN, '');
+
   // Run each pattern check
   for (const pattern of Object.values(promptPatterns)) {
     // Skip LOW certainty unless verbose
@@ -110,8 +118,8 @@ function analyzePrompt(promptPath, options = {}) {
       continue;
     }
 
-    // Run the check
-    const result = pattern.check(content);
+    // Run the check on content with bad examples stripped
+    const result = pattern.check(contentForAnalysis);
 
     if (result) {
       const issue = {
