@@ -13,7 +13,7 @@
 2. **Plugin for OTHER projects** - Optimize for plugin users, not internal dev convenience.
    *WHY: Every decision should improve the experience for developers using this in their repos.*
 
-3. **Use CHANGELOG.md for completion tracking** - Record all release notes and completion in CHANGELOG.md (not `*_AUDIT.md`, `*_SUMMARY.md`, `*_COMPLETION.md`).
+3. **Use CHANGELOG.md for completion tracking** - MUST use CHANGELOG.md for release notes. NEVER create `*_AUDIT.md`, `*_SUMMARY.md`, `*_COMPLETION.md` files.
    *WHY: Summary files clutter repos and add no value. Report completion verbally.*
 
 4. **Unless** it is a very small change of max few lines, or an urgent hotfix, **MUST create PRs for all changes** - No direct pushes to main.
@@ -42,9 +42,9 @@
    - Don't mark complete until ALL checklist items are done
    *WHY: Checklists exist because we kept missing things. They are the definition of "done".*
 
-8. **Use plain text markers** - Use `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` for status output.
-   - Save tokens - conciseness and clarity over decorations.
-   - Use markdown formatting instead of decorative borders or emojis
+8. **Use plain text markers** - MUST use `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` for status. NEVER use emojis or ASCII art boxes.
+   - Save tokens - conciseness and clarity over decorations
+   - Use markdown formatting instead of decorative borders
    *WHY: Emojis and ASCII art waste tokens. AI models parse plain text better.*
 
 9. **gh/git on Windows** - Escape `$` as `\$` in GraphQL queries, avoid `!=` in jq (use `== "A" or == "B"`).
