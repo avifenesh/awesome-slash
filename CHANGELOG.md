@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Cross-File Semantic Analysis** - Multi-file consistency checking for /enhance (#155)
+  - `analyzeToolConsistency()` - Detect tools used but not declared in frontmatter
+  - `analyzeWorkflowCompleteness()` - Verify referenced agents exist
+  - `analyzePromptConsistency()` - Find duplicate/contradictory rules across agents
+  - `analyzeSkillAlignment()` - Check skill allowed-tools match actual usage
+  - Platform-aware tool loading (Claude Code, OpenCode, Codex)
+  - Optional `tools.json` config for custom tool lists
+  - O(n) keyword indexing for contradiction detection
+  - Path traversal and ReDoS prevention
 - **Prompt Code Validation** - AST-based analysis for code blocks in prompts (#156)
   - `extractCodeBlocks()` utility for parsing fenced code blocks with language tags
   - `invalid_json_in_code_block` pattern: Validates JSON syntax (HIGH certainty)
