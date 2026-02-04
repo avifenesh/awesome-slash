@@ -1,7 +1,7 @@
 ---
 name: enhancement-reporter
 description: Synthesize and format unified enhancement reports
-tools: Read
+tools: Skill, Read
 model: sonnet
 ---
 
