@@ -7,13 +7,13 @@
 <critical-rules>
 ## Critical Rules (Priority Order)
 
-1. **Production project** - Real users depend on this. Test thoroughly, don't break things.
+1. **Production project** - Real users depend on this. Test thoroughly and verify all edge cases before committing.
    *WHY: Breaking changes affect all plugin users immediately.*
 
 2. **Plugin for OTHER projects** - Optimize for plugin users, not internal dev convenience.
    *WHY: Every decision should improve the experience for developers using this in their repos.*
 
-3. **No summary files** - No `*_AUDIT.md`, `*_SUMMARY.md`, `*_COMPLETION.md`. Use CHANGELOG.md.
+3. **Use CHANGELOG.md for completion tracking** - MUST use CHANGELOG.md for release notes. NEVER create `*_AUDIT.md`, `*_SUMMARY.md`, `*_COMPLETION.md` files.
    *WHY: Summary files clutter repos and add no value. Report completion verbally.*
 
 4. **Unless** it is a very small change of max few lines, or an urgent hotfix, **MUST create PRs for all changes** - No direct pushes to main.
@@ -27,6 +27,7 @@
    - Release → `checklists/release.md`
    - New command → `checklists/new-command.md`
    - New agent → `checklists/new-agent.md`
+   - New skill → `checklists/new-skill.md`
    - New lib module → `checklists/new-lib-module.md`
    - OpenCode plugin update → `checklists/update-opencode-plugin.md`
    - Repo map changes → `checklists/repo-map.md`
@@ -41,9 +42,8 @@
    - Don't mark complete until ALL checklist items are done
    *WHY: Checklists exist because we kept missing things. They are the definition of "done".*
 
-8. **No emojis or ASCII art** - No emojis or decorative ASCII boxes in any files.
-   - Save tokens - conciseness and clarity over decorations.
-   - Use plain text: `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]`
+8. **Use plain text markers** - MUST use `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` for status. NEVER use emojis or ASCII art boxes.
+   - Save tokens - conciseness and clarity over decorations
    - Use markdown formatting instead of decorative borders
    *WHY: Emojis and ASCII art waste tokens. AI models parse plain text better.*
 
@@ -52,78 +52,37 @@
    - Single quotes unreliable - use double quotes with escaped inner quotes
    *WHY: Windows shell interprets $ and ! differently. These cause silent failures.*
 
-10. **NEVER use --no-verify** - Never skip git hooks with `--no-verify` or `ENHANCE_CONFIRMED=1`.
-   - If pre-push hook blocks, fix the issue it reports
-   - Hooks exist to catch problems before they reach the repo
-   *WHY: Skipping hooks defeats their purpose. Fix the root cause instead.*
+10. **Always run git hooks** - Run all pre-commit and pre-push hooks. If a hook blocks, fix the reported issue.
+   - Hooks catch problems before they reach the repo
+   - Fix the root cause, then retry
+   *WHY: Hooks are safety nets. Bypassing them defeats their purpose.*
 </critical-rules>
 
 <architecture>
 ## Architecture
 
 ```
-lib/                        # Shared library (canonical source)
-├── config/                 # Configuration utilities
-├── cross-platform/         # Platform detection, MCP helpers
-├── enhance/                # Enhancement analyzers and patterns
-├── patterns/               # Slop detection pipeline
-├── perf/                   # Performance investigation tools
-├── platform/               # Platform detection, state directory
-├── repo-map/               # AST-based repo mapping
-├── schemas/                # JSON schema validation
-├── sources/                # Task source handlers
-├── state/                  # Workflow state management
-├── utils/                  # Utilities (cache, shell-escape)
-└── index.js                # Main exports
-
-plugins/                    # 9 plugins, 39 agents (29 file-based + 10 role-based), 24 skills
-├── next-task/              # Master workflow (10 agents, 3 skills)
-├── enhance/                # Enhancement analyzers (9 agents, 9 skills)
-├── ship/                   # PR workflow (4 commands)
-├── perf/                   # Performance investigation (6 agents, 8 skills)
-├── audit-project/          # Multi-agent review (10 role-based agents, 3 commands)
-├── deslop/                 # AI slop cleanup (1 agent, 1 skill)
-├── drift-detect/           # Plan drift detection (1 agent, 1 skill)
-├── repo-map/               # AST repo mapping (1 agent, 1 skill)
-└── sync-docs/              # Documentation sync (1 agent, 1 skill)
-
-adapters/                   # Platform-specific adapters
-├── opencode-plugin/        # Native OpenCode plugin
-├── opencode/               # OpenCode install script
-└── codex/                  # Codex install script
-
-bin/cli.js                  # npm CLI installer
-checklists/                 # Action checklists (8 files)
-agent-docs/                 # Knowledge base
-docs/                       # User documentation
+lib/          → Shared library (canonical source)
+plugins/      → 9 plugins, 39 agents (29 file-based + 10 role-based), 25 skills
+adapters/     → Platform adapters (opencode-plugin/, opencode/, codex/)
+checklists/   → Action checklists (9 files)
+bin/cli.js    → npm CLI installer
 ```
 
-### Agent/Skill Pattern
+| Plugin | Agents | Skills | Purpose |
+|--------|--------|--------|---------|
+| next-task | 10 | 3 | Master workflow orchestration |
+| enhance | 9 | 9 | Code quality analyzers |
+| ship | 0 | 0 | PR creation and deployment |
+| perf | 6 | 8 | Performance investigation |
+| audit-project | 10 | 0 | Multi-agent code review |
+| deslop | 1 | 1 | AI slop cleanup |
+| drift-detect | 1 | 1 | Plan drift detection |
+| repo-map | 1 | 1 | AST repo mapping |
+| sync-docs | 1 | 1 | Documentation sync |
 
-```
-Command (orchestration) → Agent (thin wrapper) → Skill (implementation)
-```
-
-- **Commands**: Orchestration, argument parsing, phase coordination
-- **Agents**: Invoke skills, handle output, manage state
-- **Skills**: Reusable implementation, patterns, detection logic, auto-fixes
+**Pattern**: `Command → Agent → Skill` (orchestration → invocation → implementation)
 </architecture>
-
-<plugins>
-## Plugins Overview
-
-| Plugin | Commands | Agents | Skills | Purpose |
-|--------|----------|--------|--------|---------|
-| next-task | 3 | 10 | 3 | Master workflow orchestration |
-| enhance | 1 | 9 | 9 | Code quality analyzers |
-| ship | 4 | 0 | 0 | PR creation and deployment |
-| perf | 1 | 6 | 8 | Performance investigation |
-| audit-project | 3 | 0 | 0 | Multi-agent code review |
-| deslop | 1 | 1 | 1 | AI slop cleanup |
-| drift-detect | 1 | 1 | 1 | Plan drift detection |
-| repo-map | 1 | 1 | 1 | AST-based repo mapping |
-| sync-docs | 1 | 1 | 1 | Documentation sync |
-</plugins>
 
 <commands>
 ## Commands
@@ -154,84 +113,32 @@ awesome-slash                # Run installer
 </commands>
 
 <agents>
-## Key Agents
+## Agents
 
-### next-task (10 agents)
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| task-discoverer | sonnet | Find and rank tasks from sources |
-| worktree-manager | haiku | Create isolated git worktrees |
-| exploration-agent | opus | Deep codebase analysis |
-| planning-agent | opus | Design implementation plans |
-| implementation-agent | opus | Execute approved plans |
-| test-coverage-checker | sonnet | Validate test coverage |
-| delivery-validator | sonnet | Autonomous completion validation |
-| ci-monitor | haiku | Monitor CI and PR comments |
-| ci-fixer | sonnet | Fix CI failures |
-| simple-fixer | haiku | Execute mechanical fixes |
+39 agents across 9 plugins. Key agents by model:
 
-### deslop (1 agent)
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| deslop-agent | sonnet | Clean AI slop patterns from code |
+| Model | Agents | Use Case |
+|-------|--------|----------|
+| **opus** | exploration, planning, implementation, perf-orchestrator | Complex reasoning, analysis |
+| **sonnet** | task-discoverer, delivery-validator, ci-fixer, deslop-agent, reporters | Validation, pattern matching |
+| **haiku** | worktree-manager, ci-monitor, simple-fixer | Mechanical execution |
 
-### enhance (9 agents)
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| enhancement-orchestrator | opus | Coordinate all enhancers |
-| enhancement-reporter | sonnet | Generate unified reports |
-| plugin-enhancer | sonnet | Analyze plugin structures |
-| agent-enhancer | opus | Analyze agent prompts |
-| docs-enhancer | sonnet | Analyze documentation |
-| claudemd-enhancer | sonnet | Analyze CLAUDE.md files |
-| prompt-enhancer | opus | Analyze prompt quality |
-| hooks-enhancer | opus | Analyze hook safety |
-| skills-enhancer | opus | Analyze skill triggers |
-
-### perf (6 agents)
-| Agent | Model | Purpose |
-|-------|-------|---------|
-| perf-orchestrator | opus | Coordinate perf investigation |
-| perf-analyzer | opus | Synthesize findings |
-| perf-code-paths | sonnet | Map likely hot paths |
-| perf-theory-gatherer | opus | Generate hypotheses |
-| perf-theory-tester | opus | Run controlled experiments |
-| perf-investigation-logger | sonnet | Log evidence |
+See [README.md](./README.md#command-details) and [docs/reference/AGENTS.md](./docs/reference/AGENTS.md) for full agent list.
 </agents>
 
 <skills>
 ## Skills
 
-Skills contain reusable implementation. Agents invoke skills to perform work.
+25 skills across plugins. Agents invoke skills for reusable implementation.
 
-### next-task Skills
-- `orchestrate-review` - Phase 9 review loop logic
-- `discover-tasks` - Task discovery and scoring
-- `validate-delivery` - Completion validation checks
+| Category | Key Skills |
+|----------|------------|
+| Workflow | `orchestrate-review`, `discover-tasks`, `validate-delivery` |
+| Enhancement | `enhance-*` (9 skills for plugins, agents, docs, prompts, hooks) |
+| Performance | `baseline`, `benchmark`, `profile`, `theory-tester` |
+| Cleanup | `deslop`, `sync-docs`, `drift-analysis`, `repo-mapping` |
 
-### enhance Skills
-- `enhance-orchestrator` - Enhancer coordination
-- `enhance-reporter` - Report generation
-- `enhance-plugins` - Plugin analysis patterns
-- `enhance-agent-prompts` - Agent analysis patterns
-- `enhance-docs` - Documentation patterns
-- `enhance-claude-memory` - CLAUDE.md patterns
-- `enhance-prompts` - Prompt quality patterns
-- `enhance-hooks` - Hook safety patterns
-- `enhance-skills` - Skill trigger patterns
-
-### perf Skills
-- `baseline`, `benchmark`, `profile` - Measurement
-- `analyzer`, `code-paths`, `theory` - Analysis
-- `theory-tester`, `investigation-logger` - Testing
-
-### deslop Skills
-- `deslop` - AI slop detection and cleanup
-
-### Other Skills
-- `drift-analysis` - Plan drift detection
-- `repo-mapping` - AST repo map generation
-- `sync-docs` - Documentation sync with code
+See [README.md](./README.md#skills) for full skill list.
 </skills>
 
 <state-files>
@@ -242,11 +149,11 @@ Skills contain reusable implementation. Agents invoke skills to perform work.
 | `tasks.json` | `{stateDir}/` | Active task registry |
 | `flow.json` | `{stateDir}/` (worktree) | Workflow progress |
 | `preference.json` | `{stateDir}/sources/` | Cached task source |
-| `suppressions.json` | `~/.claude/enhance/` | Auto-learned suppressions |
+| `suppressions.json` | `~/.<claude\|opencode\|codex>/enhance/` | Auto-learned suppressions |
 
 Platform-aware state directory:
 - Claude Code: `.claude/`
-- OpenCode: `.opencode/`
+- OpenCode: `config/.opencode/`
 - Codex: `.codex/`
 </state-files>
 
@@ -274,19 +181,13 @@ Cannot skip in /next-task:
 </pr-auto-review>
 
 <model-selection>
-## Model Selection Guidelines
+## Model Selection
 
 | Model | When to Use |
 |-------|-------------|
-| **Opus** | Complex reasoning, enhancers, analyzers where imperfection compounds |
-| **Sonnet** | Most agents, validation, pattern matching |
-| **Haiku** | Mechanical execution, simple operations, no judgment needed |
-
-**Examples**:
-- `exploration-agent` uses opus - codebase analysis requires deep reasoning
-- `delivery-validator` uses sonnet - validation is structured
-- `simple-fixer` uses haiku - mechanically applies pre-defined fixes
-- `worktree-manager` uses haiku - scripted git commands
+| **Opus** | Complex reasoning, analysis where imperfection compounds |
+| **Sonnet** | Validation, pattern matching, most agents |
+| **Haiku** | Mechanical execution, no judgment needed |
 </model-selection>
 
 <priorities>
@@ -301,7 +202,7 @@ Cannot skip in /next-task:
 
 <end-reminder>
 **REMEMBER**:
-- No summary files (`*_AUDIT.md`, `*_SUMMARY.md`) - use CHANGELOG.md
+- Use CHANGELOG.md for completion tracking (not summary files)
 - BEFORE starting → Read the relevant checklist (`checklists/*.md`)
 - BEFORE delivering any work, especially releases → Go through that checklist item by item
 - 3 platforms: Claude Code + OpenCode + Codex - ALL must work
