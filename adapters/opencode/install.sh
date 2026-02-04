@@ -292,7 +292,8 @@ echo
 echo "[OK] Installation complete!"
 echo
 echo "[LIST] Installed Commands:"
-for cmd in "${COMMANDS[@]}"; do
+for mapping in "${COMMAND_MAPPINGS[@]}"; do
+  IFS=':' read -r cmd _ _ <<< "$mapping"
   echo "  • /$cmd"
 done
 echo
