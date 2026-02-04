@@ -257,8 +257,20 @@ describe('OpenCode Compatibility', () => {
       // Should copy lib files (cp -r or similar)
       expect(installScript).toMatch(/cp\s+-r|cp.*\$.*lib/);
 
-      // Should define OPENCODE_COMMANDS_DIR or reference .opencode
-      expect(installScript).toMatch(/OPENCODE_COMMANDS_DIR|\.opencode/);
+      // Should define OPENCODE_CONFIG_DIR using XDG path (not ~/.opencode/)
+      expect(installScript).toMatch(/OPENCODE_CONFIG_DIR/);
+      expect(installScript).toMatch(/XDG_CONFIG_HOME.*\.config.*opencode/);
+    });
+
+    it('should clean up legacy ~/.opencode/ paths', () => {
+      const installScript = fs.readFileSync(
+        path.join(__dirname, '../adapters/opencode/install.sh'),
+        'utf-8'
+      );
+
+      // Should have legacy cleanup
+      expect(installScript).toMatch(/LEGACY_OPENCODE_DIR/);
+      expect(installScript).toMatch(/legacy/i);
     });
 
     it('should handle path substitutions for OpenCode', () => {

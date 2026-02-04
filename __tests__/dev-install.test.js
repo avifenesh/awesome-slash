@@ -70,8 +70,16 @@ describe('dev-install script', () => {
       expect(devInstallSource.includes(".claude', 'plugins'")).toBe(true);
     });
 
-    test('defines OPENCODE_DIR', () => {
-      expect(devInstallSource.includes('OPENCODE_DIR')).toBe(true);
+    test('defines OPENCODE_CONFIG_DIR using XDG path', () => {
+      // Should use ~/.config/opencode/ (XDG) not ~/.opencode/
+      expect(devInstallSource.includes('OPENCODE_CONFIG_DIR')).toBe(true);
+      expect(devInstallSource.includes('getOpenCodeConfigDir')).toBe(true);
+      expect(devInstallSource.includes(".config', 'opencode'")).toBe(true);
+    });
+
+    test('defines LEGACY_OPENCODE_DIR for cleanup', () => {
+      // Legacy path kept for cleaning up old installations
+      expect(devInstallSource.includes('LEGACY_OPENCODE_DIR')).toBe(true);
       expect(devInstallSource.includes(".opencode'")).toBe(true);
     });
 

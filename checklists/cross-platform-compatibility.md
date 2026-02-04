@@ -8,10 +8,10 @@ Master reference for ensuring features work across Claude Code, OpenCode, and Co
 |--------|-------------|----------|-----------|
 | **Config format** | JSON | JSON/JSONC | TOML |
 | **Config location** | `~/.claude/settings.json` | `~/.config/opencode/opencode.json` | `~/.codex/config.toml` |
-| **State directory** | `.claude/` | `.opencode/` | `.codex/` |
-| **Commands location** | Plugin `commands/` | `~/.config/opencode/commands/` | N/A (use skills) |
-| **Skills location** | `.claude/skills/` | `.opencode/skills/` | `~/.codex/skills/` |
-| **Agents location** | Plugin `agents/` | `~/.config/opencode/agents/` | N/A (use MCP) |
+| **State directory (per-project)** | `.claude/` | `.opencode/` | `.codex/` |
+| **Commands location (global)** | Plugin `commands/` | `~/.config/opencode/commands/` | N/A (use skills) |
+| **Skills location (global)** | `.claude/skills/` | `~/.config/opencode/skills/` | `~/.codex/skills/` |
+| **Agents location (global)** | Plugin `agents/` | `~/.config/opencode/agents/` | N/A (use MCP) |
 | **Invocation prefix** | `/command` | `/command` | `$skill` |
 | **Project instructions** | `CLAUDE.md` | `AGENTS.md` (reads CLAUDE.md) | `AGENTS.md` |
 | **Env var for plugin root** | `CLAUDE_PLUGIN_ROOT` | `PLUGIN_ROOT` | `PLUGIN_ROOT` |
