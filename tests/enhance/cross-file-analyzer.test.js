@@ -2,9 +2,7 @@
  * Cross-File Analyzer Tests
  */
 
-const fs = require('fs');
 const path = require('path');
-const os = require('os');
 
 // Import modules under test
 const crossFilePatterns = require('../../lib/enhance/cross-file-patterns');
@@ -124,14 +122,16 @@ describe('Cross-File Patterns', () => {
       expect(result.issue).toContain('3 files');
     });
 
-    it('should not flag duplicate in only 2 files', () => {
+    it('should return result for 2 files (pattern level, analyzer filters to 3+)', () => {
       const result = pattern.check({
         instruction: 'Some instruction',
         files: ['agent1.md', 'agent2.md']
       });
 
-      // Pattern requires 2+ files, but analyzer uses MIN_DUPLICATE_COUNT (3)
+      // Pattern returns result for 2+ files; analyzer filters to MIN_DUPLICATE_COUNT (3)
+      // This test verifies the pattern behavior, not the analyzer filtering
       expect(result).toBeTruthy();
+      expect(result.issue).toContain('2 files');
     });
 
     it('should not flag single occurrence', () => {
