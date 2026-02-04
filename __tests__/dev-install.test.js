@@ -94,6 +94,65 @@ describe('dev-install script', () => {
     });
   });
 
+  describe('getOpenCodeConfigDir() logic', () => {
+    // Extract and test the function logic directly
+    const path = require('path');
+
+    function getOpenCodeConfigDir(env) {
+      const HOME = env.HOME || env.USERPROFILE;
+      const xdgConfigHome = env.XDG_CONFIG_HOME;
+      if (xdgConfigHome && xdgConfigHome.trim()) {
+        return path.join(xdgConfigHome, 'opencode');
+      }
+      return path.join(HOME, '.config', 'opencode');
+    }
+
+    test('uses XDG_CONFIG_HOME when set', () => {
+      const result = getOpenCodeConfigDir({
+        HOME: '/home/user',
+        XDG_CONFIG_HOME: '/custom/config'
+      });
+      expect(result).toBe(path.join('/custom/config', 'opencode'));
+    });
+
+    test('falls back to ~/.config/opencode when XDG_CONFIG_HOME unset', () => {
+      const result = getOpenCodeConfigDir({
+        HOME: '/home/user'
+      });
+      expect(result).toBe(path.join('/home/user', '.config', 'opencode'));
+    });
+
+    test('falls back when XDG_CONFIG_HOME is empty string', () => {
+      const result = getOpenCodeConfigDir({
+        HOME: '/home/user',
+        XDG_CONFIG_HOME: ''
+      });
+      expect(result).toBe(path.join('/home/user', '.config', 'opencode'));
+    });
+
+    test('falls back when XDG_CONFIG_HOME is whitespace only', () => {
+      const result = getOpenCodeConfigDir({
+        HOME: '/home/user',
+        XDG_CONFIG_HOME: '   '
+      });
+      expect(result).toBe(path.join('/home/user', '.config', 'opencode'));
+    });
+
+    test('uses USERPROFILE on Windows when HOME not set', () => {
+      const result = getOpenCodeConfigDir({
+        USERPROFILE: 'C:\\Users\\user'
+      });
+      expect(result).toBe(path.join('C:\\Users\\user', '.config', 'opencode'));
+    });
+
+    test('script implementation matches expected pattern', () => {
+      // Verify the script has the exact logic we tested above
+      expect(devInstallSource).toMatch(/if\s*\(\s*xdgConfigHome\s*&&\s*xdgConfigHome\.trim\(\)\s*\)/);
+      expect(devInstallSource).toMatch(/path\.join\s*\(\s*xdgConfigHome\s*,\s*['"]opencode['"]\s*\)/);
+      expect(devInstallSource).toMatch(/path\.join\s*\(\s*HOME\s*,\s*['"]\.config['"]\s*,\s*['"]opencode['"]\s*\)/);
+    });
+  });
+
   describe('installation logic', () => {
     test('strips models for OpenCode', () => {
       // Should strip models by default
