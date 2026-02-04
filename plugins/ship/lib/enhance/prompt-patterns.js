@@ -19,7 +19,9 @@ function estimateTokens(text) {
 // Pre-compiled regex patterns for performance (avoid compiling in hot paths)
 const FENCE_START_REGEX = /^(\s*)```(\w*)\s*$/;
 const FENCE_END_REGEX = /^(\s*)```\s*$/;
-const BAD_EXAMPLE_REGEX = /<bad[_-]?example>([\s\S]*?)<\/bad[_-]?example>/gi;
+// Match both good and bad example tags - skip both for code validation
+// (good examples may have simplified/pseudo-code, bad examples intentionally show errors)
+const EXAMPLE_TAG_REGEX = /<(?:good|bad)[_-]?example>([\s\S]*?)<\/(?:good|bad)[_-]?example>/gi;
 
 // Language detection patterns (pre-compiled for code_language_mismatch)
 const LOOKS_LIKE_JSON_START = /^\s*[\[{]/;
@@ -30,7 +32,7 @@ const LOOKS_LIKE_PYTHON = /\b(def\s+\w+|import\s+\w+|from\s+\w+\s+import|class\s
 
 // Memoization caches for performance (keyed by content hash)
 let _lastContent = null;
-let _badExampleRanges = null;
+let _exampleRanges = null;
 let _linePositions = null;
 
 /**
@@ -97,13 +99,13 @@ function extractCodeBlocks(content) {
 }
 
 /**
- * Build bad-example ranges cache for a content string
+ * Build example ranges cache for a content string (both good and bad examples)
  * @param {string} content - Content to analyze
- * @returns {Array<{start: number, end: number}>} Array of bad-example ranges
+ * @returns {Array<{start: number, end: number}>} Array of example tag ranges
  */
-function buildBadExampleRanges(content) {
+function buildExampleRanges(content) {
   const ranges = [];
-  const regex = new RegExp(BAD_EXAMPLE_REGEX.source, BAD_EXAMPLE_REGEX.flags);
+  const regex = new RegExp(EXAMPLE_TAG_REGEX.source, EXAMPLE_TAG_REGEX.flags);
   let match;
 
   while ((match = regex.exec(content)) !== null) {
@@ -138,23 +140,23 @@ function buildLinePositions(content) {
 function ensureCache(content) {
   if (content !== _lastContent) {
     _lastContent = content;
-    _badExampleRanges = buildBadExampleRanges(content);
+    _exampleRanges = buildExampleRanges(content);
     _linePositions = buildLinePositions(content);
   }
 }
 
 /**
- * Check if a position is inside a bad-example tag (memoized)
+ * Check if a position is inside an example tag (good or bad) (memoized)
  * @param {string} content - Full content
  * @param {number} position - Character position to check
- * @returns {boolean} True if inside bad-example tags
+ * @returns {boolean} True if inside example tags
  */
-function isInsideBadExample(content, position) {
+function isInsideExampleTag(content, position) {
   if (!content || position < 0) return false;
 
   ensureCache(content);
 
-  for (const range of _badExampleRanges) {
+  for (const range of _exampleRanges) {
     if (position >= range.start && position <= range.end) {
       return true;
     }
@@ -1128,7 +1130,7 @@ const promptPatterns = {
       for (const block of jsonBlocks) {
         // Skip if inside bad-example tags
         const position = getPositionForLine(content, block.startLine);
-        if (isInsideBadExample(content, position)) {
+        if (isInsideExampleTag(content, position)) {
           continue;
         }
 
@@ -1141,6 +1143,15 @@ const promptPatterns = {
         // Skip blocks with placeholder syntax (common in documentation)
         // e.g., [...], {...}, <...>, "...", etc.
         if (/\[\.\.\.\]|\{\.\.\.\}|<\.\.\.>|"\.\.\."|\.\.\./g.test(block.code)) continue;
+
+        // Skip blocks with comments (// or /* */) - not valid JSON but common in docs
+        if (/\/\/|\/\*/.test(block.code)) continue;
+
+        // Skip blocks with template variables (${...}) - pseudo-code, not actual JSON
+        if (/\$\{/.test(block.code)) continue;
+
+        // Skip blocks with type union syntax (|) - schema docs, not actual JSON
+        if (/\|/.test(block.code)) continue;
 
         try {
           JSON.parse(block.code);
@@ -1156,58 +1167,9 @@ const promptPatterns = {
     }
   },
 
-  /**
-   * Invalid JavaScript syntax in code blocks
-   * MEDIUM certainty - uses Function constructor which has limitations
-   */
-  invalid_js_syntax: {
-    id: 'invalid_js_syntax',
-    category: 'code-validation',
-    certainty: 'MEDIUM',
-    autoFix: false,
-    description: 'JavaScript code block contains syntax errors',
-    check: (content) => {
-      if (!content || typeof content !== 'string') return null;
-
-      const blocks = extractCodeBlocks(content);
-      const jsBlocks = blocks.filter(b =>
-        ['js', 'javascript'].includes(b.language.toLowerCase())
-      );
-
-      for (const block of jsBlocks) {
-        // Skip if inside bad-example tags
-        const position = getPositionForLine(content, block.startLine);
-        if (isInsideBadExample(content, position)) {
-          continue;
-        }
-
-        // Skip empty blocks
-        if (!block.code.trim()) continue;
-
-        // Skip very large blocks (>20KB) for performance - Function constructor is slow
-        if (block.code.length > 20000) continue;
-
-        try {
-          // Use Function constructor to check syntax without executing
-          // Note: This doesn't support import/export statements
-          new Function(block.code);
-        } catch (err) {
-          if (err instanceof SyntaxError) {
-            // Check if it's an import/export which Function doesn't support
-            if (/\b(import|export)\b/.test(block.code)) {
-              continue; // Skip - Function constructor doesn't support modules
-            }
-            return {
-              issue: `JavaScript syntax error at line ${block.startLine}: ${err.message}`,
-              fix: 'Fix syntax error in the JavaScript code block (Note: import/export statements are not validated)'
-            };
-          }
-        }
-      }
-
-      return null;
-    }
-  },
+  // NOTE: JavaScript syntax validation removed - too many false positives
+  // (modules, async/await, JSX, TypeScript not supported by Function constructor)
+  // We can only reliably validate static formats: YAML frontmatter, JSON
 
   /**
    * Code language tag mismatch
@@ -1228,7 +1190,7 @@ const promptPatterns = {
         // Skip blocks without language tag or inside bad-example
         if (!block.language) continue;
         const position = getPositionForLine(content, block.startLine);
-        if (isInsideBadExample(content, position)) continue;
+        if (isInsideExampleTag(content, position)) continue;
 
         // Skip empty blocks
         const code = block.code.trim();

@@ -70,60 +70,8 @@ describe('Prompt Analyzer - False Positive Prevention', () => {
       });
     });
 
-    describe('invalid_js_syntax', () => {
-      const pattern = promptPatterns.promptPatterns.invalid_js_syntax;
-
-      it('should NOT flag valid JavaScript', () => {
-        const validJsCases = [
-          '```javascript\nconst x = 1;\n```',
-          '```js\nfunction foo() { return 42; }\n```',
-          '```javascript\nconst obj = { a: 1, b: 2 };\n```',
-          '```javascript\nclass Foo { constructor() {} }\n```',
-          '```javascript\nasync function fetchData() { await Promise.resolve(); }\n```'
-        ];
-
-        for (const content of validJsCases) {
-          const result = pattern.check(content);
-          expect(result).toBeNull();
-        }
-      });
-
-      it('should NOT flag ES modules (import/export)', () => {
-        const content = `
-\`\`\`javascript
-import { foo } from 'bar';
-export const x = 1;
-export default class MyClass {}
-\`\`\`
-        `;
-        const result = pattern.check(content);
-        expect(result).toBeNull();
-      });
-
-      it('should NOT flag invalid JS inside bad-example tags', () => {
-        const content = `
-<bad-example>
-\`\`\`javascript
-const x = {broken syntax
-\`\`\`
-</bad-example>
-        `;
-        const result = pattern.check(content);
-        expect(result).toBeNull();
-      });
-
-      it('should NOT flag empty JS code blocks', () => {
-        const content = '```javascript\n```';
-        const result = pattern.check(content);
-        expect(result).toBeNull();
-      });
-
-      it('should NOT flag non-JS code blocks', () => {
-        const content = '```python\nconst x = {broken syntax\n```';
-        const result = pattern.check(content);
-        expect(result).toBeNull();
-      });
-    });
+    // NOTE: invalid_js_syntax tests removed - pattern removed due to unreliable detection
+    // (modules, async/await, JSX, TypeScript not supported)
 
     describe('code_language_mismatch', () => {
       const pattern = promptPatterns.promptPatterns.code_language_mismatch;
@@ -421,35 +369,6 @@ describe('Prompt Analyzer - False Negative Prevention', () => {
       });
     });
 
-    describe('invalid_js_syntax', () => {
-      const pattern = promptPatterns.promptPatterns.invalid_js_syntax;
-
-      it('MUST flag missing comma in object', () => {
-        const content = '```javascript\nconst x = { a: 1 b: 2 };\n```';
-        const result = pattern.check(content);
-        expect(result).toBeTruthy();
-        expect(result.issue).toContain('syntax error');
-      });
-
-      it('MUST flag unclosed braces', () => {
-        const content = '```javascript\nfunction foo() {\n  return 1;\n```';
-        const result = pattern.check(content);
-        expect(result).toBeTruthy();
-      });
-
-      it('MUST flag invalid keywords', () => {
-        const content = '```javascript\nconst let = 5;\n```';
-        const result = pattern.check(content);
-        expect(result).toBeTruthy();
-      });
-
-      it('MUST flag unclosed strings', () => {
-        const content = '```javascript\nconst x = "unclosed;\n```';
-        const result = pattern.check(content);
-        expect(result).toBeTruthy();
-      });
-    });
-
     describe('code_language_mismatch', () => {
       const pattern = promptPatterns.promptPatterns.code_language_mismatch;
 
@@ -660,20 +579,7 @@ const block${i} = { value: ${i} };
       expect(elapsed).toBeLessThan(100);
     });
 
-    it('should skip very large JS blocks for performance', () => {
-      // Create JS block larger than 20KB limit
-      const largeJs = 'const x = 1;\n'.repeat(2000);
-      const content = `\`\`\`javascript\n${largeJs}\n\`\`\``;
-
-      const pattern = promptPatterns.promptPatterns.invalid_js_syntax;
-
-      const start = Date.now();
-      const result = pattern.check(content);
-      const elapsed = Date.now() - start;
-
-      expect(result).toBeNull();
-      expect(elapsed).toBeLessThan(100);
-    });
+    // NOTE: JS block size test removed - invalid_js_syntax pattern removed
   });
 
   describe('Memoization cache', () => {
