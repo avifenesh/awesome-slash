@@ -21,6 +21,13 @@ const FENCE_START_REGEX = /^(\s*)```(\w*)\s*$/;
 const FENCE_END_REGEX = /^(\s*)```\s*$/;
 const BAD_EXAMPLE_REGEX = /<bad[_-]?example>([\s\S]*?)<\/bad[_-]?example>/gi;
 
+// Language detection patterns (pre-compiled for code_language_mismatch)
+const LOOKS_LIKE_JSON_START = /^\s*[\[{]/;
+const LOOKS_LIKE_JSON_CONTENT = /[:,]/;
+const NOT_JSON_KEYWORDS = /(function|const|let|var|if|for|while|class)\b/;
+const LOOKS_LIKE_JS = /\b(function|const|let|var|=>|async|await|class|import|export|require)\b/;
+const LOOKS_LIKE_PYTHON = /\b(def\s+\w+|import\s+\w+|from\s+\w+\s+import|class\s+\w+:|if\s+.*:|\s{4}|print\()\b/;
+
 /**
  * Extract fenced code blocks from markdown content
  * @param {string} content - Markdown content
@@ -1167,15 +1174,15 @@ const promptPatterns = {
         const lang = block.language.toLowerCase();
 
         // JSON detection: starts with { or [ and contains : or ,
-        const looksLikeJson = /^\s*[\[{]/.test(code) &&
-                            /[:,]/.test(code) &&
-                            !/(function|const|let|var|if|for|while|class)\b/.test(code);
+        const looksLikeJson = LOOKS_LIKE_JSON_START.test(code) &&
+                            LOOKS_LIKE_JSON_CONTENT.test(code) &&
+                            !NOT_JSON_KEYWORDS.test(code);
 
         // JavaScript detection: has JS keywords
-        const looksLikeJs = /\b(function|const|let|var|=>|async|await|class|import|export|require)\b/.test(code);
+        const looksLikeJs = LOOKS_LIKE_JS.test(code);
 
         // Python detection: has Python keywords
-        const looksLikePython = /\b(def\s+\w+|import\s+\w+|from\s+\w+\s+import|class\s+\w+:|if\s+.*:|\s{4}|print\()\b/.test(code);
+        const looksLikePython = LOOKS_LIKE_PYTHON.test(code);
 
         // Check for clear mismatches
         if (lang === 'json' && looksLikeJs && !looksLikeJson) {
