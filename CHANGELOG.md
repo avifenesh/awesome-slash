@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-02-05
+
+### Added
+- **New /agnix Plugin** - Lint agent configurations before they break your workflow
+  - Validates Skills, Hooks, MCP, Memory, Plugins across Claude Code, Cursor, GitHub Copilot, and Codex CLI
+  - 100 validation rules from official specs, research papers, real-world testing
+  - Auto-fix support with `--fix` flag
+  - SARIF output for GitHub Code Scanning integration
+  - Target-specific validation (`--target claude-code|cursor|codex`)
+  - Requires [agnix CLI](https://github.com/avifenesh/agnix) (`cargo install agnix-cli`)
+
+### Changed
+- **Plugin Count** - Now 11 plugins, 40 agents, 26 skills
+- **CLAUDE.md Rule #11** - Added rule about using `[]` not `<>` for argument hints
+
+### Fixed
+- **Prompt Injection** - Sanitize user arguments in agnix command (validate target, strip newlines from path)
+- **Argument Parsing** - Support both `--target=value` and `--target value` forms
+- **enhance-hooks/SKILL.md** - Fixed path example escaping
+
 ## [4.0.0] - 2026-02-05
 
 ### Added
