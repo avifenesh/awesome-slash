@@ -2,7 +2,7 @@
 
 Complete reference for all agents in awesome-slash.
 
-**TL;DR:** 39 agents across 10 plugins (9 have agents). opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 39 -->
+**TL;DR:** 40 agents across 11 plugins (10 have agents). opus for reasoning, sonnet for patterns, haiku for execution. Each agent does one thing well. <!-- AGENT_COUNT_TOTAL: 40 -->
 
 ---
 
@@ -19,6 +19,7 @@ Complete reference for all agents in awesome-slash.
 | deslop | 1 | [deslop-agent](#deslop-agent) |
 | sync-docs | 1 | [sync-docs-agent](#sync-docs-agent) |
 | learn | 1 | [learn-agent](#learn-agent) |
+| agnix | 1 | [agnix-agent](#agnix-agent) |
 
 **Design principle:** Each agent has a single responsibility. Complex work is decomposed into specialized agents that do one thing extremely well, then orchestrated together.
 
@@ -38,7 +39,7 @@ awesome-slash uses 39 specialized agents across 10 plugins (9 have agents - ship
 | haiku | Mechanical execution, no judgment | Low |
 
 **Agent types:**
-- **File-based agents** (29) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 29 -->
+- **File-based agents** (30) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 30 -->
 - **Role-based agents** (10) - Defined inline via Task tool with specialized prompts <!-- AGENT_COUNT_ROLE_BASED: 10 -->
 
 ---
@@ -724,6 +725,28 @@ These are role-based agents invoked via Task tool with specialized prompts. They
 - Topic-specific guide in `agent-knowledge/`
 - Updated master index in `agent-knowledge/CLAUDE.md`
 - Source metadata with quality scores in `agent-knowledge/resources/`
+
+---
+
+## agnix Plugin Agent
+
+### agnix-agent
+
+**Model:** sonnet
+**Purpose:** Lint agent configuration files using agnix CLI.
+
+**What it does:**
+1. Parses arguments (path, --fix, --strict, --target)
+2. Invokes the agnix skill with the appropriate flags
+3. Returns structured validation results
+
+**Tools available:**
+- Bash(agnix:*), Bash(cargo:*), Skill, Read, Glob, Grep
+
+**Output:**
+- Structured JSON with error/warning counts
+- List of diagnostics with file, line, rule, message
+- Fix status if --fix was used
 
 ---
 

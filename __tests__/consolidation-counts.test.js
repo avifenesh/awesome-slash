@@ -5,14 +5,14 @@ describe('consolidation counts verification', () => {
   const pluginsDir = path.join(__dirname, '..', 'plugins');
 
   describe('total counts', () => {
-    test('has exactly 10 plugins', () => {
+    test('has exactly 11 plugins', () => {
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
       );
-      expect(plugins.length).toBe(10);
+      expect(plugins.length).toBe(11);
     });
 
-    test('has exactly 29 file-based agents', () => {
+    test('has exactly 30 file-based agents', () => {
       let agentCount = 0;
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
@@ -26,10 +26,10 @@ describe('consolidation counts verification', () => {
         }
       });
 
-      expect(agentCount).toBe(29);
+      expect(agentCount).toBe(30);
     });
 
-    test('has exactly 25 skills', () => {
+    test('has exactly 26 skills', () => {
       let skillCount = 0;
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
@@ -47,7 +47,7 @@ describe('consolidation counts verification', () => {
         }
       });
 
-      expect(skillCount).toBe(25);
+      expect(skillCount).toBe(26);
     });
   });
 
@@ -134,15 +134,15 @@ describe('consolidation counts verification', () => {
   describe('documentation counts match', () => {
     test('CLAUDE.md has correct counts', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
-      expect(content).toContain('39 agents');
-      expect(content).toContain('29 file-based');
-      expect(content).toContain('25 skills');
+      expect(content).toContain('40 agents');
+      expect(content).toContain('30 file-based');
+      expect(content).toContain('26 skills');
     });
 
     test('README.md has correct counts', () => {
       const content = fs.readFileSync(path.join(__dirname, '..', 'README.md'), 'utf8');
-      expect(content).toContain('39 agents');
-      expect(content).toContain('25 skills');
+      expect(content).toContain('40 agents');
+      expect(content).toContain('26 skills');
     });
   });
 
@@ -196,7 +196,8 @@ describe('consolidation counts verification', () => {
       'drift-detect': { agents: 1, skills: 1 },
       'repo-map': { agents: 1, skills: 1 },
       'sync-docs': { agents: 1, skills: 1 },
-      'learn': { agents: 1, skills: 1 }
+      'learn': { agents: 1, skills: 1 },
+      'agnix': { agents: 1, skills: 1 }
     };
 
     Object.entries(expectedCounts).forEach(([plugin, counts]) => {

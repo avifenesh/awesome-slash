@@ -63,7 +63,7 @@
 
 ```
 lib/          → Shared library (canonical source)
-plugins/      → 10 plugins, 39 agents (29 file-based + 10 role-based), 25 skills
+plugins/      → 11 plugins, 40 agents (30 file-based + 10 role-based), 26 skills
 adapters/     → Platform adapters (opencode-plugin/, opencode/, codex/)
 checklists/   → Action checklists (9 files)
 bin/cli.js    → npm CLI installer
@@ -81,6 +81,7 @@ bin/cli.js    → npm CLI installer
 | repo-map | 1 | 1 | AST repo mapping |
 | sync-docs | 1 | 1 | Documentation sync |
 | learn | 1 | 1 | Topic research and learning guides |
+| agnix | 1 | 1 | Agent config linting |
 
 **Pattern**: `Command → Agent → Skill` (orchestration → invocation → implementation)
 </architecture>
@@ -103,6 +104,9 @@ bin/cli.js    → npm CLI installer
 ### Learning
 - `/learn` - Research topic online, create learning guide with RAG index
 
+### Linting
+- `/agnix` - Lint agent configs (SKILL.md, CLAUDE.md, hooks, MCP)
+
 ### Maintenance
 - `/sync-docs` - Update documentation to match code
 
@@ -119,7 +123,7 @@ awesome-slash                # Run installer
 <agents>
 ## Agents
 
-39 agents across 9 plugins. Key agents by model:
+40 agents across 11 plugins. Key agents by model:
 
 | Model | Agents | Use Case |
 |-------|--------|----------|

@@ -1,6 +1,6 @@
 {
   "name": "awesome-slash",
-  "description": "10 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, documentation sync, repo mapping, perf investigations, and topic research",
+  "description": "11 specialized plugins for AI workflow automation - task orchestration, PR workflow, slop detection, code review, drift detection, enhancement analysis, documentation sync, repo mapping, perf investigations, topic research, and agent config linting",
   "version": "4.0.0",
   "owner": {
     "name": "Avi Fenesh",
@@ -91,6 +91,13 @@
       "description": "Research topics online and create comprehensive learning guides with RAG-optimized indexes",
       "version": "4.0.0",
       "category": "productivity"
+    },
+    {
+      "name": "agnix",
+      "source": "./plugins/agnix",
+      "description": "Lint agent configuration files (SKILL.md, CLAUDE.md, hooks, MCP) against 100 rules",
+      "version": "4.0.0",
+      "category": "development"
     }
   ]
 }
