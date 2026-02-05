@@ -220,7 +220,7 @@ function installForClaude() {
     }
 
     // PLUGINS_ARRAY - Install or update plugins
-    const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf', 'learn'];
+    const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf', 'learn', 'agnix'];
     for (const plugin of plugins) {
       console.log(`  Installing ${plugin}...`);
       try {
@@ -237,7 +237,7 @@ function installForClaude() {
     }
 
     console.log('\n[OK] Claude Code installation complete!\n');
-    console.log('Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf, /learn');
+    console.log('Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf, /learn, /agnix');
     return true;
   } catch (err) {
     console.log('[ERROR] Auto-install failed. Manual installation:');
@@ -261,7 +261,7 @@ function installForClaudeDevelopment() {
   }
 
   const pluginsDir = getClaudePluginsDir();
-  const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf', 'learn'];
+  const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf', 'learn', 'agnix'];
 
   // Remove marketplace plugins first
   console.log('Removing marketplace plugins...');
@@ -310,7 +310,7 @@ function installForClaudeDevelopment() {
 
   console.log('\n[OK] Claude Code development installation complete!');
   console.log('  Plugins installed to: ' + pluginsDir);
-  console.log('  Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf, /learn');
+  console.log('  Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf, /learn, /agnix');
   console.log('\n[NOTE] To revert to marketplace version:');
   console.log('  rm -rf ~/.claude/plugins/*@awesome-slash');
   console.log('  awesome-slash --tool claude');
@@ -371,7 +371,8 @@ function installForOpenCode(installDir, options = {}) {
     ['drift-detect.md', 'drift-detect', 'drift-detect.md'],
     ['repo-map.md', 'repo-map', 'repo-map.md'],
     ['perf.md', 'perf', 'perf.md'],
-    ['learn.md', 'learn', 'learn.md']
+    ['learn.md', 'learn', 'learn.md'],
+    ['agnix.md', 'agnix', 'agnix.md']
   ];
 
   // Helper function to transform content for OpenCode
@@ -575,7 +576,7 @@ After user answers, proceed to Phase 2 with the selected policy.
   fs.mkdirSync(agentsDir, { recursive: true });
 
   console.log('  Installing agents for OpenCode...');
-  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map', 'perf', 'sync-docs', 'learn'];
+  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map', 'perf', 'sync-docs', 'learn', 'agnix'];
   let agentCount = 0;
 
   for (const pluginName of pluginDirs) {
@@ -687,7 +688,7 @@ After user answers, proceed to Phase 2 with the selected policy.
   console.log(`   Commands: ${commandsDir}`);
   console.log(`   Agents: ${agentsDir}`);
   console.log(`   Plugin: ${pluginDir}`);
-  console.log('   Access via: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /sync-docs, /perf, /learn');
+  console.log('   Access via: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /sync-docs, /perf, /learn, /agnix');
   console.log('   Native features: Auto-thinking selection, workflow enforcement, session compaction\n');
   return true;
 }
@@ -752,7 +753,9 @@ function installForCodex(installDir) {
     ['sync-docs', 'sync-docs', 'sync-docs.md',
       'Use when user asks to "update docs", "sync documentation", "fix outdated docs", "refresh README". Compares documentation to actual code and fixes discrepancies.'],
     ['learn', 'learn', 'learn.md',
-      'Use when user asks to "learn about topic", "research subject", "create learning guide", "build knowledge base", "study topic". Gathers online sources and synthesizes comprehensive guide with RAG index.']
+      'Use when user asks to "learn about topic", "research subject", "create learning guide", "build knowledge base", "study topic". Gathers online sources and synthesizes comprehensive guide with RAG index.'],
+    ['agnix', 'agnix', 'agnix.md',
+      'Use when user asks to "lint agent configs", "validate skills", "check CLAUDE.md", "validate hooks", "lint MCP". Validates agent configuration files against 100 rules.']
   ];
 
   for (const [skillName, plugin, sourceFile, description] of skillMappings) {

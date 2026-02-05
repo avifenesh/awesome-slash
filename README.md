@@ -8,7 +8,7 @@
 
 AI models can write code. That's not the hard part anymore. The hard part is everything else—picking what to work on, managing branches, reviewing output, cleaning up artifacts, handling CI, addressing comments, deploying. **awesome-slash automates the entire workflow**, not just the coding.
 
-**10 plugins · 39 agents · 25 skills · 26k lines of lib code · 3,357 tests · 3 platforms**
+**11 plugins · 40 agents · 26 skills · 26k lines of lib code · 3,357 tests · 3 platforms**
 
 If you find this useful: [⭐ Star the repo](https://github.com/avifenesh/awesome-slash)
 
@@ -60,6 +60,7 @@ This came from testing on 1,000+ repositories.
 | [`/repo-map`](#repo-map) | AST symbol and import mapping via ast-grep |
 | [`/sync-docs`](#sync-docs) | Finds outdated references, stale examples, missing CHANGELOG entries |
 | [`/learn`](#learn) | Research any topic, gather online sources, create learning guide with RAG index |
+| [`/agnix`](#agnix) | Lint agent configs (SKILL.md, CLAUDE.md, hooks, MCP) against 100 rules |
 
 Each command works standalone. Together, they form complete workflows.
 
@@ -77,6 +78,7 @@ Each command works standalone. Together, they form complete workflows.
 | **Cleanup** | `deslop:deslop`, `sync-docs:sync-docs` |
 | **Analysis** | `drift-detect:drift-analysis`, `repo-map:repo-mapping` |
 | **Learning** | `learn:learn` |
+| **Linting** | `agnix:agnix` |
 
 Skills give your agents specialized capabilities. When you install a plugin, its skills become available to all agents in that session.
 
@@ -512,6 +514,43 @@ agent-knowledge/
 ```
 
 **Agent:** learn-agent (opus model for research quality)
+
+---
+
+### /agnix
+
+**Purpose:** Lint agent configurations before they break your workflow. Validates Skills, Hooks, MCP, Memory, Plugins.
+
+**What it does:**
+
+1. **Validates 100 rules** - From official specs, research papers, real-world testing
+2. **Multi-tool support** - Claude Code, Cursor, GitHub Copilot, Codex CLI
+3. **Auto-fix** - Automatically fixes fixable issues with `--fix`
+4. **SARIF output** - Integrates with GitHub Code Scanning
+
+**Supported files:**
+
+| File Type | Examples |
+|-----------|----------|
+| Skills | `SKILL.md` |
+| Memory | `CLAUDE.md`, `AGENTS.md` |
+| Hooks | `.claude/settings.json` |
+| MCP | `*.mcp.json` |
+| Cursor | `.cursor/rules/*.mdc` |
+| Copilot | `.github/copilot-instructions.md` |
+
+**Usage:**
+
+```bash
+/agnix                       # Validate current project
+/agnix --fix                 # Auto-fix issues
+/agnix --strict              # Treat warnings as errors
+/agnix --target claude-code  # Only Claude Code rules
+```
+
+**Agent:** agnix-agent (sonnet model)
+
+**External tool:** Requires [agnix CLI](https://github.com/avifenesh/agnix) (`cargo install agnix-cli`)
 
 ---
 
