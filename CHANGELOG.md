@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [4.0.0-rc.1] - 2026-02-05
+
 ### Added
 - **New /learn Plugin** - Research any topic online and create comprehensive learning guides
   - Gathers 10-40 online sources based on depth level (brief/medium/deep)
@@ -18,6 +20,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Self-evaluation step for output quality assessment
   - Integrates with enhance:enhance-docs and enhance:enhance-prompts
   - Opus model for high-quality research synthesis
+
+### Changed
+- **Agent Frontmatter Format** - Converted all 29 agents to YAML array format for tools field (Claude Code spec compliance)
+- **Argument Hints** - Aligned all argument-hint fields to official `[placeholder]` format
+- **Plugin Count** - Now 10 plugins total (added learn)
+
+### Fixed
+- **Semver Sorting** - Fixed version comparison so "1.10.0" correctly > "1.9.9"
+- **CodeQL Security** - Escape backslashes in glob pattern matching
+- **Path Traversal** - Use `path.relative()` instead of `startsWith()` for Windows compatibility
 
 ## [3.9.0] - 2026-02-04
 
