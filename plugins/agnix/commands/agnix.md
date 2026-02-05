@@ -1,6 +1,6 @@
 ---
 description: Use when user asks to 'lint agent configs', 'validate skills', 'check CLAUDE.md', 'validate hooks', 'lint MCP', or mentions 'agent config issues', 'skill validation'.
-argument-hint: "[path] [--fix] [--strict] [--target=claude-code|cursor|codex]"
+argument-hint: "[path] [--fix] [--strict] [--target [target]]"
 allowed-tools: Task, Read
 ---
 
@@ -25,8 +25,22 @@ Parse from $ARGUMENTS or use defaults:
 const args = '$ARGUMENTS'.split(' ').filter(Boolean);
 const fix = args.includes('--fix');
 const strict = args.includes('--strict');
-const target = args.find(a => a.startsWith('--target='))?.split('=')[1] || 'generic';
-const path = args.find(a => !a.startsWith('-')) || '.';
+
+// Parse --target (supports both --target=value and --target value forms)
+const allowedTargets = ['claude-code', 'cursor', 'codex', 'generic'];
+let rawTarget = 'generic';
+const targetEqIdx = args.findIndex(a => a.startsWith('--target='));
+const targetSpaceIdx = args.findIndex(a => a === '--target');
+if (targetEqIdx !== -1) {
+  rawTarget = args[targetEqIdx].split('=')[1] || 'generic';
+} else if (targetSpaceIdx !== -1 && args[targetSpaceIdx + 1] && !args[targetSpaceIdx + 1].startsWith('-')) {
+  rawTarget = args[targetSpaceIdx + 1];
+}
+const target = allowedTargets.includes(rawTarget) ? rawTarget : 'generic';
+
+// Parse path - exclude flags and --target's value, sanitize to prevent injection
+const excludeIndices = new Set([targetSpaceIdx, targetSpaceIdx + 1].filter(i => i >= 0));
+const path = (args.find((a, i) => !a.startsWith('-') && !excludeIndices.has(i)) || '.').replace(/[\n\r]/g, '');
 
 const result = await Task({
   subagent_type: "agnix:agnix-agent",
