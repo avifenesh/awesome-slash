@@ -200,8 +200,10 @@ function analyzeAllPrompts(promptsDir, options = {}) {
       const fullPath = path.join(dir, entry.name);
 
       // Ensure traversed paths stay within the resolved directory
+      // Use path.relative() for Windows case-insensitive path comparison
       const resolvedFullPath = path.resolve(fullPath);
-      if (!resolvedFullPath.startsWith(resolvedDir)) {
+      const relativePath = path.relative(resolvedDir, resolvedFullPath);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         continue;
       }
 

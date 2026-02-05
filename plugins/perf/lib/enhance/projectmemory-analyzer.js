@@ -90,8 +90,10 @@ function validateFileReferences(content, projectPath) {
     }
 
     // Resolve path and validate it stays within project root (prevent path traversal)
+    // Use path.relative() for Windows case-insensitive path comparison
     const fullPath = path.resolve(projectPath, ref);
-    if (fullPath.startsWith(resolvedProjectPath) && fs.existsSync(fullPath)) {
+    const relativePath = path.relative(resolvedProjectPath, fullPath);
+    if (!relativePath.startsWith('..') && !path.isAbsolute(relativePath) && fs.existsSync(fullPath)) {
       valid.push(ref);
     } else {
       broken.push(ref);

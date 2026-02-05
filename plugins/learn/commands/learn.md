@@ -89,7 +89,7 @@ if (existingGuide.length > 0) {
 ### Phase 3: Spawn Learn Agent
 
 ```javascript
-const result = await Task({
+const taskOutput = await Task({
   subagent_type: "learn:learn-agent",
   model: "opus",
   prompt: `Research and create a learning guide.
@@ -119,7 +119,7 @@ function parseLearnResult(output) {
   return match ? JSON.parse(match[1]) : null;
 }
 
-const result = parseLearnResult(agentOutput);
+const result = parseLearnResult(taskOutput);
 ```
 
 ### Phase 5: Present Results

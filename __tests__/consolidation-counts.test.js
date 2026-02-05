@@ -12,7 +12,7 @@ describe('consolidation counts verification', () => {
       expect(plugins.length).toBe(10);
     });
 
-    test('has exactly 30 file-based agents', () => {
+    test('has exactly 29 file-based agents', () => {
       let agentCount = 0;
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
@@ -29,7 +29,7 @@ describe('consolidation counts verification', () => {
       expect(agentCount).toBe(29);
     });
 
-    test('has exactly 26 skills', () => {
+    test('has exactly 25 skills', () => {
       let skillCount = 0;
       const plugins = fs.readdirSync(pluginsDir).filter(f =>
         fs.statSync(path.join(pluginsDir, f)).isDirectory()
