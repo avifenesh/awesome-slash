@@ -95,6 +95,7 @@
     function openMenu() {
       hamburger.classList.add('is-open');
       hamburger.setAttribute('aria-expanded', 'true');
+      hamburger.setAttribute('aria-label', 'Close menu');
       mobileMenu.classList.add('is-open');
       mobileMenu.setAttribute('aria-hidden', 'false');
       if (mobileOverlay) mobileOverlay.classList.add('is-visible');
@@ -110,6 +111,7 @@
     function closeMenu() {
       hamburger.classList.remove('is-open');
       hamburger.setAttribute('aria-expanded', 'false');
+      hamburger.setAttribute('aria-label', 'Menu');
       mobileMenu.classList.remove('is-open');
       mobileMenu.setAttribute('aria-hidden', 'true');
       if (mobileOverlay) mobileOverlay.classList.remove('is-visible');
@@ -164,6 +166,7 @@
     });
 
     // Smooth scroll for nav links (offset for fixed nav)
+    var prefersReducedNav = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     document.querySelectorAll('a[href^="#"]').forEach(function (link) {
       link.addEventListener('click', function (e) {
         var target = document.querySelector(this.getAttribute('href'));
@@ -171,7 +174,12 @@
           e.preventDefault();
           var offset = 70;
           var pos = target.getBoundingClientRect().top + window.scrollY - offset;
-          window.scrollTo({ top: pos, behavior: 'smooth' });
+          if (prefersReducedNav) {
+            window.scrollTo(0, pos);
+          } else {
+            window.scrollTo({ top: pos, behavior: 'smooth' });
+          }
+          target.focus({ preventScroll: true });
         }
       });
     });
@@ -257,7 +265,6 @@
           return;
         }
 
-        var start = 0;
         var duration = 1500;
         var startTime = null;
 
@@ -427,7 +434,6 @@
         }
         if (charIndex < text.length) {
           // Render as prompt + typed text
-          var promptPart = text.substring(0, 2); // "$ "
           var typed = text.substring(2, charIndex + 1);
           var remaining = charIndex + 1 >= text.length ? '' : '<span class="terminal__cursor"></span>';
           if (charIndex < 2) {
@@ -543,6 +549,24 @@
     initCounters();
     initCopyButtons();
     initTerminal();
+    initVersionFetch();
   });
+
+  // ========================================================================
+  // VERSION FETCH
+  // ========================================================================
+
+  function initVersionFetch() {
+    var el = document.getElementById('site-version');
+    if (!el) return;
+    fetch('version.json')
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (d.version && d.version !== 'dev') {
+          el.textContent = 'v' + d.version;
+        }
+      })
+      .catch(function () {});
+  }
 
 })();

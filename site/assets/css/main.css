@@ -219,12 +219,15 @@
   background: var(--color-bg-surface-1);
   border-left: 1px solid var(--color-border-subtle);
   transform: translateX(100%);
-  transition: transform var(--duration-moderate) cubic-bezier(0.4, 0, 0.2, 1);
+  visibility: hidden;
+  transition: transform var(--duration-moderate) cubic-bezier(0.4, 0, 0.2, 1),
+              visibility var(--duration-moderate);
   padding: 80px var(--space-6) var(--space-6);
 }
 
 .mobile-menu.is-open {
   transform: translateX(0);
+  visibility: visible;
 }
 
 .mobile-menu__inner {

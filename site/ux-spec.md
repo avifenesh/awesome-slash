@@ -16,12 +16,16 @@ The entire site is one HTML file with section anchors. All navigation is smooth-
 **File structure:**
 ```
 site/
-  index.html        -- Single page
-  styles.css         -- All styles (no preprocessor needed)
-  main.js            -- Animations, terminal demo, interactions
+  index.html            -- Single page
   assets/
-    og-image.png     -- Open Graph preview image (1200x630)
-    favicon.svg      -- SVG favicon (scales to all sizes)
+    css/
+      tokens.css        -- Design tokens and base variables
+      main.css          -- All site styles (layout, components, utilities)
+    js/
+      main.js           -- Animations, terminal demo, interactions
+    logo.png            -- Project logo
+    favicon.svg         -- SVG favicon (scales to all sizes)
+    og-image.html       -- Open Graph preview template
 ```
 
 ---

@@ -30,7 +30,7 @@
 AI models can write code. That's not the hard part anymore. The hard part is everything else—picking what to work on, managing branches, reviewing output, cleaning up artifacts, handling CI, addressing comments, deploying. **awesome-slash automates the entire workflow**, not just the coding.
 
 ---
-> Building custom skills, agents, hooks, or MCP tools? [agnix](https://github.com/avifenesh/agnix) is the CLI + LSP linter that catches config errors before they fail silently - real-time IDE validation, auto suggestions, auto-fix, and 125+ rules for Cursor, Claude Code, Cline, Copilot, Codex, Windsurf, and more.
+> Building custom skills, agents, hooks, or MCP tools? [agnix](https://github.com/avifenesh/agnix) is the CLI + LSP linter that catches config errors before they fail silently - real-time IDE validation, auto suggestions, auto-fix, and 155 rules for Cursor, Claude Code, Cline, Copilot, Codex, Windsurf, and more.
 
 ## What This Is
 

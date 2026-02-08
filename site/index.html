@@ -10,7 +10,7 @@
   <!-- Open Graph -->
   <meta property="og:title" content="awesome-slash">
   <meta property="og:description" content="AI workflow automation. 11 plugins, 40 agents, 26 skills. Task to merged PR.">
-  <meta property="og:image" content="https://avifenesh.github.io/awesome-slash/assets/og-image.png">
+  <meta property="og:image" content="https://avifenesh.github.io/awesome-slash/assets/logo.png">
   <meta property="og:url" content="https://avifenesh.github.io/awesome-slash/">
   <meta property="og:type" content="website">
 
@@ -18,10 +18,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="awesome-slash">
   <meta name="twitter:description" content="AI workflow automation. 11 plugins, 40 agents, 26 skills.">
-  <meta name="twitter:image" content="https://avifenesh.github.io/awesome-slash/assets/og-image.png">
+  <meta name="twitter:image" content="https://avifenesh.github.io/awesome-slash/assets/logo.png">
 
   <!-- Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
 
   <!-- Font preconnect for faster loading -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67,7 +67,7 @@
       </a>
 
       <!-- Mobile hamburger -->
-      <button class="nav__hamburger" id="nav-hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu">
+      <button class="nav__hamburger" id="nav-hamburger" aria-label="Menu" aria-expanded="false" aria-controls="mobile-menu">
         <span class="nav__hamburger-line"></span>
         <span class="nav__hamburger-line"></span>
         <span class="nav__hamburger-line"></span>
@@ -542,7 +542,6 @@ npm install">
       </div>
       <div class="footer__meta">
         <span class="footer__version" id="site-version">v4.1.0</span>
-        <script>fetch('version.json').then(function(r){return r.json()}).then(function(d){if(d.version&&d.version!=='dev')document.getElementById('site-version').textContent='v'+d.version}).catch(function(){})</script>
         <span class="footer__author">Made by <a href="https://github.com/avifenesh" target="_blank" rel="noopener noreferrer">Avi Fenesh</a></span>
       </div>
     </div>
