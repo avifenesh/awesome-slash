@@ -228,8 +228,14 @@
     tabs.forEach(function (tab) {
       var isActive = tab === activeTab;
       tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
-      tab.classList.toggle('tabs__tab--active', isActive);
       tab.setAttribute('tabindex', isActive ? '0' : '-1');
+
+      // Toggle the correct active class based on the tab's class list
+      if (tab.classList.contains('agent-tabs__tab')) {
+        tab.classList.toggle('agent-tabs__tab--active', isActive);
+      } else {
+        tab.classList.toggle('tabs__tab--active', isActive);
+      }
 
       var panelId = tab.getAttribute('aria-controls');
       var panel = container.querySelector('#' + panelId);
@@ -254,14 +260,21 @@
     var counters = document.querySelectorAll('.stats__number');
     var animated = false;
 
+    // Remove aria-live during animation to prevent excessive screen reader announcements
+    counters.forEach(function (counter) {
+      counter.removeAttribute('aria-live');
+    });
+
     function animateCounters() {
       if (animated) return;
       animated = true;
+      var completedCount = 0;
 
       counters.forEach(function (counter) {
         var target = parseInt(counter.dataset.target, 10);
         if (prefersReduced) {
           counter.textContent = formatNumber(target);
+          counter.setAttribute('aria-live', 'polite');
           return;
         }
 
@@ -280,6 +293,13 @@
             requestAnimationFrame(step);
           } else {
             counter.textContent = formatNumber(target);
+            completedCount++;
+            // Restore aria-live only after all animations complete
+            if (completedCount === counters.length) {
+              counters.forEach(function (c) {
+                c.setAttribute('aria-live', 'polite');
+              });
+            }
           }
         }
 
@@ -340,11 +360,13 @@
 
         copyToClipboard(code).then(function () {
           btn.classList.add('is-copied');
+          btn.setAttribute('aria-label', 'Copied');
           // Swap icon to checkmark
           btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg>';
 
           setTimeout(function () {
             btn.classList.remove('is-copied');
+            btn.setAttribute('aria-label', 'Copy code to clipboard');
             btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 010 1.5h-1.5a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-1.5a.75.75 0 011.5 0v1.5A1.75 1.75 0 019.25 16h-7.5A1.75 1.75 0 010 14.25v-7.5z"/><path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0114.25 11h-7.5A1.75 1.75 0 015 9.25v-7.5zm1.75-.25a.25.25 0 00-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 00.25-.25v-7.5a.25.25 0 00-.25-.25h-7.5z"/></svg>';
           }, 2000);
         });
@@ -539,6 +561,177 @@
   }
 
   // ========================================================================
+  // DYNAMIC HOW IT WORKS
+  // ========================================================================
+
+  function initDynamicHowItWorks() {
+    var howItWorksData = {
+      0: {
+        subtitle: 'One approval. Fully autonomous execution.',
+        steps: [
+          { title: 'Pick a task', desc: 'Select from GitHub Issues, GitLab, or a local task file. The agent explores your codebase and designs a plan.' },
+          { title: 'Approve the plan', desc: 'Review the implementation plan. This is the last human interaction. Everything after is automated.' },
+          { title: 'Watch it ship', desc: 'Code, review, cleanup, documentation, PR, CI, merge. All handled. You review the result.' }
+        ]
+      },
+      1: {
+        subtitle: '155 rules. 10+ AI tools. One command.',
+        steps: [
+          { title: 'Discover configs', desc: 'Finds all agent configuration files: Skills, Hooks, MCP, Memory, and Plugins across your project.' },
+          { title: 'Run 155 rules', desc: 'Validates against 155 rules across 10+ AI tools including Claude Code, Cursor, Copilot, Codex, and more.' },
+          { title: 'Fix and report', desc: '57 rules are auto-fixable with --fix flag. Outputs SARIF for GitHub Code Scanning integration.' }
+        ]
+      },
+      2: {
+        subtitle: 'Branch to production in one command.',
+        steps: [
+          { title: 'Commit and push', desc: 'Stages changes, creates a commit with a clear message, and pushes to your branch automatically.' },
+          { title: 'Monitor CI', desc: 'Waits for CI to pass, collects comments from 4 auto-reviewers, and fixes every issue found.' },
+          { title: 'Merge and deploy', desc: 'Merges the PR, triggers deployment, validates production, and cleans up the branch.' }
+        ]
+      },
+      3: {
+        subtitle: 'Three-phase detection. Certainty-graded cleanup.',
+        steps: [
+          { title: 'Scan for slop', desc: 'Runs regex patterns, multi-pass analyzers, and optional CLI tools across your codebase.' },
+          { title: 'Grade findings', desc: 'Each finding gets a certainty level: HIGH (auto-fixable), MEDIUM (needs context), or LOW (needs judgment).' },
+          { title: 'Apply fixes', desc: 'Auto-fixes HIGH certainty issues like debug statements, placeholder text, and verbose comments.' }
+        ]
+      },
+      4: {
+        subtitle: 'Measure first. Optimize with evidence.',
+        steps: [
+          { title: 'Establish baseline', desc: 'Records current performance metrics with sequential benchmarks and minimum 60-second run durations.' },
+          { title: 'Test hypotheses', desc: 'Generates theories from git history, then runs controlled experiments one change at a time.' },
+          { title: 'Deliver evidence', desc: 'Produces evidence-backed recommendations with profiling data, hotspot analysis, and comparisons.' }
+        ]
+      },
+      5: {
+        subtitle: 'JavaScript collects. Opus analyzes.',
+        steps: [
+          { title: 'Collect data', desc: 'JavaScript collectors scan GitHub state, documentation, and codebase without using any LLM tokens.' },
+          { title: 'Semantic analysis', desc: 'A single Opus call performs deep semantic matching between plans and actual implementation.' },
+          { title: 'Prioritized report', desc: 'Outputs a prioritized list of gaps, drift, and stale items with reconstruction recommendations.' }
+        ]
+      },
+      6: {
+        subtitle: 'Specialized agents. Iterative improvement.',
+        steps: [
+          { title: 'Select agents', desc: 'Detects your project type and selects from 10 specialist agents: security, performance, architecture, and more.' },
+          { title: 'Parallel review', desc: 'All selected agents review relevant files simultaneously, producing certainty-graded findings.' },
+          { title: 'Iterate to clean', desc: 'Fixes issues, re-reviews, and repeats until zero open findings remain across all agents.' }
+        ]
+      },
+      7: {
+        subtitle: 'Seven analyzers. One unified report.',
+        steps: [
+          { title: 'Detect content', desc: 'Finds all prompts, agents, plugins, docs, hooks, and skills in your project automatically.' },
+          { title: 'Run analyzers', desc: 'Seven specialized analyzers run in parallel, each checking for best practices in its domain.' },
+          { title: 'Report and fix', desc: 'Certainty-graded report with auto-fix for HIGH issues. Auto-learns false positives over time.' }
+        ]
+      },
+      8: {
+        subtitle: 'AST-based. Cached. Always current.',
+        steps: [
+          { title: 'Parse with AST', desc: 'Uses ast-grep to extract every export, function, class, and import from your codebase.' },
+          { title: 'Build the map', desc: 'Creates a cached JSON map of symbols and their relationships stored in the platform state directory.' },
+          { title: 'Validate output', desc: 'The map-validator agent checks for obvious errors, missing data, and structural issues.' }
+        ]
+      },
+      9: {
+        subtitle: 'Code changed. Docs follow.',
+        steps: [
+          { title: 'Diff changes', desc: 'Compares your branch against main to find all files that changed since the last documentation update.' },
+          { title: 'Find stale docs', desc: 'Searches documentation for references to changed files, outdated versions, and missing CHANGELOG entries.' },
+          { title: 'Auto-fix safely', desc: 'Updates version numbers, CHANGELOG entries, and other deterministic fixes. Flags ambiguous issues for review.' }
+        ]
+      },
+      10: {
+        subtitle: 'Web to knowledge base. Reusable.',
+        steps: [
+          { title: 'Search the web', desc: 'Progressive query architecture gathers 10-40 online sources using broad-to-focused funnel approach.' },
+          { title: 'Score sources', desc: 'Each source is scored by quality, relevance, and authority. Low-quality sources are filtered out.' },
+          { title: 'Create guide', desc: 'Synthesizes a structured learning guide with RAG-optimized index saved for future agent lookups.' }
+        ]
+      }
+    };
+
+    var subtitleEl = document.getElementById('hiw-subtitle');
+    var stepsContainer = document.querySelector('.steps');
+    if (!subtitleEl || !stepsContainer) return;
+
+    var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var currentIndex = 0;
+    var isTransitioning = false;
+
+    // SVG icons for the 3 step positions
+    var stepIcons = [
+      '<svg class="steps__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+      '<svg class="steps__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+      '<svg class="steps__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>'
+    ];
+
+    var connectorSvg = '<svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="currentColor" stroke-dasharray="4 4"/></svg>';
+
+    function buildStepsHTML(data) {
+      var html = '';
+      data.steps.forEach(function (step, i) {
+        if (i > 0) {
+          html += '<div class="steps__connector" aria-hidden="true">' + connectorSvg + '</div>';
+        }
+        html += '<div class="steps__card">' +
+          '<span class="steps__number">' + (i + 1) + '</span>' +
+          stepIcons[i] +
+          '<h3 class="steps__card-title">' + step.title + '</h3>' +
+          '<p class="steps__card-desc">' + step.desc + '</p>' +
+          '</div>';
+      });
+      return html;
+    }
+
+    function updateHowItWorks(index) {
+      if (index === currentIndex || isTransitioning) return;
+      var data = howItWorksData[index];
+      if (!data) return;
+
+      currentIndex = index;
+
+      if (prefersReduced) {
+        subtitleEl.textContent = data.subtitle;
+        stepsContainer.innerHTML = buildStepsHTML(data);
+        return;
+      }
+
+      isTransitioning = true;
+      stepsContainer.classList.add('steps--transitioning');
+
+      setTimeout(function () {
+        subtitleEl.textContent = data.subtitle;
+        stepsContainer.innerHTML = buildStepsHTML(data);
+        stepsContainer.classList.remove('steps--transitioning');
+        stepsContainer.classList.add('steps--entering');
+
+        setTimeout(function () {
+          stepsContainer.classList.remove('steps--entering');
+          isTransitioning = false;
+        }, 400);
+      }, 200);
+    }
+
+    // Hook into the commands tablist specifically
+    var commandsTablist = document.querySelector('.commands .tabs[role="tablist"]');
+    if (commandsTablist) {
+      commandsTablist.addEventListener('click', function (e) {
+        var tab = e.target.closest('[role="tab"]');
+        if (tab) {
+          var index = parseInt(tab.dataset.index, 10);
+          updateHowItWorks(index);
+        }
+      });
+    }
+  }
+
+  // ========================================================================
   // INIT
   // ========================================================================
 
@@ -550,6 +743,7 @@
     initCopyButtons();
     initTerminal();
     initVersionFetch();
+    initDynamicHowItWorks();
   });
 
   // ========================================================================

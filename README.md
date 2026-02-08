@@ -69,6 +69,7 @@ This came from testing on 1,000+ repositories.
 | Command | What it does |
 |---------|--------------|
 | [`/next-task`](#next-task) | Task → exploration → plan → implementation → review → ship |
+| [`/agnix`](#agnix) | **Lint agent configs** - 155 rules for Skills, Memory, Hooks, MCP across 10+ AI tools |
 | [`/ship`](#ship) | Branch → PR → CI → reviews addressed → merge → cleanup |
 | [`/deslop`](#deslop) | 3-phase detection pipeline, certainty-graded findings |
 | [`/perf`](#perf) | 10-phase performance investigation with baselines and profiling |
@@ -78,7 +79,6 @@ This came from testing on 1,000+ repositories.
 | [`/repo-map`](#repo-map) | AST symbol and import mapping via ast-grep |
 | [`/sync-docs`](#sync-docs) | Finds outdated references, stale examples, missing CHANGELOG entries |
 | [`/learn`](#learn) | Research any topic, gather online sources, create learning guide with RAG index |
-| [`/agnix`](#agnix) | **Lint agent configs** - 155 rules for Skills, Memory, Hooks, MCP across 10+ AI tools |
 
 Each command works standalone. Together, they form complete workflows.
 
@@ -172,6 +172,88 @@ Phase 9 uses the `orchestrate-review` skill to spawn parallel reviewers (code qu
 ```
 
 [Full workflow documentation →](./docs/workflows/NEXT-TASK.md)
+
+---
+
+### /agnix
+
+**Purpose:** Lint agent configurations before they break your workflow. The first dedicated linter for AI agent configs.
+
+**[agnix](https://github.com/avifenesh/agnix)** is a standalone open-source project that provides the validation engine. This plugin integrates it into your workflow.
+
+**The problem it solves:**
+
+Agent configurations are code. They affect behavior, security, and reliability. But unlike application code, they have no linting. You find out your SKILL.md is malformed when the agent fails. You discover your hooks have security issues when they're exploited. You realize your CLAUDE.md has conflicting rules when the AI behaves unexpectedly.
+
+agnix catches these issues before they cause problems.
+
+**What it validates:**
+
+| Category | What It Checks |
+|----------|----------------|
+| **Structure** | Required fields, valid YAML/JSON, proper frontmatter |
+| **Security** | Prompt injection vectors, overpermissive tools, exposed secrets |
+| **Consistency** | Conflicting rules, duplicate definitions, broken references |
+| **Best Practices** | Tool restrictions, model selection, trigger phrase quality |
+| **Cross-Platform** | Compatibility across Claude Code, Cursor, Copilot, Codex, OpenCode, Gemini CLI, Cline, and more |
+
+**155 validation rules** (57 auto-fixable) derived from:
+- Official tool specifications (Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, and more)
+- Research papers on agent reliability and prompt injection
+- Real-world testing across 500+ repositories
+- Community-reported issues and edge cases
+
+**Supported files:**
+
+| File Type | Examples |
+|-----------|----------|
+| Skills | `SKILL.md`, `*/SKILL.md` |
+| Memory | `CLAUDE.md`, `AGENTS.md`, `.github/CLAUDE.md` |
+| Hooks | `.claude/settings.json`, hooks configuration |
+| MCP | `*.mcp.json`, MCP server configs |
+| Cursor | `.cursor/rules/*.mdc`, `.cursorrules` |
+| Copilot | `.github/copilot-instructions.md` |
+
+**CI/CD Integration:**
+
+agnix outputs SARIF format for GitHub Code Scanning. Add it to your workflow:
+
+```yaml
+- name: Lint agent configs
+  run: agnix --format sarif > results.sarif
+- uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
+```
+
+**Usage:**
+
+```bash
+/agnix                       # Validate current project
+/agnix --fix                 # Auto-fix fixable issues
+/agnix --strict              # Treat warnings as errors
+/agnix --target claude-code  # Only Claude Code rules
+/agnix --format sarif        # Output for GitHub Code Scanning
+```
+
+**Agent:** agnix-agent (sonnet model)
+
+**External tool:** Requires [agnix CLI](https://github.com/avifenesh/agnix)
+
+```bash
+npm install -g agnix         # Install via npm
+# or
+cargo install agnix-cli      # Install via Cargo
+# or
+brew install agnix           # Install via Homebrew (macOS)
+```
+
+**Why use agnix:**
+- Catch config errors before they cause agent failures
+- Enforce security best practices across your team
+- Maintain consistency as your agent configs grow
+- Integrate validation into CI/CD pipelines
+- Support multiple AI tools from one linter
 
 ---
 
@@ -532,88 +614,6 @@ agent-knowledge/
 ```
 
 **Agent:** learn-agent (opus model for research quality)
-
----
-
-### /agnix
-
-**Purpose:** Lint agent configurations before they break your workflow. The first dedicated linter for AI agent configs.
-
-**[agnix](https://github.com/avifenesh/agnix)** is a standalone open-source project that provides the validation engine. This plugin integrates it into your workflow.
-
-**The problem it solves:**
-
-Agent configurations are code. They affect behavior, security, and reliability. But unlike application code, they have no linting. You find out your SKILL.md is malformed when the agent fails. You discover your hooks have security issues when they're exploited. You realize your CLAUDE.md has conflicting rules when the AI behaves unexpectedly.
-
-agnix catches these issues before they cause problems.
-
-**What it validates:**
-
-| Category | What It Checks |
-|----------|----------------|
-| **Structure** | Required fields, valid YAML/JSON, proper frontmatter |
-| **Security** | Prompt injection vectors, overpermissive tools, exposed secrets |
-| **Consistency** | Conflicting rules, duplicate definitions, broken references |
-| **Best Practices** | Tool restrictions, model selection, trigger phrase quality |
-| **Cross-Platform** | Compatibility across Claude Code, Cursor, Copilot, Codex, OpenCode, Gemini CLI, Cline, and more |
-
-**155 validation rules** (57 auto-fixable) derived from:
-- Official tool specifications (Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, and more)
-- Research papers on agent reliability and prompt injection
-- Real-world testing across 500+ repositories
-- Community-reported issues and edge cases
-
-**Supported files:**
-
-| File Type | Examples |
-|-----------|----------|
-| Skills | `SKILL.md`, `*/SKILL.md` |
-| Memory | `CLAUDE.md`, `AGENTS.md`, `.github/CLAUDE.md` |
-| Hooks | `.claude/settings.json`, hooks configuration |
-| MCP | `*.mcp.json`, MCP server configs |
-| Cursor | `.cursor/rules/*.mdc`, `.cursorrules` |
-| Copilot | `.github/copilot-instructions.md` |
-
-**CI/CD Integration:**
-
-agnix outputs SARIF format for GitHub Code Scanning. Add it to your workflow:
-
-```yaml
-- name: Lint agent configs
-  run: agnix --format sarif > results.sarif
-- uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: results.sarif
-```
-
-**Usage:**
-
-```bash
-/agnix                       # Validate current project
-/agnix --fix                 # Auto-fix fixable issues
-/agnix --strict              # Treat warnings as errors
-/agnix --target claude-code  # Only Claude Code rules
-/agnix --format sarif        # Output for GitHub Code Scanning
-```
-
-**Agent:** agnix-agent (sonnet model)
-
-**External tool:** Requires [agnix CLI](https://github.com/avifenesh/agnix)
-
-```bash
-npm install -g agnix         # Install via npm
-# or
-cargo install agnix-cli      # Install via Cargo
-# or
-brew install agnix           # Install via Homebrew (macOS)
-```
-
-**Why use agnix:**
-- Catch config errors before they cause agent failures
-- Enforce security best practices across your team
-- Maintain consistency as your agent configs grow
-- Integrate validation into CI/CD pipelines
-- Support multiple AI tools from one linter
 
 ---
 

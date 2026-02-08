@@ -54,6 +54,13 @@
       "category": "workflow"
     },
     {
+      "name": "/agnix",
+      "tagline": "Lint agent configs before they break",
+      "description": "155 validation rules (57 auto-fixable) for Skills, Memory, Hooks, MCP, and Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, and Gemini CLI. SARIF output for GitHub Code Scanning.",
+      "example": "/agnix --fix",
+      "category": "linting"
+    },
+    {
       "name": "/ship",
       "tagline": "Branch to merged PR in one command",
       "description": "Commits, pushes, creates PR, monitors CI, waits for auto-reviewers, addresses every comment, merges, deploys, and cleans up. Platform auto-detection for GitHub Actions, Railway, Vercel, and more.",
@@ -115,13 +122,6 @@
       "description": "Progressive discovery gathers 10-40 online sources, scores them by quality, and synthesizes a structured guide with RAG index. Creates reusable knowledge in agent-knowledge/.",
       "example": "/learn react hooks --depth=deep",
       "category": "learning"
-    },
-    {
-      "name": "/agnix",
-      "tagline": "Lint agent configs before they break",
-      "description": "155 validation rules (57 auto-fixable) for Skills, Memory, Hooks, MCP, and Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, and Gemini CLI. SARIF output for GitHub Code Scanning.",
-      "example": "/agnix --fix",
-      "category": "linting"
     }
   ],
   "philosophy": [

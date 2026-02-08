@@ -130,6 +130,12 @@
   --glow-accent-hero:      0 0 40px rgba(168, 85, 247, 0.3),
                            0 0 100px rgba(168, 85, 247, 0.15),
                            0 0 200px rgba(6, 182, 212, 0.08);
+  --glow-card-hover:       0 0 0 1px rgba(168, 85, 247, 0.1),
+                           0 4px 20px rgba(168, 85, 247, 0.08),
+                           0 0 60px rgba(168, 85, 247, 0.04);
+  --glow-btn-hover:        0 0 0 1px rgba(168, 85, 247, 0.2),
+                           0 4px 16px rgba(168, 85, 247, 0.2),
+                           0 0 40px rgba(168, 85, 247, 0.08);
   --glow-cyan:             0 0 20px rgba(6, 182, 212, 0.15),
                            0 0 60px rgba(6, 182, 212, 0.05);
 
@@ -275,8 +281,10 @@
   --glass-blur:            12px;                          /* Standard blur   */
   --glass-blur-heavy:      24px;                          /* Strong blur     */
   --glass-blur-light:      6px;                           /* Subtle blur     */
+  --glass-bg-elevated:     rgba(24, 24, 27, 0.6);                 /* Elevated */
   --glass-border:          1px solid rgba(255, 255, 255, 0.06);  /* Edge    */
   --glass-border-accent:   1px solid rgba(168, 85, 247, 0.12);  /* Accent  */
+  --glass-border-top-highlight: 1px solid rgba(255, 255, 255, 0.1); /* Top edge highlight */
 
   /* ========================================================================
    * ANIMATION
@@ -303,6 +311,9 @@
   --ease-in-out:           cubic-bezier(0.65, 0, 0.35, 1);    /* Move: symmetrical smooth           */
   --ease-bounce:           cubic-bezier(0.34, 1.56, 0.64, 1); /* Playful overshoot (use sparingly)  */
   --ease-spring:           cubic-bezier(0.22, 1.5, 0.36, 1);  /* Subtle spring for micro-interaction*/
+
+  /* Stagger delay for sequential animations */
+  --stagger-delay:         80ms;
 
   /* ========================================================================
    * Z-INDEX SCALE
