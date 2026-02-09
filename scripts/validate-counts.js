@@ -24,6 +24,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const discovery = require(path.join(__dirname, '..', 'lib', 'discovery'));
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 
@@ -37,47 +38,19 @@ const DOC_FILES = [
   'package.json'
 ];
 
-// Actual counts from filesystem
+// Actual counts from filesystem via discovery module
 function getActualCounts() {
-  const pluginsDir = path.join(REPO_ROOT, 'plugins');
-  const plugins = fs.readdirSync(pluginsDir).filter(f => {
-    const stat = fs.statSync(path.join(pluginsDir, f));
-    return stat.isDirectory();
-  });
-
-  let fileBasedAgentCount = 0;
-  let skillCount = 0;
-
-  plugins.forEach(plugin => {
-    const agentsDir = path.join(pluginsDir, plugin, 'agents');
-    const skillsDir = path.join(pluginsDir, plugin, 'skills');
-
-    if (fs.existsSync(agentsDir)) {
-      const agents = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md'));
-      fileBasedAgentCount += agents.length;
-    }
-
-    if (fs.existsSync(skillsDir)) {
-      const skills = fs.readdirSync(skillsDir);
-      skills.forEach(skill => {
-        const skillFile = path.join(skillsDir, skill, 'SKILL.md');
-        if (fs.existsSync(skillFile)) {
-          skillCount++;
-        }
-      });
-    }
-  });
+  const result = discovery.discoverAll(REPO_ROOT);
 
   // Role-based agents are defined inline (audit-project has 10)
   const roleBasedAgentCount = 10;
-  const totalAgentCount = fileBasedAgentCount + roleBasedAgentCount;
 
   return {
-    plugins: plugins.length,
-    fileBasedAgents: fileBasedAgentCount,
+    plugins: result.plugins.length,
+    fileBasedAgents: result.agents.length,
     roleBasedAgents: roleBasedAgentCount,
-    totalAgents: totalAgentCount,
-    skills: skillCount
+    totalAgents: result.agents.length + roleBasedAgentCount,
+    skills: result.skills.length
   };
 }
 

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **Plugin Discovery** - Convention-based filesystem scanning replaces 14+ hardcoded registration lists (#182)
+  - New `lib/discovery/` module auto-discovers plugins, commands, agents, and skills
+  - `bin/cli.js`, `scripts/dev-install.js`, `scripts/bump-version.js` use discovery calls
+  - Adding a new plugin no longer requires updating registration points
+  - Fixed stale lists in `dev-install.js` and `bump-version.js` (missing learn, agnix)
+  - Added `codex-description` frontmatter for Codex trigger phrases
+  - `scripts/sync-lib.sh` reads from generated `plugins.txt` manifest
+  - Deprecated `adapters/opencode/install.sh` and `adapters/codex/install.sh`
 - **README /agnix Documentation** - Expanded agnix section to be on par with other major commands
   - Added "The problem it solves" section explaining why agent config linting matters
   - Added "What it validates" table with 5 categories (Structure, Security, Consistency, Best Practices, Cross-Platform)
