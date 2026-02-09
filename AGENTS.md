@@ -104,9 +104,18 @@ bin/cli.js    → npm CLI installer
 
 ### Dev Commands
 ```bash
+awesome-slash-dev status           # Project health (version, counts, branch)
+awesome-slash-dev validate         # Run all validators
+awesome-slash-dev validate plugins # Run single validator
+awesome-slash-dev bump <version>   # Bump all version files (e.g., 3.7.3)
+awesome-slash-dev sync-lib         # Sync lib/ to plugins/
+awesome-slash-dev test             # Run test suite
+awesome-slash-dev --help           # Show all commands
+
+# npm aliases still work:
 npm test                     # Run tests (do before commits)
-npm run bump <version>       # Bump all version files (e.g., 3.7.3)
-./scripts/sync-lib.sh        # Sync lib/ to plugins/
+npm run validate             # All validators via dev-cli
+npm run bump <version>       # Bump versions via dev-cli
 npm pack                     # Build package
 awesome-slash                # Run installer
 ```
