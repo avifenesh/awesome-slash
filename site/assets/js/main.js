@@ -675,29 +675,48 @@
     var fadeOutDuration = Math.round(parseFloat(rootStyles.getPropertyValue('--duration-normal')) * 1000) || 200;
     var fadeInDuration = Math.round(parseFloat(rootStyles.getPropertyValue('--duration-moderate')) * 1000) || 400;
 
-    // SVG icons for the 3 step positions
-    var stepIcons = [
-      '<svg class="steps__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
-      '<svg class="steps__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
-      '<svg class="steps__icon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>'
+    // SVG icons cloned from <template> tags in index.html (separates markup from behavior)
+    var stepIconTemplates = [
+      document.getElementById('tpl-step-icon-0'),
+      document.getElementById('tpl-step-icon-1'),
+      document.getElementById('tpl-step-icon-2')
     ];
+    var connectorTemplate = document.getElementById('tpl-step-connector');
 
-    var connectorSvg = '<svg width="40" height="2" viewBox="0 0 40 2"><line x1="0" y1="1" x2="40" y2="1" stroke="currentColor" stroke-dasharray="4 4"/></svg>';
-
-    function buildStepsHTML(data) {
-      var html = '';
+    function buildSteps(container, data) {
+      while (container.firstChild) {
+        container.removeChild(container.firstChild);
+      }
       data.steps.forEach(function (step, i) {
         if (i > 0) {
-          html += '<div class="steps__connector" aria-hidden="true">' + connectorSvg + '</div>';
+          var connector = document.createElement('div');
+          connector.className = 'steps__connector';
+          connector.setAttribute('aria-hidden', 'true');
+          connector.appendChild(connectorTemplate.content.cloneNode(true));
+          container.appendChild(connector);
         }
-        html += '<div class="steps__card">' +
-          '<span class="steps__number">' + (i + 1) + '</span>' +
-          stepIcons[i] +
-          '<h3 class="steps__card-title">' + step.title + '</h3>' +
-          '<p class="steps__card-desc">' + step.desc + '</p>' +
-          '</div>';
+        var card = document.createElement('div');
+        card.className = 'steps__card';
+
+        var num = document.createElement('span');
+        num.className = 'steps__number';
+        num.textContent = i + 1;
+        card.appendChild(num);
+
+        card.appendChild(stepIconTemplates[i].content.cloneNode(true));
+
+        var title = document.createElement('h3');
+        title.className = 'steps__card-title';
+        title.textContent = step.title;
+        card.appendChild(title);
+
+        var desc = document.createElement('p');
+        desc.className = 'steps__card-desc';
+        desc.textContent = step.desc;
+        card.appendChild(desc);
+
+        container.appendChild(card);
       });
-      return html;
     }
 
     function updateHowItWorks(index) {
@@ -713,7 +732,7 @@
 
       if (prefersReduced) {
         subtitleEl.textContent = data.subtitle;
-        stepsContainer.innerHTML = buildStepsHTML(data);
+        buildSteps(stepsContainer, data);
         return;
       }
 
@@ -722,7 +741,7 @@
 
       setTimeout(function () {
         subtitleEl.textContent = data.subtitle;
-        stepsContainer.innerHTML = buildStepsHTML(data);
+        buildSteps(stepsContainer, data);
         stepsContainer.classList.remove('steps--transitioning');
         stepsContainer.classList.add('steps--entering');
 
