@@ -9,6 +9,14 @@ argument-hint: "[path] [--fix]"
 
 Analyze hook definitions and scripts for safety, correctness, and best practices.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+const fix = args.includes('--fix');
+```
+
 ## Workflow
 
 1. **Discover** - Find hook files (.md, .sh, .json)

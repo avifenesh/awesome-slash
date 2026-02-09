@@ -39,7 +39,7 @@
    - Run the `/enhance` command on new or modified commands, agents, skills, hooks or prompts
    - Verify cross-platform compatibility (OpenCode + Codex)
    - Update `bin/cli.js` mappings if new command/agent added
-   - Don't mark complete until ALL checklist items are done
+   - Only mark complete after ALL checklist items are done
    *WHY: Checklists exist because we kept missing things. They are the definition of "done".*
 
 8. **Use plain text markers** - MUST use `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` for status. NEVER use emojis or ASCII art boxes.

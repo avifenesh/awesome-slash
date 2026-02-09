@@ -9,6 +9,15 @@ argument-hint: "[path] [--fix] [--ai]"
 
 Analyze documentation for readability, structure, and RAG optimization.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+const fix = args.includes('--fix');
+const aiMode = args.includes('--ai');
+```
+
 ## Documentation Locations
 
 | Type | Location | Purpose |

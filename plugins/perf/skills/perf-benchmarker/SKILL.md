@@ -11,6 +11,14 @@ Run sequential benchmarks with strict duration rules.
 
 Follow `docs/perf-requirements.md` as the canonical contract.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const command = args.find(a => !a.match(/^\d+$/)) || '';
+const duration = parseInt(args.find(a => a.match(/^\d+$/)) || '60', 10);
+```
+
 ## Required Rules
 
 - Benchmarks MUST run sequentially (never parallel).

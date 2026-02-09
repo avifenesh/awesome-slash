@@ -9,6 +9,14 @@ argument-hint: "[path] [--fix]"
 
 Analyze prompts for clarity, structure, examples, and output reliability.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+const fix = args.includes('--fix');
+```
+
 ## Differentiation from enhance-agent-prompts
 
 | Skill | Focus | Use When |

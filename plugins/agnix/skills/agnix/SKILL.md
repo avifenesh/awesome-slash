@@ -9,6 +9,16 @@ argument-hint: "[path] [--fix] [--strict] [--target=claude-code|cursor|codex]"
 
 Lint agent configurations before they break your workflow. Validates Skills, Hooks, MCP, Memory, Plugins across 10+ AI tools including Claude Code, Cursor, GitHub Copilot, Codex CLI, OpenCode, Gemini CLI, Cline, Windsurf, Kiro, and Amp.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+const fix = args.includes('--fix');
+const strict = args.includes('--strict');
+const target = args.find(a => a.startsWith('--target='))?.split('=')[1] || 'claude-code';
+```
+
 ## When to Use
 
 Invoke when user asks to:

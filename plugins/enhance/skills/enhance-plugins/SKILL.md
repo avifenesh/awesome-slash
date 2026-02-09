@@ -9,6 +9,14 @@ argument-hint: "[path] [--fix]"
 
 Analyze plugin structures, MCP tools, and security patterns against best practices.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+const fix = args.includes('--fix');
+```
+
 ## Plugin Locations
 
 | Platform | Location |

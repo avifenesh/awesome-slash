@@ -9,6 +9,15 @@ argument-hint: "[path] [--fix] [--verbose]"
 
 Analyze agent prompt files for prompt engineering best practices.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+const fix = args.includes('--fix');
+const verbose = args.includes('--verbose');
+```
+
 ## Agent File Locations
 
 | Platform | Global | Project |

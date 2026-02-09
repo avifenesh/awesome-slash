@@ -9,6 +9,15 @@ argument-hint: "[report|apply] [--scope=all|diff|path] [--thoroughness=quick|nor
 
 Clean AI slop from code with certainty-based findings and auto-fixes.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const mode = args.find(a => ['report', 'apply'].includes(a)) || 'report';
+const scope = args.find(a => a.startsWith('--scope='))?.split('=')[1] || 'all';
+const thoroughness = args.find(a => a.startsWith('--thoroughness='))?.split('=')[1] || 'normal';
+```
+
 ## Input
 
 Arguments: `[report|apply] [--scope=<path>|all|diff] [--thoroughness=quick|normal|deep]`

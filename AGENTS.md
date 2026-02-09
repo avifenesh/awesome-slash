@@ -11,7 +11,7 @@
    *WHY: Breaking changes affect all plugin users immediately.*
 
 2. **Plugin for OTHER projects** - Optimize for plugin users, not internal dev convenience.
-   *WHY: Every decision should improve the experience for developers using this in their repos.*
+   *WHY: Every decision MUST improve the experience for developers using this in their repos.*
 
 3. **Use CHANGELOG.md for completion tracking** - MUST use CHANGELOG.md for release notes. NEVER create `*_AUDIT.md`, `*_SUMMARY.md`, `*_COMPLETION.md` files.
    *WHY: Summary files clutter repos and add no value. Report completion verbally.*
@@ -39,7 +39,7 @@
    - Run the `/enhance` command on new or modified commands, agents, skills, hooks or prompts
    - Verify cross-platform compatibility (OpenCode + Codex)
    - Update `bin/cli.js` mappings if new command/agent added
-   - Don't mark complete until ALL checklist items are done
+   - Only mark complete after ALL checklist items are done
    *WHY: Checklists exist because we kept missing things. They are the definition of "done".*
 
 8. **Use plain text markers** - MUST use `[OK]`, `[ERROR]`, `[WARN]`, `[CRITICAL]` for status. NEVER use emojis or ASCII art boxes.

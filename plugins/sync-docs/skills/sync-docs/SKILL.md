@@ -10,6 +10,15 @@ allowed-tools: Bash(git:*), Read, Grep, Glob
 
 Unified skill for syncing documentation with code state. Combines discovery, analysis, and CHANGELOG update into a single workflow.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const mode = args.find(a => ['report', 'apply'].includes(a)) || 'report';
+const scope = args.find(a => a.startsWith('--scope='))?.split('=')[1] || 'recent';
+const includeUndocumented = args.includes('--include-undocumented');
+```
+
 ## Quick Start - Agent Instructions
 
 **Step 1**: Get changed files (use Bash):

@@ -12,6 +12,7 @@ exclude = [
 ]
 target = "ClaudeCode"
 tools = []
+locale = "en"
 
 [rules]
 skills = true
@@ -32,9 +33,15 @@ frontmatter_validation = true
 xml_balance = true
 import_references = true
 disabled_rules = [
-    "hardcoded-claude-path",   # Intentional - we document platform paths
-    "hardcoded-opencode-path", # Intentional - we document platform paths
-    "windows-path-separator",  # False positives on regex escape sequences (\n, \s, \d)
+    "XP-003",      # Intentional - we document all 3 platform paths (.claude/, .opencode/, .codex/)
+    "AS-014",      # False positives on regex escape sequences (\n, \s, \d)
+    "CC-AG-009",   # False positive - Skill, AskUserQuestion, LSP are valid Claude Code tools
+    "CC-MEM-009",  # Intentional - CLAUDE.md uses structured sections, size is necessary
+    "AGM-006",     # Intentional - root AGENTS.md (instructions) + docs/reference/AGENTS.md (reference)
+    "AGM-003",     # docs/reference/AGENTS.md is a comprehensive reference doc
+    "PE-001",      # Reference docs have structured layout; middle placement is intentional
+    "AS-012",      # enhance-hooks is a comprehensive hook reference (needs >500 lines)
+    "CC-SK-009",   # enhance-skills contains example injections for teaching purposes
 ]
 
 [tool_versions]

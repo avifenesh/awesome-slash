@@ -9,6 +9,13 @@ argument-hint: "[path]"
 
 Analyze cross-file semantic consistency across agents, skills, and workflows.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const targetPath = args.find(a => !a.startsWith('--')) || '.';
+```
+
 ## Purpose
 
 Detects issues that span multiple files - things single-file analysis misses:

@@ -9,6 +9,14 @@ argument-hint: "[topic] [--depth=brief|medium|deep]"
 
 Research any topic by gathering online resources and creating a comprehensive learning guide with RAG-optimized indexes.
 
+## Parse Arguments
+
+```javascript
+const args = '$ARGUMENTS'.split(' ').filter(Boolean);
+const depth = args.find(a => a.startsWith('--depth='))?.split('=')[1] || 'medium';
+const topic = args.filter(a => !a.startsWith('--')).join(' ');
+```
+
 ## Input
 
 Arguments: `<topic> [--depth=brief|medium|deep]`
