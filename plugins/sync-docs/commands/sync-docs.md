@@ -1,5 +1,6 @@
 ---
 description: Use when user asks to "update docs", "sync documentation", "fix outdated docs", "update changelog", "docs are stale", or after completing code changes that might affect documentation.
+codex-description: 'Use when user asks to "update docs", "sync documentation", "fix outdated docs", "refresh README". Compares documentation to actual code and fixes discrepancies.'
 argument-hint: "[report|apply] [--scope=recent|all|before-pr] [path]"
 ---
 

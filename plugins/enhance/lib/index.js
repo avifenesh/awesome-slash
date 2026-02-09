@@ -28,6 +28,7 @@ const enhance = require('./enhance');
 const repoMap = require('./repo-map');
 const perf = require('./perf');
 const collectors = require('./collectors');
+const discoveryModule = require('./discovery');
 
 /**
  * Platform detection and verification utilities
@@ -219,6 +220,23 @@ const xplat = {
   INSTRUCTION_FILES: crossPlatform.INSTRUCTION_FILES
 };
 
+/**
+ * Plugin discovery via filesystem convention
+ * @see module:discovery
+ */
+const discovery = {
+  parseFrontmatter: discoveryModule.parseFrontmatter,
+  discoverPlugins: discoveryModule.discoverPlugins,
+  discoverCommands: discoveryModule.discoverCommands,
+  discoverAgents: discoveryModule.discoverAgents,
+  discoverSkills: discoveryModule.discoverSkills,
+  discoverAll: discoveryModule.discoverAll,
+  getCommandMappings: discoveryModule.getCommandMappings,
+  getCodexSkillMappings: discoveryModule.getCodexSkillMappings,
+  getPluginPrefixRegex: discoveryModule.getPluginPrefixRegex,
+  invalidateCache: discoveryModule.invalidateCache
+};
+
 // Main exports
 module.exports = {
   platform,
@@ -232,6 +250,7 @@ module.exports = {
   repoMap,
   perf,
   collectors,
+  discovery,
 
   // Direct module access for backward compatibility
   detectPlatform,
@@ -246,5 +265,6 @@ module.exports = {
   sourceCache,
   customHandler,
   policyQuestions,
-  crossPlatform
+  crossPlatform,
+  discoveryModule
 };

@@ -18,15 +18,13 @@ describe('dev-install script', () => {
       expect(devInstallSource.startsWith('#!/usr/bin/env node')).toBe(true);
     });
 
-    test('defines PLUGINS array', () => {
-      expect(devInstallSource.includes("const PLUGINS = ['next-task'")).toBe(true);
+    test('defines PLUGINS via discovery', () => {
+      expect(devInstallSource.includes('discovery.discoverPlugins')).toBe(true);
     });
 
-    test('includes all 9 plugins', () => {
-      const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf'];
-      for (const plugin of plugins) {
-        expect(devInstallSource.includes(`'${plugin}'`)).toBe(true);
-      }
+    test('uses discovery module', () => {
+      expect(devInstallSource.includes("require(")).toBe(true);
+      expect(devInstallSource.includes("discovery")).toBe(true);
     });
 
     test('defines installClaude function', () => {

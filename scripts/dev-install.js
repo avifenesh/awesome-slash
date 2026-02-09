@@ -26,6 +26,7 @@ const path = require('path');
 // Source directory is the project root
 const SOURCE_DIR = path.join(__dirname, '..');
 const VERSION = require(path.join(SOURCE_DIR, 'package.json')).version;
+const discovery = require(path.join(SOURCE_DIR, 'lib', 'discovery'));
 
 // Target directories
 const HOME = process.env.HOME || process.env.USERPROFILE;
@@ -49,8 +50,8 @@ const LEGACY_OPENCODE_DIR = path.join(HOME, '.opencode');
 const CODEX_DIR = path.join(HOME, '.codex');
 const AWESOME_SLASH_DIR = path.join(HOME, '.awesome-slash');
 
-// Plugins list
-const PLUGINS = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf'];
+// Discover plugins from filesystem
+const PLUGINS = discovery.discoverPlugins(SOURCE_DIR);
 
 function log(msg) {
   console.log(`[dev-install] ${msg}`);
@@ -87,25 +88,9 @@ function cleanAll() {
   const opencodeAgentsDir = path.join(OPENCODE_CONFIG_DIR, 'agents');
   // Note: Skills cleanup not implemented yet - would need skill list similar to agents
 
-  // List of agent filenames we install (from plugins/*/agents/*.md)
-  // Generated from: ls plugins/*/agents/*.md | xargs basename | sort -u
-  const knownAgents = [
-    'agent-enhancer.md', 'ci-fixer.md', 'ci-monitor.md', 'claudemd-enhancer.md',
-    'delivery-validator.md', 'deslop-agent.md', 'docs-enhancer.md', 'enhancement-orchestrator.md',
-    'exploration-agent.md', 'hooks-enhancer.md', 'implementation-agent.md', 'learn-agent.md',
-    'map-validator.md', 'perf-analyzer.md', 'perf-code-paths.md', 'perf-investigation-logger.md',
-    'perf-orchestrator.md', 'perf-theory-gatherer.md', 'perf-theory-tester.md', 'plan-synthesizer.md',
-    'planning-agent.md', 'plugin-enhancer.md', 'prompt-enhancer.md', 'simple-fixer.md',
-    'skills-enhancer.md', 'sync-docs-agent.md', 'task-discoverer.md', 'test-coverage-checker.md',
-    'worktree-manager.md'
-  ];
-
-  // Known commands we install
-  const knownCommands = [
-    'deslop.md', 'enhance.md', 'next-task.md', 'delivery-approval.md',
-    'sync-docs.md', 'audit-project.md', 'ship.md', 'drift-detect.md',
-    'repo-map.md', 'perf.md'
-  ];
+  // Discover agent and command filenames from filesystem
+  const knownAgents = discovery.discoverAgents(SOURCE_DIR).map(a => a.file);
+  const knownCommands = discovery.discoverCommands(SOURCE_DIR).map(c => c.file);
 
   // Clean commands (remove our files, not the whole directory)
   if (fs.existsSync(opencodeCommandsDir)) {
@@ -359,19 +344,8 @@ function installOpenCode() {
     );
   }
 
-  // Copy commands
-  const commandMappings = [
-    ['deslop.md', 'deslop', 'deslop.md'],
-    ['enhance.md', 'enhance', 'enhance.md'],
-    ['next-task.md', 'next-task', 'next-task.md'],
-    ['delivery-approval.md', 'next-task', 'delivery-approval.md'],
-    ['sync-docs.md', 'sync-docs', 'sync-docs.md'],
-    ['audit-project.md', 'audit-project', 'audit-project.md'],
-    ['ship.md', 'ship', 'ship.md'],
-    ['drift-detect.md', 'drift-detect', 'drift-detect.md'],
-    ['repo-map.md', 'repo-map', 'repo-map.md'],
-    ['perf.md', 'perf', 'perf.md']
-  ];
+  // Discover command mappings from filesystem
+  const commandMappings = discovery.getCommandMappings(SOURCE_DIR);
 
   for (const [target, plugin, source] of commandMappings) {
     const srcPath = path.join(SOURCE_DIR, 'plugins', plugin, 'commands', source);
@@ -459,19 +433,8 @@ function installCodex() {
   // Copy to ~/.awesome-slash first
   copyToAwesomeSlash();
 
-  // Skill mappings
-  const skillMappings = [
-    ['enhance', 'enhance', 'enhance.md', 'Runs enhancement analyzers on prompts, agents, plugins, docs.'],
-    ['next-task', 'next-task', 'next-task.md', 'Orchestrates complete task-to-production workflow.'],
-    ['ship', 'ship', 'ship.md', 'Complete PR workflow: commit, create PR, monitor CI, merge.'],
-    ['deslop', 'deslop', 'deslop.md', 'Detects and removes AI-generated slop patterns.'],
-    ['audit-project', 'audit-project', 'audit-project.md', 'Multi-agent iterative code review.'],
-    ['drift-detect', 'drift-detect', 'drift-detect.md', 'Analyzes documentation vs actual code.'],
-    ['repo-map', 'repo-map', 'repo-map.md', 'Builds AST-based repo map using ast-grep.'],
-    ['perf', 'perf', 'perf.md', 'Structured perf investigations with baselines.'],
-    ['delivery-approval', 'next-task', 'delivery-approval.md', 'Autonomous validation for shipping.'],
-    ['sync-docs', 'sync-docs', 'sync-docs.md', 'Compares documentation to actual code.']
-  ];
+  // Discover skill mappings from filesystem (descriptions from codex-description frontmatter)
+  const skillMappings = discovery.getCodexSkillMappings(SOURCE_DIR);
 
   for (const [skillName, plugin, sourceFile, description] of skillMappings) {
     const srcPath = path.join(SOURCE_DIR, 'plugins', plugin, 'commands', sourceFile);

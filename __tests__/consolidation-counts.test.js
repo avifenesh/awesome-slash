@@ -1,5 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const discovery = require('../lib/discovery');
+
+const REPO_ROOT = path.join(__dirname, '..');
 
 describe('consolidation counts verification', () => {
   const pluginsDir = path.join(__dirname, '..', 'plugins');
@@ -223,6 +226,53 @@ describe('consolidation counts verification', () => {
         expect(agentCount).toBe(counts.agents);
         expect(skillCount).toBe(counts.skills);
       });
+    });
+  });
+
+  describe('discovery module consistency', () => {
+    beforeEach(() => {
+      discovery.invalidateCache();
+    });
+
+    test('discovery plugin count matches filesystem count', () => {
+      const discovered = discovery.discoverPlugins(REPO_ROOT);
+      expect(discovered.length).toBe(11);
+    });
+
+    test('discovery agent count matches filesystem count', () => {
+      const discovered = discovery.discoverAgents(REPO_ROOT);
+      expect(discovered.length).toBe(30);
+    });
+
+    test('discovery skill count matches filesystem count', () => {
+      const discovered = discovery.discoverSkills(REPO_ROOT);
+      expect(discovered.length).toBe(26);
+    });
+
+    test('discovery per-plugin counts match expected counts', () => {
+      const expectedCounts = {
+        'next-task': { agents: 10, skills: 3 },
+        'enhance': { agents: 8, skills: 9 },
+        'ship': { agents: 0, skills: 0 },
+        'perf': { agents: 6, skills: 8 },
+        'audit-project': { agents: 0, skills: 0 },
+        'deslop': { agents: 1, skills: 1 },
+        'drift-detect': { agents: 1, skills: 1 },
+        'repo-map': { agents: 1, skills: 1 },
+        'sync-docs': { agents: 1, skills: 1 },
+        'learn': { agents: 1, skills: 1 },
+        'agnix': { agents: 1, skills: 1 }
+      };
+
+      const agents = discovery.discoverAgents(REPO_ROOT);
+      const skills = discovery.discoverSkills(REPO_ROOT);
+
+      for (const [plugin, counts] of Object.entries(expectedCounts)) {
+        const pluginAgents = agents.filter(a => a.plugin === plugin);
+        const pluginSkills = skills.filter(s => s.plugin === plugin);
+        expect(pluginAgents.length).toBe(counts.agents);
+        expect(pluginSkills.length).toBe(counts.skills);
+      }
     });
   });
 });

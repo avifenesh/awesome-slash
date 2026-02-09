@@ -1,6 +1,7 @@
 ---
 name: enhance
 description: Analyze plugins, agents, prompts, docs, hooks, and skills for best-practice gaps
+codex-description: 'Use when user asks to "enhance prompts", "improve agents", "analyze plugins", "optimize documentation", "review CLAUDE.md". Runs 5 parallel analyzers on prompts, agents, plugins, docs, and project memory files.'
 argument-hint: "[target-path] [--apply] [--focus=TYPE] [--verbose] [--show-suppressed] [--no-learn] [--reset-learned] [--export-learned]"
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: Master workflow orchestrator with autonomous task-to-production automation
+codex-description: 'Use when user asks to "find next task", "what should I work on", "automate workflow", "implement and ship", "run next-task". Orchestrates complete task-to-production workflow: discovery, implementation, review, and delivery.'
 argument-hint: "[filter] [--status] [--resume] [--abort] [--implement]"
 allowed-tools: Bash(git:*), Bash(gh:*), Bash(npm:*), Bash(node:*), Read, Write, Edit, Glob, Grep, Task, AskUserQuestion
 ---

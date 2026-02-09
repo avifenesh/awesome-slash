@@ -16,6 +16,7 @@ const readline = require('readline');
 const VERSION = require('../package.json').version;
 // Use the installed npm package directory as source (no git clone needed)
 const PACKAGE_DIR = path.join(__dirname, '..');
+const discovery = require('../lib/discovery');
 
 // Valid tool names
 const VALID_TOOLS = ['claude', 'opencode', 'codex'];
@@ -219,8 +220,8 @@ function installForClaude() {
       // May already exist
     }
 
-    // PLUGINS_ARRAY - Install or update plugins
-    const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf', 'learn', 'agnix'];
+    // Discover plugins from filesystem convention
+    const plugins = discovery.discoverPlugins(PACKAGE_DIR);
     for (const plugin of plugins) {
       console.log(`  Installing ${plugin}...`);
       try {
@@ -237,7 +238,7 @@ function installForClaude() {
     }
 
     console.log('\n[OK] Claude Code installation complete!\n');
-    console.log('Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf, /learn, /agnix');
+    console.log('Commands: ' + plugins.map(p => '/' + p).join(', '));
     return true;
   } catch (err) {
     console.log('[ERROR] Auto-install failed. Manual installation:');
@@ -261,7 +262,7 @@ function installForClaudeDevelopment() {
   }
 
   const pluginsDir = getClaudePluginsDir();
-  const plugins = ['next-task', 'ship', 'deslop', 'audit-project', 'drift-detect', 'enhance', 'sync-docs', 'repo-map', 'perf', 'learn', 'agnix'];
+  const plugins = discovery.discoverPlugins(PACKAGE_DIR);
 
   // Remove marketplace plugins first
   console.log('Removing marketplace plugins...');
@@ -359,21 +360,8 @@ function installForOpenCode(installDir, options = {}) {
     fs.rmSync(legacyPluginDir, { recursive: true, force: true });
   }
 
-  // OPENCODE_COMMAND_MAPPINGS - Sync command files
-  const commandMappings = [
-    ['deslop.md', 'deslop', 'deslop.md'],
-    ['enhance.md', 'enhance', 'enhance.md'],
-    ['next-task.md', 'next-task', 'next-task.md'],
-    ['delivery-approval.md', 'next-task', 'delivery-approval.md'],
-    ['sync-docs.md', 'sync-docs', 'sync-docs.md'],
-    ['audit-project.md', 'audit-project', 'audit-project.md'],
-    ['ship.md', 'ship', 'ship.md'],
-    ['drift-detect.md', 'drift-detect', 'drift-detect.md'],
-    ['repo-map.md', 'repo-map', 'repo-map.md'],
-    ['perf.md', 'perf', 'perf.md'],
-    ['learn.md', 'learn', 'learn.md'],
-    ['agnix.md', 'agnix', 'agnix.md']
-  ];
+  // Discover command mappings from filesystem
+  const commandMappings = discovery.getCommandMappings(installDir);
 
   // Helper function to transform content for OpenCode
   function transformForOpenCode(content) {
@@ -388,8 +376,9 @@ function installForOpenCode(installDir, options = {}) {
 
     // Strip plugin prefix from agent references (next-task:agent-name -> agent-name)
     // This is critical - OpenCode agents are installed without the plugin prefix
-    content = content.replace(/`(next-task|deslop|enhance|ship|sync-docs|audit-project|drift-detect|repo-map|perf):([a-z-]+)`/g, '`$2`');
-    content = content.replace(/(next-task|deslop|enhance|ship|sync-docs|audit-project|drift-detect|repo-map|perf):([a-z-]+)/g, '$2');
+    const pluginNames = discovery.discoverPlugins(installDir).join('|');
+    content = content.replace(new RegExp('`(' + pluginNames + '):([a-z-]+)`', 'g'), '`$2`');
+    content = content.replace(new RegExp('(' + pluginNames + '):([a-z-]+)', 'g'), '$2');
 
     // Transform ALL code blocks (with OR without language identifier)
     // Pattern matches: ```javascript, ```js, ```bash, or just ``` (unmarked)
@@ -576,7 +565,7 @@ After user answers, proceed to Phase 2 with the selected policy.
   fs.mkdirSync(agentsDir, { recursive: true });
 
   console.log('  Installing agents for OpenCode...');
-  const pluginDirs = ['next-task', 'enhance', 'audit-project', 'drift-detect', 'ship', 'deslop', 'repo-map', 'perf', 'sync-docs', 'learn', 'agnix'];
+  const pluginDirs = discovery.discoverPlugins(installDir);
   let agentCount = 0;
 
   for (const pluginName of pluginDirs) {
@@ -728,35 +717,8 @@ function installForCodex(installDir) {
     }
   }
 
-  // Skill mappings: [skillName, plugin, sourceFile, description]
-  // CODEX_SKILL_MAPPINGS - Skills with trigger-phrase descriptions
-  // Format: "Use when user asks to 'phrase1', 'phrase2'. Description of what it does."
-  const skillMappings = [
-    ['enhance', 'enhance', 'enhance.md',
-      'Use when user asks to "enhance prompts", "improve agents", "analyze plugins", "optimize documentation", "review CLAUDE.md". Runs 5 parallel analyzers on prompts, agents, plugins, docs, and project memory files.'],
-    ['next-task', 'next-task', 'next-task.md',
-      'Use when user asks to "find next task", "what should I work on", "automate workflow", "implement and ship", "run next-task". Orchestrates complete task-to-production workflow: discovery, implementation, review, and delivery.'],
-    ['ship', 'ship', 'ship.md',
-      'Use when user asks to "ship this", "create PR", "merge to main", "deploy changes", "push to production". Complete PR workflow: commit, create PR, monitor CI, merge, deploy, validate.'],
-    ['deslop', 'deslop', 'deslop.md',
-      'Use when user asks to "clean up slop", "remove AI artifacts", "deslop the codebase", "find debug statements", "remove console.logs", "repo hygiene". Detects and removes AI-generated slop patterns.'],
-    ['audit-project', 'audit-project', 'audit-project.md',
-      'Use when user asks to "review my code", "check for issues", "run code review", "analyze PR quality". Multi-agent iterative review that loops until all critical/high issues are resolved.'],
-    ['drift-detect', 'drift-detect', 'drift-detect.md',
-      'Use when user asks to "check plan drift", "compare docs to code", "verify roadmap", "scan for reality gaps". Analyzes documentation vs actual code to detect drift and outdated plans.'],
-    ['repo-map', 'repo-map', 'repo-map.md',
-      'Use when user asks to "create repo map", "generate repo map", "update repo map", "repo map status", "map symbols". Builds and updates AST-based repo map using ast-grep.'],
-    ['perf', 'perf', 'perf.md',
-      'Use when user asks to "run perf", "performance investigation", "benchmark regression", "profiling workflow", "baseline performance". Runs structured perf investigations with baselines, profiling, hypotheses, and decisions.'],
-    ['delivery-approval', 'next-task', 'delivery-approval.md',
-      'Use when user asks to "validate delivery", "approve for shipping", "check if ready to ship", "verify task completion". Autonomous validation that tests pass, build succeeds, and requirements are met.'],
-    ['sync-docs', 'sync-docs', 'sync-docs.md',
-      'Use when user asks to "update docs", "sync documentation", "fix outdated docs", "refresh README". Compares documentation to actual code and fixes discrepancies.'],
-    ['learn', 'learn', 'learn.md',
-      'Use when user asks to "learn about topic", "research subject", "create learning guide", "build knowledge base", "study topic". Gathers online sources and synthesizes comprehensive guide with RAG index.'],
-    ['agnix', 'agnix', 'agnix.md',
-      'Use when user asks to "lint agent configs", "validate skills", "check CLAUDE.md", "validate hooks", "lint MCP". Validates agent configuration files against 155 rules across 10+ AI tools.']
-  ];
+  // Discover skill mappings from filesystem (descriptions from codex-description frontmatter)
+  const skillMappings = discovery.getCodexSkillMappings(installDir);
 
   for (const [skillName, plugin, sourceFile, description] of skillMappings) {
     const srcPath = path.join(installDir, 'plugins', plugin, 'commands', sourceFile);

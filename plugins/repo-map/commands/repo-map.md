@@ -1,5 +1,6 @@
 ---
 description: Generate and maintain a cached AST repo map (symbols, imports, exports) using ast-grep for accurate drift detection and analysis
+codex-description: 'Use when user asks to "create repo map", "generate repo map", "update repo map", "repo map status", "map symbols". Builds and updates AST-based repo map using ast-grep.'
 argument-hint: "init|update|status|rebuild [--force] [--full]"
 allowed-tools: Bash(git:*), Bash(npm:*), Read, Task, Write, AskUserQuestion
 ---

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const discovery = require(path.join(__dirname, '..', 'lib', 'discovery'));
 
 const ROOT_DIR = path.join(__dirname, '..');
 const PLUGINS_DIR = path.join(ROOT_DIR, 'plugins');
@@ -190,93 +191,76 @@ function validateVersions() {
 }
 
 function validateMappings() {
-  const cliPath = path.join(ROOT_DIR, 'bin', 'cli.js');
-  if (!fs.existsSync(cliPath)) {
-    errors.push('bin/cli.js not found');
-    return;
-  }
-  const cliContent = fs.readFileSync(cliPath, 'utf8');
+  // Use discovery module instead of parsing hardcoded arrays from source
+  const discoveredPlugins = normalizeList(discovery.discoverPlugins(ROOT_DIR));
+  const commandMappings = discovery.getCommandMappings(ROOT_DIR);
+  const skillMappings = discovery.getCodexSkillMappings(ROOT_DIR);
 
-  const cliPlugins = extractStringArray(cliContent, 'plugins');
-  if (!cliPlugins || cliPlugins.length === 0) {
-    errors.push('bin/cli.js plugins array not found');
+  if (discoveredPlugins.length === 0) {
+    errors.push('discovery found no plugins');
   }
 
-  const commandMappings = extractCommandMappings(cliContent);
-  if (!commandMappings || commandMappings.length === 0) {
-    errors.push('bin/cli.js commandMappings not found');
+  if (commandMappings.length === 0) {
+    errors.push('discovery found no command mappings');
   }
 
-  const skillMappings = extractSkillMappings(cliContent);
-  if (!skillMappings || skillMappings.length === 0) {
-    errors.push('bin/cli.js skillMappings not found');
+  if (skillMappings.length === 0) {
+    errors.push('discovery found no skill mappings');
   }
 
   const pluginDirs = normalizeList(listPluginDirs());
   const marketplace = readJson(path.join(ROOT_DIR, '.claude-plugin', 'marketplace.json'), 'marketplace.json');
   const marketplacePlugins = normalizeList((marketplace?.plugins || []).map(p => p.name));
 
-  if (cliPlugins) {
-    compareLists('CLI plugin list vs plugins/', pluginDirs, normalizeList(cliPlugins));
-  }
+  // Compare discovered plugins vs filesystem
+  compareLists('Discovered plugins vs plugins/', pluginDirs, discoveredPlugins);
+
   if (marketplacePlugins.length > 0) {
     compareLists('Marketplace plugins vs plugins/', pluginDirs, marketplacePlugins);
   }
-  if (cliPlugins && marketplacePlugins.length > 0) {
-    compareLists('Marketplace plugins vs CLI plugin list', marketplacePlugins, normalizeList(cliPlugins));
+  if (marketplacePlugins.length > 0) {
+    compareLists('Marketplace plugins vs discovered plugins', marketplacePlugins, discoveredPlugins);
   }
 
-  const agentsPlugins = listPluginsWithAgents();
-  const openCodeAgentPlugins = extractStringArray(cliContent, 'pluginDirs');
-  if (openCodeAgentPlugins && openCodeAgentPlugins.length > 0) {
-    const normalized = normalizeList(openCodeAgentPlugins);
-    const missing = agentsPlugins.filter(plugin => !normalized.includes(plugin));
-    if (missing.length > 0) {
-      errors.push(`OpenCode agent plugins missing: ${missing.join(', ')}`);
+  // Validate command mappings - source files exist
+  const seenTargets = new Set();
+  for (const [target, plugin, source] of commandMappings) {
+    if (seenTargets.has(target)) {
+      errors.push(`commandMappings duplicate target: ${target}`);
+    }
+    seenTargets.add(target);
+
+    const srcPath = path.join(PLUGINS_DIR, plugin, 'commands', source);
+    const resolvedPath = path.resolve(srcPath);
+    if (!isPathWithin(PLUGINS_ROOT, resolvedPath)) {
+      errors.push(`commandMappings path traversal: ${plugin}/${source}`);
+      continue;
+    }
+    if (!fs.existsSync(resolvedPath)) {
+      errors.push(`commandMappings missing source: ${plugin}/${source}`);
     }
   }
 
-  if (commandMappings) {
-    const seenTargets = new Set();
-    for (const entry of commandMappings) {
-      if (seenTargets.has(entry.target)) {
-        errors.push(`commandMappings duplicate target: ${entry.target}`);
-      }
-      seenTargets.add(entry.target);
-
-      const srcPath = path.join(PLUGINS_DIR, entry.plugin, 'commands', entry.source);
-      const resolvedPath = path.resolve(srcPath);
-      if (!isPathWithin(PLUGINS_ROOT, resolvedPath)) {
-        errors.push(`commandMappings path traversal: ${entry.plugin}/${entry.source}`);
-        continue;
-      }
-      if (!fs.existsSync(resolvedPath)) {
-        errors.push(`commandMappings missing source: ${entry.plugin}/${entry.source}`);
-      }
+  // Validate skill mappings - source files exist
+  const commandMapSet = new Set(commandMappings.map(([, plugin, source]) => `${plugin}/${source}`));
+  const seenSkills = new Set();
+  for (const [skill, plugin, source] of skillMappings) {
+    if (seenSkills.has(skill)) {
+      errors.push(`skillMappings duplicate skill: ${skill}`);
     }
-  }
+    seenSkills.add(skill);
 
-  if (skillMappings && commandMappings) {
-    const commandMapSet = new Set(commandMappings.map(entry => `${entry.plugin}/${entry.source}`));
-    const seenSkills = new Set();
-    for (const entry of skillMappings) {
-      if (seenSkills.has(entry.skill)) {
-        errors.push(`skillMappings duplicate skill: ${entry.skill}`);
-      }
-      seenSkills.add(entry.skill);
-
-      const srcPath = path.join(PLUGINS_DIR, entry.plugin, 'commands', entry.source);
-      const resolvedPath = path.resolve(srcPath);
-      if (!isPathWithin(PLUGINS_ROOT, resolvedPath)) {
-        errors.push(`skillMappings path traversal: ${entry.plugin}/${entry.source}`);
-        continue;
-      }
-      if (!fs.existsSync(resolvedPath)) {
-        errors.push(`skillMappings missing source: ${entry.plugin}/${entry.source}`);
-      }
-      if (!commandMapSet.has(`${entry.plugin}/${entry.source}`)) {
-        errors.push(`skillMappings entry not in commandMappings: ${entry.plugin}/${entry.source}`);
-      }
+    const srcPath = path.join(PLUGINS_DIR, plugin, 'commands', source);
+    const resolvedPath = path.resolve(srcPath);
+    if (!isPathWithin(PLUGINS_ROOT, resolvedPath)) {
+      errors.push(`skillMappings path traversal: ${plugin}/${source}`);
+      continue;
+    }
+    if (!fs.existsSync(resolvedPath)) {
+      errors.push(`skillMappings missing source: ${plugin}/${source}`);
+    }
+    if (!commandMapSet.has(`${plugin}/${source}`)) {
+      errors.push(`skillMappings entry not in commandMappings: ${plugin}/${source}`);
     }
   }
 }

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -e
 
+# [DEPRECATED] This script is outdated and uses old plugin names.
+# Use instead: awesome-slash --tool codex
+# Or: node scripts/dev-install.js codex
+
 # Codex CLI Installer for awesome-slash commands
 # This script installs all 5 slash commands for use with OpenAI Codex CLI
 

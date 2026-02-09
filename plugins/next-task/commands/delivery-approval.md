@@ -1,5 +1,6 @@
 ---
 description: Validate task completion and approve for shipping. Can be used standalone or called by the workflow. Runs autonomous validation checks.
+codex-description: 'Use when user asks to "validate delivery", "approve for shipping", "check if ready to ship", "verify task completion". Autonomous validation that tests pass, build succeeds, and requirements are met.'
 argument-hint: "[--task-id ID] [--verbose]"
 allowed-tools: Bash(git:*), Bash(npm:*), Read, Grep, Glob
 model: sonnet

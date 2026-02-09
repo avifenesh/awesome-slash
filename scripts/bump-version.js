@@ -16,20 +16,12 @@
 
 const fs = require('fs');
 const path = require('path');
+const discovery = require(path.join(__dirname, '..', 'lib', 'discovery'));
 
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/;
 
-const PLUGIN_NAMES = [
-  'next-task',
-  'enhance',
-  'ship',
-  'perf',
-  'audit-project',
-  'deslop',
-  'drift-detect',
-  'repo-map',
-  'sync-docs'
-];
+// Discover plugins from filesystem
+const PLUGIN_NAMES = discovery.discoverPlugins(path.join(__dirname, '..'));
 
 function updateJsonFile(filePath, version) {
   if (!fs.existsSync(filePath)) {
@@ -83,7 +75,7 @@ Files updated:
   - package.json
   - .claude-plugin/plugin.json
   - .claude-plugin/marketplace.json
-  - plugins/*/.claude-plugin/plugin.json (9 plugins)
+  - plugins/*/.claude-plugin/plugin.json (${PLUGIN_NAMES.length} plugins)
 `);
     process.exit(0);
   }
