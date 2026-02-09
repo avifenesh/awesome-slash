@@ -20,8 +20,8 @@ grep -r '"version"' package.json .claude-plugin/ plugins/*/.claude-plugin/
 
 If adding a NEW plugin (not just updating):
 
-- [ ] `bin/cli.js` → Add plugin name to `plugins` array (search: PLUGINS_ARRAY)
-- [ ] `bin/cli.js` → Update console output messages for OpenCode and Codex
+- [ ] Plugin follows conventions: `plugins/<name>/.claude-plugin/plugin.json` exists
+- [ ] Plugin has `commands/<name>.md` with `codex-description` frontmatter
 - [ ] `docs/INSTALLATION.md` → Add `/plugin install <name>@awesome-slash` commands
 - [ ] `.claude-plugin/marketplace.json` → Add new plugin entry to `plugins` array
 - [ ] `plugins/<name>/.claude-plugin/plugin.json` → Create plugin manifest

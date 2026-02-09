@@ -66,25 +66,22 @@ If it's a new plugin or major command:
 }
 ```
 
-## 4. Update CLI Installer
+## 4. Verify Auto-Discovery
 
-File: `bin/cli.js`
+Commands are automatically discovered from the filesystem by `lib/discovery/`. No manual registration needed.
 
-Add command mappings for OpenCode and Codex:
+The installer (`bin/cli.js`) scans:
+- `plugins/<name>/commands/*.md` → Commands
+- `plugins/<name>/agents/*.md` → Agents
+- `plugins/<name>/skills/*/SKILL.md` → Skills
 
-```javascript
-// Search: OPENCODE_COMMAND_MAPPINGS
-const commandMappings = [
-  // ... existing
-  ['new-command.md', 'plugin-name', 'new-command.md'],
-];
+For Codex trigger phrases, add `codex-description` to command frontmatter:
 
-// Search: CODEX_SKILL_MAPPINGS - MUST include trigger phrases!
-const skillMappings = [
-  // ... existing
-  ['new-command', 'plugin-name', 'new-command.md',
-    'Use when user asks to "trigger1", "trigger2", "trigger3". Brief description of what it does.'],
-];
+```yaml
+---
+description: Short description for Claude Code
+codex-description: 'Use when user asks to "trigger1", "trigger2". What it does.'
+---
 ```
 
 **CRITICAL for Codex:** The description MUST include trigger phrases like:

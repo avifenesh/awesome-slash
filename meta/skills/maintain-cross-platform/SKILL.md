@@ -250,9 +250,9 @@ Same as RC but:
 
 ### If New Command Added
 
-1. **bin/cli.js** - Add to `PLUGINS_ARRAY` (Claude Code) - Line ~138
-2. **bin/cli.js** - Add to `OPENCODE_COMMAND_MAPPINGS` - Line ~242
-3. **bin/cli.js** - Add to `CODEX_SKILL_MAPPINGS` with trigger phrases - Line ~280
+1. **Convention-based discovery** - Plugins auto-discovered from `plugins/*/` with `.claude-plugin/plugin.json`
+2. **Commands auto-discovered** - From `plugins/*/commands/*.md` files
+3. **Codex trigger phrases** - Use `codex-description` frontmatter in command files
 4. **docs/INSTALLATION.md** - Add `/plugin install <name>@awesome-slash` line
 5. **.claude-plugin/marketplace.json** - Add plugin entry to `plugins` array
 6. **README.md** - Add to commands table
