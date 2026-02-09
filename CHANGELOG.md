@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Unified Dev CLI** (`awesome-slash-dev`) - Single discoverable entry point for all dev scripts
+  - `awesome-slash-dev validate` runs all 7 validators sequentially
+  - `awesome-slash-dev validate <sub>` runs individual validators (plugins, cross-platform, consistency, etc.)
+  - `awesome-slash-dev status` shows project health (version, plugin/agent/skill counts, git branch)
+  - `awesome-slash-dev bump <version>`, `sync-lib`, `setup-hooks`, `detect`, `verify`, `test`
+  - `awesome-slash-dev --help` lists all commands with descriptions
+  - All existing `npm run` commands still work (now delegate through dev-cli)
+  - All direct `node scripts/foo.js` invocations still work (require.main guards)
+  - No external CLI framework dependencies - hand-rolled parsing matching bin/cli.js style
+
 ### Changed
 - **Plugin Discovery** - Convention-based filesystem scanning replaces 14+ hardcoded registration lists (#182)
   - New `lib/discovery/` module auto-discovers plugins, commands, agents, and skills

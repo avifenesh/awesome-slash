@@ -254,7 +254,7 @@ Research documents informing the implementation (in `agent-docs/`):
 
 **Update workflow:**
 1. Edit files in `lib/` (canonical source)
-2. Run `./scripts/sync-lib.sh` to copy to plugins
+2. Run `./scripts/sync-lib.sh` (or `awesome-slash-dev sync-lib`) to copy to plugins
 3. Commit both source and copies
 4. Publish: `npm version patch && npm publish`
 

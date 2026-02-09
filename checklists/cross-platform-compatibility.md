@@ -371,7 +371,7 @@ No additional Codex work needed for most agents.
 
 - [ ] Update `lib/{module}/`
 - [ ] Export from `lib/index.js`
-- [ ] Run `./scripts/sync-lib.sh` to copy to all plugins
+- [ ] Run `./scripts/sync-lib.sh` (or `awesome-slash-dev sync-lib`) to copy to all plugins
 - [ ] Test on all platforms
 
 ---

@@ -85,10 +85,16 @@ function main() {
 
   if (allErrors.length > 0) {
     console.log(`[ERROR] Validation failed with ${allErrors.length} error(s)`);
-    process.exit(1);
+    return 1;
   }
 
   console.log(`[OK] All ${plugins.length + 1} plugins valid`);
+  return 0;
 }
 
-main();
+if (require.main === module) {
+  const code = main();
+  if (typeof code === 'number') process.exit(code);
+}
+
+module.exports = { main };

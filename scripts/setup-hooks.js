@@ -167,24 +167,35 @@ echo "  See: checklists/release.md"
 echo ""
 `;
 
-// Only run in git repo (not when installed as npm package)
-if (!fs.existsSync(hookDir)) {
-  // Not a git repo or installed as dependency - skip silently
-  process.exit(0);
+function main() {
+  // Only run in git repo (not when installed as npm package)
+  if (!fs.existsSync(hookDir)) {
+    // Not a git repo or installed as dependency - skip silently
+    return 0;
+  }
+
+  try {
+    fs.writeFileSync(preCommitPath, preCommitHook, { mode: 0o755 });
+    console.log('Git pre-commit hook installed');
+  } catch (err) {
+    // Non-fatal - might not have write permissions
+    console.warn('Could not install pre-commit hook:', err.message);
+  }
+
+  try {
+    fs.writeFileSync(prePushPath, prePushHook, { mode: 0o755 });
+    console.log('Git pre-push hook installed (release tag validation)');
+  } catch (err) {
+    // Non-fatal - might not have write permissions
+    console.warn('Could not install pre-push hook:', err.message);
+  }
+
+  return 0;
 }
 
-try {
-  fs.writeFileSync(preCommitPath, preCommitHook, { mode: 0o755 });
-  console.log('Git pre-commit hook installed');
-} catch (err) {
-  // Non-fatal - might not have write permissions
-  console.warn('Could not install pre-commit hook:', err.message);
+if (require.main === module) {
+  const code = main();
+  if (typeof code === 'number') process.exit(code);
 }
 
-try {
-  fs.writeFileSync(prePushPath, prePushHook, { mode: 0o755 });
-  console.log('Git pre-push hook installed (release tag validation)');
-} catch (err) {
-  // Non-fatal - might not have write permissions
-  console.warn('Could not install pre-push hook:', err.message);
-}
+module.exports = { main };

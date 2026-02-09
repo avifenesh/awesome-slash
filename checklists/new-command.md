@@ -148,6 +148,7 @@ echo "1 2 3" | awesome-slash  # Install all platforms
 
 ```bash
 ./scripts/sync-lib.sh
+# Or: awesome-slash-dev sync-lib
 ```
 
 ## Quick Reference

@@ -56,8 +56,8 @@ function updateMarketplaceJson(filePath, version) {
   return true;
 }
 
-function main() {
-  const args = process.argv.slice(2);
+function main(args) {
+  if (!args) args = process.argv.slice(2);
 
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     console.log(`
@@ -77,7 +77,7 @@ Files updated:
   - .claude-plugin/marketplace.json
   - plugins/*/.claude-plugin/plugin.json (${PLUGIN_NAMES.length} plugins)
 `);
-    process.exit(0);
+    return 0;
   }
 
   const newVersion = args[0];
@@ -85,7 +85,7 @@ Files updated:
   if (!VERSION_PATTERN.test(newVersion)) {
     console.error(`[ERROR] Invalid version format: ${newVersion}`);
     console.error('Expected: X.Y.Z or X.Y.Z-prerelease (e.g., 3.7.3, 3.7.3-rc.1)');
-    process.exit(1);
+    return 1;
   }
 
   console.log(`\nBumping version to: ${newVersion}\n`);
@@ -118,6 +118,12 @@ Next steps:
   3. git tag v${newVersion}
   4. git push origin main v${newVersion}
 `);
+  return 0;
 }
 
-main();
+if (require.main === module) {
+  const code = main();
+  if (typeof code === 'number') process.exit(code);
+}
+
+module.exports = { main };

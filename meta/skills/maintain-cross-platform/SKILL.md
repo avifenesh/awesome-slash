@@ -280,7 +280,7 @@ Same as RC but:
 
 1. **lib/{module}/** - Make changes
 2. **lib/index.js** - Export if new module
-3. **Run sync** - `./scripts/sync-lib.sh` (copies lib/ to all 9 plugins)
+3. **Run sync** - `./scripts/sync-lib.sh` (or `awesome-slash-dev sync-lib`) copies lib/ to all 9 plugins
 4. **Commit both** - Source in lib/ AND copies in plugins/*/lib/
 
 ---

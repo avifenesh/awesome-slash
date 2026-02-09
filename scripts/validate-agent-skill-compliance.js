@@ -261,7 +261,7 @@ function main() {
     console.log('[OK] Agent Skills Open Standard Compliance');
     console.log(`     Checked ${agents.length} agents, ${skills.length} skills`);
     console.log('     All checks passed!\n');
-    process.exit(0);
+    return 0;
   }
 
   console.log(`[ERROR] Found ${issues.length} compliance issue(s):\n`);
@@ -273,7 +273,12 @@ function main() {
   }
 
   console.log('See: checklists/new-skill.md for Agent Skills Open Standard requirements\n');
-  process.exit(1);
+  return 1;
 }
 
-main();
+if (require.main === module) {
+  const code = main();
+  if (typeof code === 'number') process.exit(code);
+}
+
+module.exports = { main };

@@ -128,22 +128,27 @@ function validateDirectory(dir, type) {
   console.log(`[CHECK] ${type}: ${checked} files validated`);
 }
 
-console.log('Validating OpenCode Installation...\n');
-console.log(`OpenCode directory: ${OPENCODE_DIR}\n`);
+function main() {
+  // Reset issues for each invocation
+  issues.length = 0;
 
-// Validate each type
-// OpenCode expects commands directly in commands/, not a subdirectory
-validateDirectory(path.join(OPENCODE_DIR, 'commands'), 'commands');
-validateDirectory(path.join(OPENCODE_DIR, 'agents'), 'agents');
-validateDirectory(path.join(OPENCODE_DIR, 'skills'), 'skills');
+  console.log('Validating OpenCode Installation...\n');
+  console.log(`OpenCode directory: ${OPENCODE_DIR}\n`);
 
-// Report results
-console.log('\n--- Results ---\n');
+  // Validate each type
+  // OpenCode expects commands directly in commands/, not a subdirectory
+  validateDirectory(path.join(OPENCODE_DIR, 'commands'), 'commands');
+  validateDirectory(path.join(OPENCODE_DIR, 'agents'), 'agents');
+  validateDirectory(path.join(OPENCODE_DIR, 'skills'), 'skills');
 
-if (issues.length === 0) {
-  console.log('[OK] All files valid for OpenCode');
-  process.exit(0);
-} else {
+  // Report results
+  console.log('\n--- Results ---\n');
+
+  if (issues.length === 0) {
+    console.log('[OK] All files valid for OpenCode');
+    return 0;
+  }
+
   console.log(`[ERROR] Found ${issues.length} issues:\n`);
 
   // Group by file
@@ -166,5 +171,12 @@ if (issues.length === 0) {
     console.log('');
   }
 
-  process.exit(1);
+  return 1;
 }
+
+if (require.main === module) {
+  const code = main();
+  if (typeof code === 'number') process.exit(code);
+}
+
+module.exports = { main };

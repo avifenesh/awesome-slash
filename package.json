@@ -5,24 +5,26 @@
   "main": "lib/platform/detect-platform.js",
   "type": "commonjs",
   "bin": {
-    "awesome-slash": "./bin/cli.js"
+    "awesome-slash": "./bin/cli.js",
+    "awesome-slash-dev": "./bin/dev-cli.js"
   },
   "scripts": {
+    "dev": "node bin/dev-cli.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "validate": "npm run validate:plugins && npm run validate:cross-platform && npm run validate:consistency && npm run validate:paths && npm run validate:counts && npm run validate:platform-docs && npm run validate:agent-skill-compliance",
-    "validate:plugins": "node scripts/validate-plugins.js",
-    "validate:agent-skill-compliance": "node scripts/validate-agent-skill-compliance.js",
-    "validate:cross-platform": "node scripts/validate-cross-platform.js",
-    "validate:consistency": "node scripts/validate-repo-consistency.js",
-    "validate:paths": "node scripts/check-hardcoded-paths.js",
-    "validate:counts": "node scripts/validate-counts.js",
-    "validate:platform-docs": "node scripts/validate-cross-platform-docs.js",
-    "bump": "node scripts/bump-version.js",
-    "detect": "node lib/platform/detect-platform.js",
-    "verify": "node lib/platform/verify-tools.js",
-    "prepare": "node scripts/setup-hooks.js"
+    "validate": "node bin/dev-cli.js validate",
+    "validate:plugins": "node bin/dev-cli.js validate plugins",
+    "validate:agent-skill-compliance": "node bin/dev-cli.js validate agent-skill-compliance",
+    "validate:cross-platform": "node bin/dev-cli.js validate cross-platform",
+    "validate:consistency": "node bin/dev-cli.js validate consistency",
+    "validate:paths": "node bin/dev-cli.js validate paths",
+    "validate:counts": "node bin/dev-cli.js validate counts",
+    "validate:platform-docs": "node bin/dev-cli.js validate platform-docs",
+    "bump": "node bin/dev-cli.js bump",
+    "detect": "node bin/dev-cli.js detect",
+    "verify": "node bin/dev-cli.js verify",
+    "prepare": "node bin/dev-cli.js setup-hooks"
   },
   "repository": {
     "type": "git",

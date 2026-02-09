@@ -97,6 +97,7 @@ npm test -- --testPathPattern=new-module
 
 ```bash
 ./scripts/sync-lib.sh
+# Or: awesome-slash-dev sync-lib
 ```
 
 This copies `lib/` to all `plugins/*/lib/` directories.

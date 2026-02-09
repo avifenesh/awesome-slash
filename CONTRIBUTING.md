@@ -51,6 +51,7 @@ vim lib/patterns/pipeline.js
 
 # Sync to all plugins
 ./scripts/sync-lib.sh
+# Or: awesome-slash-dev sync-lib
 
 # Commit both
 git add lib/ plugins/*/lib/
