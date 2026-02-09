@@ -234,7 +234,7 @@ function getCodexSkillMappings(repoRoot) {
  */
 function getPluginPrefixRegex(repoRoot) {
   const plugins = discoverPlugins(repoRoot);
-  const escaped = plugins.map(p => p.replace(/-/g, '\\-'));
+  const escaped = plugins.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
   return new RegExp(`(${escaped.join('|')})`, 'g');
 }
 

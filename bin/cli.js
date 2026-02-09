@@ -311,7 +311,7 @@ function installForClaudeDevelopment() {
 
   console.log('\n[OK] Claude Code development installation complete!');
   console.log('  Plugins installed to: ' + pluginsDir);
-  console.log('  Commands: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /perf, /learn, /agnix');
+  console.log('  Commands: ' + plugins.map(p => '/' + p).join(', '));
   console.log('\n[NOTE] To revert to marketplace version:');
   console.log('  rm -rf ~/.claude/plugins/*@awesome-slash');
   console.log('  awesome-slash --tool claude');
@@ -677,7 +677,7 @@ After user answers, proceed to Phase 2 with the selected policy.
   console.log(`   Commands: ${commandsDir}`);
   console.log(`   Agents: ${agentsDir}`);
   console.log(`   Plugin: ${pluginDir}`);
-  console.log('   Access via: /next-task, /ship, /deslop, /audit-project, /drift-detect, /enhance, /sync-docs, /perf, /learn, /agnix');
+  console.log('   Access via: ' + commandMappings.map(([target]) => '/' + target.replace(/\.md$/, '')).join(', '));
   console.log('   Native features: Auto-thinking selection, workflow enforcement, session compaction\n');
   return true;
 }
