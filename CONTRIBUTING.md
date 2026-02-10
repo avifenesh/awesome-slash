@@ -66,7 +66,8 @@ Files with `AUTO-GENERATED` headers must not be manually edited.
 After changing plugins, regenerate adapters:
 
 ```bash
-npx awesome-slash-dev gen-adapters
+npm run gen-adapters
+# Or: npx awesome-slash-dev gen-adapters
 ```
 
 CI validates adapter freshness on every push.

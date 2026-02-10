@@ -43,8 +43,95 @@ Example: `/drift-detect --sources github,docs --depth quick --output file`
 
 Send all collected data to plan-synthesizer for deep semantic analysis:
 
-- Invoke `@plan-synthesizer` agent
+*(JavaScript reference - not executable in OpenCode)*'}json
+${JSON.stringify(collectedData.github, null, 2)}
+${'```'}
 
+### Documentation Analysis
+${'```'}json
+${JSON.stringify(collectedData.docs, null, 2)}
+${'```'}
+
+### Codebase Analysis
+${'```'}json
+${JSON.stringify(collectedData.code, null, 2)}
+${'```'}
+
+## Your Task
+
+Be BRUTALLY SPECIFIC. The user wants concrete, actionable insights - not generic observations.
+
+### 1. Issue-by-Issue Verification
+
+For EACH open issue, determine:
+- Is this already implemented? → "Close issue #X - implemented in src/auth/login.js"
+- Is this stale/irrelevant? → "Close issue #X - no longer applicable after Y refactor"
+- Is this blocked? → "Issue #X blocked by: missing Z dependency"
+
+### 2. Phase/Checkbox Validation
+
+For EACH phase or checkbox marked "complete" in docs:
+- Verify against actual code: Does the feature exist?
+- Check for missing pieces: "Phase 'Authentication' marked complete but MISSING:
+  - Password reset functionality (no code in auth/)
+  - Session timeout handling (not implemented)
+  - Tests for login flow (0 test files)"
+
+### 3. Release Readiness Assessment
+
+If there are milestones or planned releases, assess:
+- "Your plan to release tomorrow is UNREALISTIC because:
+  - 3 critical tests missing for payment module
+  - No QA coverage on authentication flows
+  - Issue #45 (security) still open
+  - Phase B only 40% complete despite being marked done"
+
+### 4. Specific Recommendations
+
+Output SPECIFIC actions, not generic advice:
+- "Close issues: #12, #34, #56 (already implemented)"
+- "Reopen: Phase C (missing: X, Y, Z)"
+- "Block release until: tests added for auth/, issue #78 fixed"
+- "Update PLAN.md: Phase B is NOT complete - missing items listed above"
+
+## Output Format
+
+```markdown
+# Reality Check Report
+
+## Executive Summary
+[2-3 sentences: Overall project health and biggest concerns]
+
+## Issues to Close (Already Done)
+- #XX: [title] - Implemented in [file/location]
+- #YY: [title] - No longer relevant because [reason]
+
+## Phases Marked Complete But NOT Actually Done
+### [Phase Name]
+**Status in docs**: Complete [OK]
+**Actual status**: INCOMPLETE
+**Missing**:
+- [ ] [Specific missing item 1]
+- [ ] [Specific missing item 2]
+
+## Release Blockers
+If you're planning to ship soon, these MUST be addressed:
+1. [Specific blocker with file/issue reference]
+2. [Specific blocker with file/issue reference]
+
+## Issues That Need Attention
+- #XX: [why it's stale/blocked/misprioritized]
+
+## Quick Wins
+Things you can do right now:
+1. Close issue #XX (already done)
+2. Update Phase Y status (not complete)
+3. Add test for [specific untested code]
+```
+`;
+
+Invoke `@plan-synthesizer` agent
+```
 
 ## Phase 3: Output Report
 

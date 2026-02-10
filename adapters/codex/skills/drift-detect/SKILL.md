@@ -134,19 +134,19 @@ You are analyzing a project to identify drift between documented plans and actua
 ## Collected Data
 
 ### GitHub State
-\`\`\`json
+${'```'}json
 ${JSON.stringify(collectedData.github, null, 2)}
-\`\`\`
+${'```'}
 
 ### Documentation Analysis
-\`\`\`json
+${'```'}json
 ${JSON.stringify(collectedData.docs, null, 2)}
-\`\`\`
+${'```'}
 
 ### Codebase Analysis
-\`\`\`json
+${'```'}json
 ${JSON.stringify(collectedData.code, null, 2)}
-\`\`\`
+${'```'}
 
 ## Your Task
 
@@ -187,6 +187,7 @@ Output SPECIFIC actions, not generic advice:
 
 ## Output Format
 
+```markdown
 # Reality Check Report
 
 ## Executive Summary
@@ -217,6 +218,7 @@ Things you can do right now:
 1. Close issue #XX (already done)
 2. Update Phase Y status (not complete)
 3. Add test for [specific untested code]
+```
 `;
 
 await Task({
