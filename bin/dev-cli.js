@@ -112,6 +112,37 @@ const VALIDATE_SUBCOMMANDS = {
   }
 };
 
+const NEW_SUBCOMMANDS = {
+  'plugin': {
+    description: 'Scaffold a new plugin',
+    handler: (args) => {
+      const { main } = require(path.join(ROOT_DIR, 'scripts', 'scaffold.js'));
+      return main(['plugin', ...args]);
+    }
+  },
+  'agent': {
+    description: 'Scaffold a new agent',
+    handler: (args) => {
+      const { main } = require(path.join(ROOT_DIR, 'scripts', 'scaffold.js'));
+      return main(['agent', ...args]);
+    }
+  },
+  'skill': {
+    description: 'Scaffold a new skill',
+    handler: (args) => {
+      const { main } = require(path.join(ROOT_DIR, 'scripts', 'scaffold.js'));
+      return main(['skill', ...args]);
+    }
+  },
+  'command': {
+    description: 'Scaffold a new command',
+    handler: (args) => {
+      const { main } = require(path.join(ROOT_DIR, 'scripts', 'scaffold.js'));
+      return main(['command', ...args]);
+    }
+  }
+};
+
 const COMMANDS = {
   'validate': {
     description: 'Run validators (all, or specify subcommand)',
@@ -340,6 +371,17 @@ const COMMANDS = {
       if (typeof result === 'number') return result;
       return 0;
     }
+  },
+  'new': {
+    description: 'Scaffold new plugin, agent, skill, or command',
+    usage: 'new <type> <name> [options]',
+    subcommands: NEW_SUBCOMMANDS,
+    handler: (args) => {
+      // If no subcommand, show available types
+      console.log('Available types: plugin, agent, skill, command');
+      console.log('Usage: awesome-slash-dev new <type> <name> [options]');
+      return 1;
+    }
   }
 };
 
@@ -375,7 +417,7 @@ function parseArgs(args) {
   }
 
   // Extract subcommand (for commands that support it)
-  if (i < args.length && !args[i].startsWith('-') && result.command === 'validate') {
+  if (i < args.length && !args[i].startsWith('-') && COMMANDS[result.command]?.subcommands) {
     result.subcommand = args[i];
     i++;
   }
@@ -438,7 +480,17 @@ Commands:
     --check               Validate freshness (exit 1 if stale)
     --dry-run             Show changes without writing
 
+Scaffolding:
+  new plugin <name>       Scaffold a new plugin
+  new agent <name>        Scaffold a new agent (--plugin required)
+  new skill <name>        Scaffold a new skill (--plugin required)
+  new command <name>      Scaffold a new command (--plugin required)
+
 Aliases (npm scripts):
+  npm run new:plugin        = awesome-slash-dev new plugin
+  npm run new:agent         = awesome-slash-dev new agent
+  npm run new:skill         = awesome-slash-dev new skill
+  npm run new:command       = awesome-slash-dev new command
   npm run validate          = awesome-slash-dev validate
   npm run validate:plugins  = awesome-slash-dev validate plugins
   npm run bump              = awesome-slash-dev bump
@@ -532,4 +584,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, route };
+module.exports = { parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, NEW_SUBCOMMANDS, route };

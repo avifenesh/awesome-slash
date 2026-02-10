@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`gen-adapters` and `gen-adapters --check` dev-cli commands** with npm script aliases
 - **CI validation step for adapter freshness**
 - **Preflight integration for adapter freshness checks**
+- **Plugin scaffolding system** (`scripts/scaffold.js`) - Scaffold new plugins, agents, skills, and commands from templates (#184)
+  - `npx awesome-slash-dev new plugin <name>` - full plugin directory with plugin.json, default command, and shared lib
+  - `npx awesome-slash-dev new agent <name> --plugin=<plugin>` - agent .md with YAML frontmatter template
+  - `npx awesome-slash-dev new skill <name> --plugin=<plugin>` - skill directory with SKILL.md
+  - `npx awesome-slash-dev new command <name> --plugin=<plugin>` - command .md with frontmatter
+  - Name validation, collision detection, path traversal protection, YAML injection prevention
+  - npm script aliases: `new:plugin`, `new:agent`, `new:skill`, `new:command`
+  - 56 scaffold tests + 11 dev-cli integration tests
 - **Shared agent template system** - Build-time template expansion (`expand-templates` command) with 3 shared snippets, replacing duplicated sections across 6 enhance agents with TEMPLATE markers and CI freshness validation (#187)
 - **Auto-generate documentation** - `gen-docs` command reads plugin metadata, agent frontmatter, and skill frontmatter to auto-generate documentation sections between GEN:START/GEN:END markers
   - `npx awesome-slash-dev gen-docs` writes generated sections to README.md, CLAUDE.md, AGENTS.md, docs/reference/AGENTS.md, site/content.json
