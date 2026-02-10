@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **@awesome-slash/lib npm package** - Published shared library as standalone npm package
+  - Enables external projects to use awesome-slash utilities via `require('@awesome-slash/lib')`
+  - Zero dependencies, CommonJS, Node.js >= 18
+  - npm workspaces link lib/ for local development
+  - Plugins remain self-contained (vendored lib/ copies) for Claude Code marketplace compatibility
+  - Version stamping, consistency validation, and CI publishing all updated
 - **Preflight command** - Unified change-aware checklist enforcement (`npm run preflight`, `preflight --all`, `preflight --release`, `preflight --json`)
   - Detects changed files and runs only relevant checklist validators
   - Includes 7 existing validators + 7 new gap checks (CHANGELOG, labels, codex triggers, lib exports, lib sync, test existence, staged files)

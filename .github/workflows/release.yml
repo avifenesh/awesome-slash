@@ -101,6 +101,10 @@ jobs:
           done
 
           # Check lib/package.json
+          if [ ! -f "./lib/package.json" ]; then
+            echo "[ERROR] lib/package.json not found"
+            exit 1
+          fi
           LIB_VERSION=$(node -p "require('./lib/package.json').version")
           if [ "$LIB_VERSION" != "$VERSION" ]; then
             echo "[ERROR] lib/package.json version ($LIB_VERSION) doesn't match release version ($VERSION)"
@@ -168,7 +172,14 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
+          cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      - name: Validate lib package
+        working-directory: lib
+        run: npm pack --dry-run
 
       - name: Publish lib package
         if: ${{ !inputs.dry_run }}
