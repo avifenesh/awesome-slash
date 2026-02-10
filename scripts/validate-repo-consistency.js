@@ -120,6 +120,24 @@ function validateVersions() {
     }
   }
 
+  // Check package-lock.json version
+  const lockPath = path.join(ROOT_DIR, 'package-lock.json');
+  if (fs.existsSync(lockPath)) {
+    const lock = readJson(lockPath, 'package-lock.json');
+    if (lock && lock.version !== version) {
+      errors.push(`package-lock.json version ${lock.version} does not match package.json ${version}`);
+    }
+  }
+
+  // Check site/content.json meta.version
+  const contentPath = path.join(ROOT_DIR, 'site', 'content.json');
+  if (fs.existsSync(contentPath)) {
+    const content = readJson(contentPath, 'site/content.json');
+    if (content && content.meta && content.meta.version !== version) {
+      errors.push(`site/content.json meta.version ${content.meta.version} does not match package.json ${version}`);
+    }
+  }
+
 }
 
 function validateMappings() {

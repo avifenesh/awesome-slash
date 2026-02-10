@@ -131,7 +131,7 @@ function checkVersionAlignment() {
   });
 
   plugins.forEach(plugin => {
-    const pluginJsonPath = path.join(pluginsDir, plugin, 'plugin.json');
+    const pluginJsonPath = path.join(pluginsDir, plugin, '.claude-plugin', 'plugin.json');
     if (fs.existsSync(pluginJsonPath)) {
       const pluginJson = JSON.parse(fs.readFileSync(pluginJsonPath, 'utf8'));
       if (pluginJson.version !== mainVersion) {

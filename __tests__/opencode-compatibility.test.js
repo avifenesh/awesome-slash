@@ -10,7 +10,23 @@
 
 const fs = require('fs');
 const path = require('path');
-const glob = require('glob');
+
+// Helper to replicate glob.sync for simple plugin directory patterns
+function findPluginFiles(subDir, ext) {
+  const pluginsDir = path.join(__dirname, '..', 'plugins');
+  const results = [];
+  if (!fs.existsSync(pluginsDir)) return results;
+  for (const plugin of fs.readdirSync(pluginsDir)) {
+    const dir = path.join(pluginsDir, plugin, subDir);
+    if (!fs.existsSync(dir)) continue;
+    for (const file of fs.readdirSync(dir)) {
+      if (file.endsWith(ext)) {
+        results.push(path.join(dir, file));
+      }
+    }
+  }
+  return results;
+}
 
 describe('OpenCode Compatibility', () => {
   describe('Documentation accuracy', () => {
@@ -87,10 +103,7 @@ describe('OpenCode Compatibility', () => {
 
   describe('Command files', () => {
     it('should document Task tool usage for commands that use it', () => {
-      const commandFiles = glob.sync('plugins/*/commands/*.md', {
-        cwd: path.join(__dirname, '..'),
-        absolute: true
-      });
+      const commandFiles = findPluginFiles('commands', '.md');
 
       const taskToolPatterns = [
         /await\s+Task\s*\(/,
@@ -120,10 +133,7 @@ describe('OpenCode Compatibility', () => {
 
   describe('Agent definitions', () => {
     it('should have valid frontmatter for potential OpenCode native agents', () => {
-      const agentFiles = glob.sync('plugins/*/agents/*.md', {
-        cwd: path.join(__dirname, '..'),
-        absolute: true
-      });
+      const agentFiles = findPluginFiles('agents', '.md');
 
       for (const file of agentFiles) {
         const content = fs.readFileSync(file, 'utf-8');
