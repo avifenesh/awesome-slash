@@ -56,10 +56,11 @@ describe('@awesome-slash/lib package', () => {
       expect(libPkg.repository.directory).toBe('lib');
     });
 
-    it('should have files field excluding test files', () => {
+    it('should have files field including JS and excluding test files', () => {
       expect(libPkg.files).toBeDefined();
       expect(libPkg.files).toContain('**/*.js');
       expect(libPkg.files).toContain('!**/*.test.js');
+      // May include other patterns like **/*.json for runtime assets
     });
   });
 
