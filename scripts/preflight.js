@@ -233,15 +233,11 @@ function detectRelevantChecklists(changedFiles) {
       if (checklist === 'cross-platform') continue; // handled separately below
 
       for (const pattern of patterns) {
-        // For patterns like 'plugins/*/commands/', match files that are inside
-        // any directory matching the glob (using simple string logic).
         if (pattern.includes('*')) {
-          // Convert glob to a prefix check: 'plugins/*/commands/' means
-          // the file path should match plugins/<anything>/commands/
-          const parts = pattern.split('*');
-          const prefix = parts[0]; // e.g. 'plugins/'
-          const suffix = parts[1]; // e.g. '/commands/'
-          if (file.startsWith(prefix) && file.includes(suffix.replace(/^\//, ''))) {
+          // Convert simple glob to anchored regex to avoid false positives.
+          // 'plugins/*/commands/' becomes /^plugins\/[^/]+\/commands\//
+          const regex = new RegExp('^' + pattern.replace(/\*/g, '[^/]+'));
+          if (regex.test(file)) {
             relevant.add(checklist);
           }
         } else {
