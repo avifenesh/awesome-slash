@@ -154,6 +154,14 @@ const COMMANDS = {
       return 0;
     }
   },
+  'preflight': {
+    description: 'Run preflight checks (change-aware checklist enforcement)',
+    usage: 'preflight [--all] [--release] [--json] [--verbose]',
+    handler: (args) => {
+      const { main } = require(path.join(ROOT_DIR, 'scripts', 'preflight.js'));
+      return main(args);
+    }
+  },
   'bump': {
     description: 'Bump version across all files',
     usage: 'bump <version>',
@@ -385,6 +393,11 @@ Commands:
     platform-docs [--json]  Cross-platform docs
     agent-skill-compliance  Agent Skills Open Standard
     opencode-install        OpenCode installation
+
+  preflight [flags]       Change-aware checklist enforcement
+    --all                 Run all checks regardless of changes
+    --release             Include release-specific checks
+    --json                Structured JSON output
 
   bump <version>          Bump version across all files
   sync-lib                Sync lib/ to plugins/ (bash)
