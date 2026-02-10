@@ -120,6 +120,12 @@ function validateVersions() {
     }
   }
 
+  // Check lib/package.json version
+  const libPkg = readJson(path.join(ROOT_DIR, 'lib', 'package.json'), 'lib/package.json');
+  if (libPkg && libPkg.version !== version) {
+    errors.push(`lib/package.json version ${libPkg.version} does not match package.json ${version}`);
+  }
+
   // Check package-lock.json version
   const lockPath = path.join(ROOT_DIR, 'package-lock.json');
   if (fs.existsSync(lockPath)) {
