@@ -7,54 +7,22 @@
  *   node scripts/bump-version.js 3.7.3
  *   node scripts/bump-version.js 3.7.3-rc.1
  *
- * Updates all version files:
- * - package.json
- * - .claude-plugin/plugin.json
- * - .claude-plugin/marketplace.json
- * - All plugin.json files in plugins/
+ * Delegates to `npm version` which:
+ * 1. Updates package.json + package-lock.json (npm handles natively)
+ * 2. Triggers the `version` lifecycle script (stamp-version.js)
+ *    which stamps all plugin.json, marketplace.json, and site/content.json
+ *
+ * Uses --no-git-tag-version so existing release workflow controls commits/tags.
  */
 
-const fs = require('fs');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const discovery = require(path.join(__dirname, '..', 'lib', 'discovery'));
 
 const VERSION_PATTERN = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/;
 
-// Discover plugins from filesystem
+// Discover plugins from filesystem (for help text)
 const PLUGIN_NAMES = discovery.discoverPlugins(path.join(__dirname, '..'));
-
-function updateJsonFile(filePath, version) {
-  if (!fs.existsSync(filePath)) {
-    console.log(`  [SKIP] ${filePath} (not found)`);
-    return false;
-  }
-
-  const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-  const oldVersion = content.version;
-  content.version = version;
-  fs.writeFileSync(filePath, JSON.stringify(content, null, 2) + '\n');
-  console.log(`  [OK] ${filePath}: ${oldVersion} -> ${version}`);
-  return true;
-}
-
-function updateMarketplaceJson(filePath, version) {
-  if (!fs.existsSync(filePath)) {
-    console.log(`  [SKIP] ${filePath} (not found)`);
-    return false;
-  }
-
-  let content = fs.readFileSync(filePath, 'utf8');
-  const oldVersionMatch = content.match(/"version":\s*"([^"]+)"/);
-  const oldVersion = oldVersionMatch ? oldVersionMatch[1] : 'unknown';
-
-  // Replace all version occurrences
-  content = content.replace(/"version":\s*"[^"]+"/g, `"version": "${version}"`);
-  fs.writeFileSync(filePath, content);
-
-  const count = (content.match(/"version":/g) || []).length;
-  console.log(`  [OK] ${filePath}: ${oldVersion} -> ${version} (${count} occurrences)`);
-  return true;
-}
 
 function main(args) {
   if (!args) args = process.argv.slice(2);
@@ -71,11 +39,12 @@ Examples:
   node scripts/bump-version.js 3.7.3-rc.1   # Release candidate
   node scripts/bump-version.js 3.8.0-beta.1 # Beta release
 
-Files updated:
-  - package.json
+Files updated (via npm version + stamp-version.js):
+  - package.json + package-lock.json (npm native)
   - .claude-plugin/plugin.json
-  - .claude-plugin/marketplace.json
+  - .claude-plugin/marketplace.json (all occurrences)
   - plugins/*/.claude-plugin/plugin.json (${PLUGIN_NAMES.length} plugins)
+  - site/content.json (meta.version)
 `);
     return 0;
   }
@@ -90,23 +59,17 @@ Files updated:
 
   console.log(`\nBumping version to: ${newVersion}\n`);
 
-  // Update main package.json
-  console.log('Main package:');
-  updateJsonFile('package.json', newVersion);
-
-  // Update root plugin.json
-  console.log('\nRoot plugin:');
-  updateJsonFile('.claude-plugin/plugin.json', newVersion);
-
-  // Update marketplace.json
-  console.log('\nMarketplace:');
-  updateMarketplaceJson('.claude-plugin/marketplace.json', newVersion);
-
-  // Update all plugin.json files
-  console.log('\nPlugins:');
-  for (const plugin of PLUGIN_NAMES) {
-    const pluginPath = path.join('plugins', plugin, '.claude-plugin', 'plugin.json');
-    updateJsonFile(pluginPath, newVersion);
+  try {
+    // npm version updates package.json + package-lock.json, then triggers
+    // the "version" lifecycle script which runs stamp-version.js.
+    // Version is validated by VERSION_PATTERN above (safe for shell use).
+    execFileSync('npm', ['version', newVersion, '--no-git-tag-version'], {
+      cwd: path.join(__dirname, '..'),
+      stdio: 'inherit'
+    });
+  } catch (err) {
+    console.error(`[ERROR] npm version failed: ${err.message}`);
+    return 1;
   }
 
   console.log(`

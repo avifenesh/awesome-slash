@@ -2,19 +2,19 @@
 
 Full release guide: [agent-docs/release.md](../agent-docs/release.md)
 
-## Version Bump Files
+## Version Bump
 
-Update ALL these files with new version:
+Single command stamps version into all files (`package.json` is the source of truth):
 
 ```bash
-# Quick check current versions
-grep -r '"version"' package.json .claude-plugin/ plugins/*/.claude-plugin/
+# Bump version everywhere (package.json, package-lock.json, all plugin.json,
+# marketplace.json, site/content.json) via npm lifecycle + stamp-version.js
+npx awesome-slash-dev bump X.Y.Z
+# or: npm version X.Y.Z --no-git-tag-version
 ```
 
-- [ ] `package.json` → `"version": "X.Y.Z"`
-- [ ] `.claude-plugin/plugin.json` → `"version": "X.Y.Z"`
-- [ ] `.claude-plugin/marketplace.json` → `"version"` (10 occurrences)
-- [ ] All 9 plugin.json files in `plugins/*/.claude-plugin/`
+- [ ] Run the bump command above
+- [ ] Verify with: `npx awesome-slash-dev validate consistency`
 
 ## New Plugin Checklist
 
