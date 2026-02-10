@@ -27,6 +27,8 @@ const { execSync } = require('child_process');
 
 const ROOT_DIR = path.join(__dirname, '..');
 
+const EXCLUDED_DIRS = ['node_modules', '.git'];
+
 // ---------------------------------------------------------------------------
 // Checklist -> file pattern mapping
 // ---------------------------------------------------------------------------
@@ -251,8 +253,8 @@ function detectRelevantChecklists(changedFiles) {
     }
 
     // Cross-platform is triggered by any plugin/ or lib/ change
-    // (but NOT lib/ inside plugins - that's just a sync copy)
-    if (file.startsWith('plugins/') || (file.startsWith('lib/') && !file.startsWith('lib/node_modules/'))) {
+    // (but NOT node_modules anywhere in path)
+    if ((file.startsWith('plugins/') || file.startsWith('lib/')) && !file.includes('/node_modules/') && !file.startsWith('lib/node_modules/')) {
       relevant.add('cross-platform');
     }
   }
@@ -409,7 +411,7 @@ function checkAskUserQuestionLabels() {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
       const fullPath = path.join(dir, entry.name);
-      if (entry.isDirectory() && entry.name !== 'node_modules' && entry.name !== '.git') {
+      if (entry.isDirectory() && !EXCLUDED_DIRS.includes(entry.name)) {
         scanDir(fullPath);
       } else if (entry.isFile() && entry.name.endsWith('.md')) {
         const content = fs.readFileSync(fullPath, 'utf8');
@@ -425,7 +427,7 @@ function checkAskUserQuestionLabels() {
             const label = match[1];
             if (label.length > 30) {
               const relPath = path.relative(ROOT_DIR, fullPath);
-              issues.push(`${relPath}: label "${label.substring(0, 40)}..." (${label.length} chars)`);
+              issues.push(`${relPath}: label "${label.substring(0, 30)}..." (${label.length} chars)`);
             }
           }
         }
@@ -591,27 +593,27 @@ function checkLibPluginSync(changedFiles, options) {
     };
   }
 
-  // Build hash map for all files in lib/
-  const libHashes = {};
+  // Build file info map for all files in lib/ (path -> {mtime, size})
+  const libFiles = {};
 
-  function hashFilesRecursive(dir, relativeTo) {
+  function collectFilesRecursive(dir, relativeTo) {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      if (entry.name === 'node_modules' || entry.name === '.git') continue;
+      if (EXCLUDED_DIRS.includes(entry.name)) continue;
       const fullPath = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        hashFilesRecursive(fullPath, relativeTo);
+        collectFilesRecursive(fullPath, relativeTo);
       } else if (entry.isFile()) {
         const relPath = path.relative(relativeTo, fullPath);
-        const content = fs.readFileSync(fullPath);
-        libHashes[relPath] = crypto.createHash('md5').update(content).digest('hex');
+        const stat = fs.statSync(fullPath);
+        libFiles[relPath] = { fullPath, mtime: stat.mtimeMs, size: stat.size };
       }
     }
   }
 
-  hashFilesRecursive(libDir, libDir);
+  collectFilesRecursive(libDir, libDir);
 
-  // Compare with each plugin's lib/ directory
+  // Compare with each plugin's lib/ directory using mtime+size first, hash only on mismatch
   const plugins = fs.readdirSync(pluginsDir).filter(f => {
     const stat = fs.statSync(path.join(pluginsDir, f));
     return stat.isDirectory();
@@ -621,17 +623,33 @@ function checkLibPluginSync(changedFiles, options) {
     const pluginLibDir = path.join(pluginsDir, plugin, 'lib');
     if (!fs.existsSync(pluginLibDir)) continue;
 
-    for (const [relPath, libHash] of Object.entries(libHashes)) {
+    for (const [relPath, libInfo] of Object.entries(libFiles)) {
       const pluginFilePath = path.join(pluginLibDir, relPath);
       if (!fs.existsSync(pluginFilePath)) {
         mismatches.push(`${plugin}/lib/${relPath}: missing (exists in lib/)`);
         continue;
       }
 
+      const pluginStat = fs.statSync(pluginFilePath);
+
+      // Quick check: if size matches and mtime is identical, skip hash
+      if (pluginStat.size === libInfo.size && pluginStat.mtimeMs === libInfo.mtime) {
+        continue;
+      }
+
+      // Size mismatch is a definite mismatch
+      if (pluginStat.size !== libInfo.size) {
+        mismatches.push(`${plugin}/lib/${relPath}: size mismatch`);
+        continue;
+      }
+
+      // Same size but different mtime: compare by hash
+      const libContent = fs.readFileSync(libInfo.fullPath);
       const pluginContent = fs.readFileSync(pluginFilePath);
+      const libHash = crypto.createHash('md5').update(libContent).digest('hex');
       const pluginHash = crypto.createHash('md5').update(pluginContent).digest('hex');
       if (pluginHash !== libHash) {
-        mismatches.push(`${plugin}/lib/${relPath}: hash mismatch`);
+        mismatches.push(`${plugin}/lib/${relPath}: content mismatch`);
       }
     }
   }
@@ -689,10 +707,10 @@ function checkTestFileExistence(changedFiles) {
     }
 
     const testFiles = fs.readdirSync(testsDir).filter(f => f.endsWith('.test.js'));
-    const hasTest = testFiles.some(f =>
-      f.includes(moduleName) ||
-      f.replace('.test.js', '') === moduleName
-    );
+    const hasTest = testFiles.some(f => {
+      const base = f.replace('.test.js', '');
+      return base === moduleName || base.startsWith(`${moduleName}-`) || base.startsWith(`${moduleName}.`);
+    });
 
     if (!hasTest) {
       missing.push(`${moduleName}: no test file found in __tests__/`);
