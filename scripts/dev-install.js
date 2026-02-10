@@ -27,6 +27,7 @@ const path = require('path');
 const SOURCE_DIR = path.join(__dirname, '..');
 const VERSION = require(path.join(SOURCE_DIR, 'package.json')).version;
 const discovery = require(path.join(SOURCE_DIR, 'lib', 'discovery'));
+const transforms = require(path.join(SOURCE_DIR, 'lib', 'adapter-transforms'));
 
 // Target directories
 const HOME = process.env.HOME || process.env.USERPROFILE;
@@ -313,39 +314,6 @@ function installOpenCode() {
     }
   }
 
-  // Transform helpers
-  function transformForOpenCode(content) {
-    content = content.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, '${PLUGIN_ROOT}');
-    content = content.replace(/\$CLAUDE_PLUGIN_ROOT/g, '$PLUGIN_ROOT');
-    content = content.replace(/\.claude\//g, '.opencode/');
-    content = content.replace(/\.claude'/g, ".opencode'");
-    content = content.replace(/\.claude"/g, '.opencode"');
-    content = content.replace(/\.claude`/g, '.opencode`');
-    return content;
-  }
-
-  function transformCommandFrontmatter(content) {
-    return content.replace(
-      /^---\n([\s\S]*?)^---/m,
-      (match, frontmatter) => {
-        const lines = frontmatter.trim().split('\n');
-        const parsed = {};
-        for (const line of lines) {
-          const colonIdx = line.indexOf(':');
-          if (colonIdx > 0) {
-            const key = line.substring(0, colonIdx).trim();
-            const value = line.substring(colonIdx + 1).trim();
-            parsed[key] = value;
-          }
-        }
-        let opencodeFrontmatter = '---\n';
-        if (parsed.description) opencodeFrontmatter += `description: ${parsed.description}\n`;
-        opencodeFrontmatter += 'agent: general\n---';
-        return opencodeFrontmatter;
-      }
-    );
-  }
-
   // Discover command mappings from filesystem
   const commandMappings = discovery.getCommandMappings(SOURCE_DIR);
 
@@ -354,14 +322,14 @@ function installOpenCode() {
     const destPath = path.join(commandsDir, target);
     if (fs.existsSync(srcPath)) {
       let content = fs.readFileSync(srcPath, 'utf8');
-      content = transformForOpenCode(content);
-      content = transformCommandFrontmatter(content);
+      content = transforms.transformBodyForOpenCode(content, SOURCE_DIR);
+      content = transforms.transformCommandFrontmatterForOpenCode(content);
       fs.writeFileSync(destPath, content);
     }
   }
   log('  [OK] Commands');
 
-  // Copy agents (strip models by default)
+  // Copy agents (strip models by default, use full body transform)
   let agentCount = 0;
   for (const plugin of PLUGINS) {
     const srcAgentsDir = path.join(SOURCE_DIR, 'plugins', plugin, 'agents');
@@ -372,43 +340,8 @@ function installOpenCode() {
         const destPath = path.join(agentsDir, agentFile);
         let content = fs.readFileSync(srcPath, 'utf8');
 
-        content = transformForOpenCode(content);
-
-        // Transform agent frontmatter (strip models)
-        content = content.replace(
-          /^---\n([\s\S]*?)^---/m,
-          (match, frontmatter) => {
-            const lines = frontmatter.trim().split('\n');
-            const parsed = {};
-            for (const line of lines) {
-              const colonIdx = line.indexOf(':');
-              if (colonIdx > 0) {
-                const key = line.substring(0, colonIdx).trim();
-                const value = line.substring(colonIdx + 1).trim();
-                parsed[key] = value;
-              }
-            }
-
-            let opencodeFrontmatter = '---\n';
-            if (parsed.name) opencodeFrontmatter += `name: ${parsed.name}\n`;
-            if (parsed.description) opencodeFrontmatter += `description: ${parsed.description}\n`;
-            opencodeFrontmatter += 'mode: subagent\n';
-            // NOTE: Models are stripped by default for dev installs
-
-            if (parsed.tools) {
-              opencodeFrontmatter += 'permission:\n';
-              const tools = parsed.tools.toLowerCase();
-              opencodeFrontmatter += `  read: ${tools.includes('read') ? 'allow' : 'deny'}\n`;
-              opencodeFrontmatter += `  edit: ${tools.includes('edit') || tools.includes('write') ? 'allow' : 'deny'}\n`;
-              opencodeFrontmatter += `  bash: ${tools.includes('bash') ? 'allow' : 'ask'}\n`;
-              opencodeFrontmatter += `  glob: ${tools.includes('glob') ? 'allow' : 'deny'}\n`;
-              opencodeFrontmatter += `  grep: ${tools.includes('grep') ? 'allow' : 'deny'}\n`;
-            }
-
-            opencodeFrontmatter += '---';
-            return opencodeFrontmatter;
-          }
-        );
+        content = transforms.transformBodyForOpenCode(content, SOURCE_DIR);
+        content = transforms.transformAgentFrontmatterForOpenCode(content, { stripModels: true });
 
         fs.writeFileSync(destPath, content);
         agentCount++;
@@ -450,25 +383,12 @@ function installCodex() {
       fs.mkdirSync(skillDir, { recursive: true });
 
       let content = fs.readFileSync(srcPath, 'utf8');
-
-      const escapedDescription = description.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-      const yamlDescription = `"${escapedDescription}"`;
-
-      if (content.startsWith('---')) {
-        content = content.replace(
-          /^---\n[\s\S]*?\n---\n/,
-          `---\nname: ${skillName}\ndescription: ${yamlDescription}\n---\n`
-        );
-      } else {
-        content = `---\nname: ${skillName}\ndescription: ${yamlDescription}\n---\n\n${content}`;
-      }
-
-      // Use absolute path to local install
       const pluginInstallPath = path.join(AWESOME_SLASH_DIR, 'plugins', plugin);
-      content = content.replace(/\$\{CLAUDE_PLUGIN_ROOT\}/g, pluginInstallPath);
-      content = content.replace(/\$CLAUDE_PLUGIN_ROOT/g, pluginInstallPath);
-      content = content.replace(/\$\{PLUGIN_ROOT\}/g, pluginInstallPath);
-      content = content.replace(/\$PLUGIN_ROOT/g, pluginInstallPath);
+      content = transforms.transformForCodex(content, {
+        skillName,
+        description,
+        pluginInstallPath
+      });
 
       fs.writeFileSync(destPath, content);
       log(`  [OK] ${skillName}`);
