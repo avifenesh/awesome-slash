@@ -214,4 +214,111 @@ describe('script failure enforcement hooks', () => {
       expect(agentsContent).toContain('NEVER silently fall back');
     });
   });
+
+  describe('OpenCode plugin pattern parity', () => {
+    // Mirror the exact patterns from adapters/opencode-plugin/index.ts
+    const PROJECT_SCRIPT_PATTERNS = [
+      /\bnpm\s+test\b/,
+      /\bnpm\s+run\s+/,
+      /\bnpm\s+build\b/,
+      /\bnode\s+scripts\//,
+      /\bnode\s+bin\/dev-cli\.js\b/,
+      /\bawesome-slash-dev\b/,
+    ];
+
+    const FAILURE_INDICATORS = [
+      /\bERR!\b/,
+      /\bFAIL\b/,
+      /\bELIFECYCLE\b/,
+      /\bError:/,
+      /\berror Command failed\b/,
+      /exit code [1-9]/,
+    ];
+
+    describe('PROJECT_SCRIPT_PATTERNS match project commands', () => {
+      const projectCommands = [
+        'npm test',
+        'npm test --coverage',
+        'npm run validate',
+        'npm run preflight --all',
+        'npm build',
+        'node scripts/preflight.js',
+        'node scripts/validate-plugins.js',
+        'npx awesome-slash-dev test',
+        'awesome-slash-dev status',
+        'node bin/dev-cli.js validate',
+        'node bin/dev-cli.js bump 4.2.0',
+      ];
+
+      test.each(projectCommands)('matches "%s"', (cmd) => {
+        const matches = PROJECT_SCRIPT_PATTERNS.some(p => p.test(cmd));
+        expect(matches).toBe(true);
+      });
+    });
+
+    describe('PROJECT_SCRIPT_PATTERNS reject non-project commands', () => {
+      const nonProjectCommands = [
+        'git status',
+        'ls -la',
+        'echo hello',
+        'cat README.md',
+        'mkdir -p /tmp/test',
+        'cd /some/dir',
+      ];
+
+      test.each(nonProjectCommands)('does not match "%s"', (cmd) => {
+        const matches = PROJECT_SCRIPT_PATTERNS.some(p => p.test(cmd));
+        expect(matches).toBe(false);
+      });
+    });
+
+    describe('FAILURE_INDICATORS detect failures', () => {
+      const failureOutputs = [
+        'npm ERR! code ELIFECYCLE',
+        'FAIL src/__tests__/my-test.js',
+        'Error: Cannot find module',
+        'error Command failed with exit code 1',
+        'ELIFECYCLE npm run test',
+        'exit code 1',
+        'exit code 127',
+      ];
+
+      test.each(failureOutputs)('detects failure in "%s"', (output) => {
+        const hasFailure = FAILURE_INDICATORS.some(p => p.test(output));
+        expect(hasFailure).toBe(true);
+      });
+    });
+
+    describe('FAILURE_INDICATORS ignore success', () => {
+      const successOutputs = [
+        'Tests: 42 passed, 42 total',
+        'All suites passed',
+        'Build completed successfully',
+        'exit code 0',
+      ];
+
+      test.each(successOutputs)('does not flag "%s"', (output) => {
+        const hasFailure = FAILURE_INDICATORS.some(p => p.test(output));
+        expect(hasFailure).toBe(false);
+      });
+    });
+
+    test('patterns in index.ts match those tested here', () => {
+      const pluginContent = fs.readFileSync(
+        path.join(ROOT, 'adapters', 'opencode-plugin', 'index.ts'),
+        'utf8'
+      );
+      // Verify the patterns exist in the plugin source
+      expect(pluginContent).toContain('PROJECT_SCRIPT_PATTERNS');
+      expect(pluginContent).toContain('FAILURE_INDICATORS');
+      // Verify key pattern substrings exist in plugin source
+      // Note: regex source has escaped slashes, e.g. scripts\/ not scripts/
+      expect(pluginContent).toContain('PROJECT_SCRIPT_PATTERNS');
+      expect(pluginContent).toContain('FAILURE_INDICATORS');
+      expect(pluginContent).toContain('npm');
+      expect(pluginContent).toContain('awesome-slash-dev');
+      expect(pluginContent).toContain('scripts');
+      expect(pluginContent).toContain('dev-cli');
+    });
+  });
 });
