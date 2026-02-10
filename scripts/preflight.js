@@ -880,6 +880,38 @@ function checkTemplateFreshness() {
   }
 }
 
+/**
+ * j) Check that generated adapter files are up to date.
+ *    Uses gen-adapters.js checkFreshness() to detect stale files.
+ */
+function checkAdapterFreshness() {
+  try {
+    const { checkFreshness } = require(path.join(ROOT_DIR, 'scripts', 'gen-adapters.js'));
+    const result = checkFreshness();
+
+    if (result.status === 'fresh') {
+      return {
+        name: 'gap:adapter-freshness',
+        status: 'pass',
+        message: result.message
+      };
+    }
+
+    return {
+      name: 'gap:adapter-freshness',
+      status: 'fail',
+      message: result.message,
+      details: result.staleFiles.map(f => `${f}: adapter out of date`)
+    };
+  } catch (err) {
+    return {
+      name: 'gap:adapter-freshness',
+      status: 'error',
+      message: `Failed to check adapter freshness: ${err.message}`
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Gap check orchestrator
 // ---------------------------------------------------------------------------
@@ -945,6 +977,21 @@ function runGapChecks(relevantChecklists, changedFiles, options) {
   if (runAll || relevantChecklists.has('new-agent') ||
       relevantChecklists.has('release') || hasTemplateChanges) {
     results.push(checkTemplateFreshness());
+  }
+
+  // adapter freshness: relevant to cross-platform, new-command, new-agent, new-skill, release,
+  // or when plugin source or adapter files change
+  const hasAdapterChanges = changedFiles.some(f =>
+    f.startsWith('adapters/opencode/') || f.startsWith('adapters/codex/') ||
+    f.startsWith('lib/adapter-transforms') ||
+    f.match(/plugins\/.*\/commands\/.*\.md$/) ||
+    f.match(/plugins\/.*\/agents\/.*\.md$/) ||
+    f.match(/plugins\/.*\/skills\/.*\/SKILL\.md$/));
+  if (runAll || relevantChecklists.has('cross-platform') ||
+      relevantChecklists.has('new-command') || relevantChecklists.has('new-agent') ||
+      relevantChecklists.has('new-skill') || relevantChecklists.has('release') ||
+      hasAdapterChanges) {
+    results.push(checkAdapterFreshness());
   }
 
   return results;
@@ -1210,6 +1257,7 @@ module.exports = {
   checkTestFileExistence,
   checkLibStagedTogether,
   checkDocsFreshness,
+  checkAdapterFreshness,
   CHECKLIST_PATTERNS,
   VALIDATORS,
   MANUAL_CHECKS

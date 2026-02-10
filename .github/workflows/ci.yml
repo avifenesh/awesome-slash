@@ -30,3 +30,6 @@ jobs:
 
       - name: Validate agent templates
         run: node scripts/expand-templates.js --check
+
+      - name: Validate adapter freshness
+        run: node scripts/gen-adapters.js --check
