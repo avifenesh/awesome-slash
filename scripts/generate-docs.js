@@ -28,7 +28,9 @@ const ROOT_DIR = path.join(__dirname, '..');
 // Role-based agents defined inline in audit-project (not file-based)
 const ROLE_BASED_AGENT_COUNT = 10;
 
-// audit-project role-based agent names (defined inline via Task tool)
+// audit-project role-based agent names (defined inline via Task tool).
+// Canonical source: plugins/audit-project/commands/audit-project.md "Agent Selection" section.
+// Must be kept in sync manually - validate-repo-consistency.js also parses these.
 const AUDIT_ROLE_AGENTS = [
   'code-quality-reviewer',
   'security-expert',
@@ -342,6 +344,67 @@ function updateSiteContent(plugins, agents, skills) {
 // Main orchestrator
 // ---------------------------------------------------------------------------
 
+// Section names mapped to the files they appear in
+const FILE_MAP = {
+  'README.md': ['readme-commands', 'readme-skills'],
+  'CLAUDE.md': ['claude-architecture'],
+  'AGENTS.md': ['claude-architecture'],
+  'docs/reference/AGENTS.md': ['agents-nav', 'agents-counts']
+};
+
+/**
+ * Core generation logic shared by main() and checkFreshness().
+ * Discovers metadata, generates all sections, and compares against disk.
+ *
+ * @returns {{ sections: Object, siteContent: Object|null, staleFiles: string[], siteStale: boolean, plugins: Array, agents: Array, skills: Array }}
+ */
+function computeSections() {
+  discovery.invalidateCache();
+
+  const plugins = discovery.discoverPlugins(ROOT_DIR);
+  const commands = discovery.discoverCommands(ROOT_DIR);
+  const agents = discovery.discoverAgents(ROOT_DIR);
+  const skills = discovery.discoverSkills(ROOT_DIR);
+
+  const sections = {
+    'readme-commands': generateCommandsTable(commands),
+    'readme-skills': generateSkillsTable(skills),
+    'claude-architecture': generateArchitectureTable(plugins, agents, skills),
+    'agents-nav': generateAgentNavTable(agents, plugins),
+    'agents-counts': generateAgentCounts(agents, plugins)
+  };
+
+  // Determine which files are stale
+  const staleFiles = [];
+  for (const [relPath, sectionNames] of Object.entries(FILE_MAP)) {
+    const filePath = path.join(ROOT_DIR, relPath);
+    if (!fs.existsSync(filePath)) continue;
+
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const section of sectionNames) {
+      const updated = injectBetweenMarkers(content, section, sections[section]);
+      if (updated !== content) {
+        staleFiles.push(relPath);
+        break;
+      }
+    }
+  }
+
+  // Check site/content.json
+  const siteContent = updateSiteContent(plugins, agents, skills);
+  let siteStale = false;
+  if (siteContent) {
+    const siteContentPath = path.join(ROOT_DIR, 'site', 'content.json');
+    if (fs.existsSync(siteContentPath)) {
+      const currentJson = fs.readFileSync(siteContentPath, 'utf8');
+      const newJson = JSON.stringify(siteContent, null, 2) + '\n';
+      if (currentJson !== newJson) siteStale = true;
+    }
+  }
+
+  return { sections, siteContent, staleFiles, siteStale, plugins, agents, skills };
+}
+
 /**
  * Run doc generation. Returns { changed: boolean, files: string[] }.
  *
@@ -353,42 +416,18 @@ function main(args) {
   const checkMode = args.includes('--check');
   const dryRun = args.includes('--dry-run');
 
-  // Invalidate discovery cache to get fresh data
-  discovery.invalidateCache();
-
-  const plugins = discovery.discoverPlugins(ROOT_DIR);
-  const commands = discovery.discoverCommands(ROOT_DIR);
-  const agents = discovery.discoverAgents(ROOT_DIR);
-  const skills = discovery.discoverSkills(ROOT_DIR);
-
+  const { sections, siteContent, staleFiles, siteStale, plugins, agents, skills } = computeSections();
   const totalAgents = agents.length + ROLE_BASED_AGENT_COUNT;
 
   if (!checkMode && !dryRun) {
     console.log(`[OK] Discovered: ${plugins.length} plugins, ${totalAgents} agents, ${skills.length} skills`);
   }
 
-  // Generate all sections
-  const sections = {
-    'readme-commands': generateCommandsTable(commands),
-    'readme-skills': generateSkillsTable(skills),
-    'claude-architecture': generateArchitectureTable(plugins, agents, skills),
-    'agents-nav': generateAgentNavTable(agents, plugins),
-    'agents-counts': generateAgentCounts(agents, plugins)
-  };
-
-  // Map sections to files
-  const fileMap = {
-    'README.md': ['readme-commands', 'readme-skills'],
-    'CLAUDE.md': ['claude-architecture'],
-    'AGENTS.md': ['claude-architecture'],
-    'docs/reference/AGENTS.md': ['agents-nav', 'agents-counts']
-  };
-
   const changedFiles = [];
   const diffs = [];
 
   // Process each file
-  for (const [relPath, sectionNames] of Object.entries(fileMap)) {
+  for (const [relPath, sectionNames] of Object.entries(FILE_MAP)) {
     const filePath = path.join(ROOT_DIR, relPath);
     if (!fs.existsSync(filePath)) {
       if (!checkMode) {
@@ -401,9 +440,7 @@ function main(args) {
     let modified = false;
 
     for (const section of sectionNames) {
-      const newContent = sections[section];
-      const updated = injectBetweenMarkers(content, section, newContent);
-
+      const updated = injectBetweenMarkers(content, section, sections[section]);
       if (updated !== content) {
         content = updated;
         modified = true;
@@ -426,25 +463,21 @@ function main(args) {
   }
 
   // Update site/content.json
-  const siteContent = updateSiteContent(plugins, agents, skills);
-  if (siteContent) {
+  if (siteStale && siteContent) {
     const siteContentPath = path.join(ROOT_DIR, 'site', 'content.json');
-    const currentJson = fs.readFileSync(siteContentPath, 'utf8');
     const newJson = JSON.stringify(siteContent, null, 2) + '\n';
 
-    if (currentJson !== newJson) {
-      changedFiles.push('site/content.json');
-      diffs.push({ file: 'site/content.json', sections: ['stats', 'agents'] });
+    changedFiles.push('site/content.json');
+    diffs.push({ file: 'site/content.json', sections: ['stats', 'agents'] });
 
-      if (!checkMode && !dryRun) {
-        fs.writeFileSync(siteContentPath, newJson, 'utf8');
-        console.log('[OK] Updated: site/content.json');
-      } else if (dryRun) {
-        console.log('[CHANGE] Would update: site/content.json');
-      }
-    } else if (!checkMode && !dryRun) {
-      console.log('[OK] Up to date: site/content.json');
+    if (!checkMode && !dryRun) {
+      fs.writeFileSync(siteContentPath, newJson, 'utf8');
+      console.log('[OK] Updated: site/content.json');
+    } else if (dryRun) {
+      console.log('[CHANGE] Would update: site/content.json');
     }
+  } else if (siteContent && !checkMode && !dryRun) {
+    console.log('[OK] Up to date: site/content.json');
   }
 
   // Summary
@@ -475,60 +508,10 @@ function main(args) {
  * @returns {{ status: string, message: string, staleFiles: string[] }}
  */
 function checkFreshness() {
-  discovery.invalidateCache();
+  const { staleFiles, siteStale } = computeSections();
+  const allStale = siteStale ? [...staleFiles, 'site/content.json'] : staleFiles;
 
-  const plugins = discovery.discoverPlugins(ROOT_DIR);
-  const commands = discovery.discoverCommands(ROOT_DIR);
-  const agents = discovery.discoverAgents(ROOT_DIR);
-  const skills = discovery.discoverSkills(ROOT_DIR);
-
-  const sections = {
-    'readme-commands': generateCommandsTable(commands),
-    'readme-skills': generateSkillsTable(skills),
-    'claude-architecture': generateArchitectureTable(plugins, agents, skills),
-    'agents-nav': generateAgentNavTable(agents, plugins),
-    'agents-counts': generateAgentCounts(agents, plugins)
-  };
-
-  const fileMap = {
-    'README.md': ['readme-commands', 'readme-skills'],
-    'CLAUDE.md': ['claude-architecture'],
-    'AGENTS.md': ['claude-architecture'],
-    'docs/reference/AGENTS.md': ['agents-nav', 'agents-counts']
-  };
-
-  const staleFiles = [];
-
-  for (const [relPath, sectionNames] of Object.entries(fileMap)) {
-    const filePath = path.join(ROOT_DIR, relPath);
-    if (!fs.existsSync(filePath)) continue;
-
-    let content = fs.readFileSync(filePath, 'utf8');
-
-    for (const section of sectionNames) {
-      const newContent = sections[section];
-      const updated = injectBetweenMarkers(content, section, newContent);
-      if (updated !== content) {
-        staleFiles.push(relPath);
-        break;
-      }
-    }
-  }
-
-  // Also check site/content.json
-  const siteContent = updateSiteContent(plugins, agents, skills);
-  if (siteContent) {
-    const siteContentPath = path.join(ROOT_DIR, 'site', 'content.json');
-    if (fs.existsSync(siteContentPath)) {
-      const currentJson = fs.readFileSync(siteContentPath, 'utf8');
-      const newJson = JSON.stringify(siteContent, null, 2) + '\n';
-      if (currentJson !== newJson) {
-        staleFiles.push('site/content.json');
-      }
-    }
-  }
-
-  if (staleFiles.length === 0) {
+  if (allStale.length === 0) {
     return {
       status: 'fresh',
       message: 'All generated docs are up to date',
@@ -538,8 +521,8 @@ function checkFreshness() {
 
   return {
     status: 'stale',
-    message: `${staleFiles.length} file(s) have stale generated sections`,
-    staleFiles
+    message: `${allStale.length} file(s) have stale generated sections`,
+    staleFiles: allStale
   };
 }
 

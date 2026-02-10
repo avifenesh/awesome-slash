@@ -67,6 +67,7 @@ function parseFrontmatter(content) {
       }
 
       const key = line.substring(0, colonIdx).trim();
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
       let value = line.substring(colonIdx + 1).trim();
 
       if (value === '') {
