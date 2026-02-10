@@ -145,7 +145,7 @@ function scaffoldPlugin(name, projectRoot) {
   // Check bash availability on Windows
   if (process.platform === 'win32') {
     try {
-      require('child_process').execSync('where bash', { stdio: 'pipe' });
+      execFileSync('where', ['bash'], { stdio: 'pipe' });
     } catch {
       result.errors.push('bash not found. Install Git Bash or WSL to run sync-lib. Run \'npx awesome-slash-dev sync-lib\' manually after installing bash.');
       return result;
