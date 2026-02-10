@@ -816,6 +816,38 @@ function checkLibStagedTogether() {
   };
 }
 
+/**
+ * h) Check that generated documentation sections are up to date.
+ *    Uses generate-docs.js checkFreshness() to detect stale markers.
+ */
+function checkDocsFreshness() {
+  try {
+    const { checkFreshness } = require(path.join(ROOT_DIR, 'scripts', 'generate-docs.js'));
+    const result = checkFreshness();
+
+    if (result.status === 'fresh') {
+      return {
+        name: 'gap:docs-freshness',
+        status: 'pass',
+        message: result.message
+      };
+    }
+
+    return {
+      name: 'gap:docs-freshness',
+      status: 'fail',
+      message: result.message,
+      details: result.staleFiles.map(f => `${f}: generated section out of date`)
+    };
+  } catch (err) {
+    return {
+      name: 'gap:docs-freshness',
+      status: 'error',
+      message: `Failed to check docs freshness: ${err.message}`
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Gap check orchestrator
 // ---------------------------------------------------------------------------
@@ -866,6 +898,13 @@ function runGapChecks(relevantChecklists, changedFiles, options) {
   if (runAll || relevantChecklists.has('new-lib-module') ||
       relevantChecklists.has('cross-platform')) {
     results.push(checkLibStagedTogether());
+  }
+
+  // docs freshness: relevant to new-agent, new-skill, new-command, release
+  if (runAll || relevantChecklists.has('new-agent') ||
+      relevantChecklists.has('new-skill') || relevantChecklists.has('new-command') ||
+      relevantChecklists.has('release')) {
+    results.push(checkDocsFreshness());
   }
 
   return results;
@@ -1130,6 +1169,7 @@ module.exports = {
   checkLibPluginSync,
   checkTestFileExistence,
   checkLibStagedTogether,
+  checkDocsFreshness,
   CHECKLIST_PATTERNS,
   VALIDATORS,
   MANUAL_CHECKS
