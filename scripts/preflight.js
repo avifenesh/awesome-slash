@@ -134,6 +134,20 @@ const VALIDATORS = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Detect the default branch name (main, master, etc.) from origin.
+ * Falls back to 'main' if detection fails.
+ */
+function getDefaultBranch() {
+  const ref = gitExec('git symbolic-ref refs/remotes/origin/HEAD');
+  if (ref) return ref.replace('refs/remotes/origin/', '');
+  // Fallback: try 'main' then 'master'
+  const branches = gitExec('git branch -r');
+  if (branches.includes('origin/main')) return 'main';
+  if (branches.includes('origin/master')) return 'master';
+  return 'main';
+}
+
+/**
  * Run a git command safely and return trimmed stdout, or empty string on error.
  * Only uses hardcoded git commands (no user input) so execSync is safe here.
  */
@@ -173,8 +187,9 @@ function getChangedFiles() {
     }
   }
 
-  // Branch changes compared to origin/main
-  const branchChanges = gitExec('git diff --name-only origin/main...HEAD');
+  // Branch changes compared to default branch
+  const defaultBranch = getDefaultBranch();
+  const branchChanges = gitExec(`git diff --name-only origin/${defaultBranch}...HEAD`);
   if (branchChanges) {
     for (const f of branchChanges.split('\n')) {
       if (f.trim()) files.add(f.trim());
@@ -199,7 +214,8 @@ function getChangedFiles() {
 function getNewFiles() {
   const files = new Set();
 
-  const added = gitExec('git diff --diff-filter=A --name-only origin/main...HEAD');
+  const defaultBranch = getDefaultBranch();
+  const added = gitExec(`git diff --diff-filter=A --name-only origin/${defaultBranch}...HEAD`);
   if (added) {
     for (const f of added.split('\n')) {
       if (f.trim()) files.add(f.trim());
@@ -479,9 +495,7 @@ function checkCodexTriggerPhrases() {
       const content = fs.readFileSync(path.join(commandsDir, file), 'utf8');
       // Check frontmatter for codex-description
       const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
-      if (!frontmatterMatch) continue; // No frontmatter at all
-
-      if (!frontmatterMatch[1].includes('codex-description')) {
+      if (!frontmatterMatch || !frontmatterMatch[1].includes('codex-description')) {
         missing.push(`${plugin}/commands/${file}`);
       }
     }
@@ -648,6 +662,25 @@ function checkLibPluginSync(changedFiles, options) {
         mismatches.push(`${plugin}/lib/${relPath}: content mismatch`);
       }
     }
+
+    // Reverse check: detect stale files in plugin lib/ that don't exist in lib/
+    function checkStaleFiles(dir, relativeTo) {
+      if (!fs.existsSync(dir)) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (EXCLUDED_DIRS.includes(entry.name)) continue;
+        const fullPath = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          checkStaleFiles(fullPath, relativeTo);
+        } else if (entry.isFile()) {
+          const relPath = path.relative(relativeTo, fullPath);
+          if (!libFiles[relPath]) {
+            mismatches.push(`${plugin}/lib/${relPath}: stale (not in lib/)`);
+          }
+        }
+      }
+    }
+    checkStaleFiles(pluginLibDir, pluginLibDir);
   }
 
   if (mismatches.length === 0) {
@@ -963,6 +996,8 @@ function runPreflight(options) {
 
   if (options.all || options.release) {
     relevantChecklists = new Set(Object.keys(CHECKLIST_PATTERNS));
+    // Still gather changed files for gap checks that need them
+    changedFiles = getChangedFiles();
   } else {
     changedFiles = getChangedFiles();
 
