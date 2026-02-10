@@ -283,8 +283,9 @@ Keep technical details accurate. The user will continue this workflow after comp
       }
 
       // Detect project script failures
+      // Check both input and output metadata for command (API may vary)
       if (input.tool === "Bash") {
-        const command = (input.metadata?.command as string) || ""
+        const command = (input.metadata?.command as string) || (output as any)?.metadata?.command || ""
         const isProjectScript = PROJECT_SCRIPT_PATTERNS.some(p => p.test(command))
 
         if (isProjectScript) {
@@ -301,11 +302,13 @@ Keep technical details accurate. The user will continue this workflow after comp
 
               if (existsSync(flowPath)) {
                 const state = JSON.parse(await readFile(flowPath, "utf-8"))
-                state.lastScriptFailure = {
-                  command,
-                  timestamp: Date.now()
+                if (state && typeof state === "object" && !Array.isArray(state)) {
+                  state.lastScriptFailure = {
+                    command,
+                    timestamp: Date.now()
+                  }
+                  await writeFile(flowPath, JSON.stringify(state, null, 2))
                 }
-                await writeFile(flowPath, JSON.stringify(state, null, 2))
               }
             } catch {
               // Ignore state write errors

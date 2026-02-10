@@ -36,34 +36,14 @@ if [ -z "$COMMAND" ]; then
 fi
 
 # Check if command matches project script patterns using bash pattern matching
+# Single case handles both standalone and chained commands (e.g., cd ... && npm test)
 IS_PROJECT_SCRIPT=false
 
 case "$COMMAND" in
-  npm\ test*|npm\ run\ *|npm\ build*)
-    IS_PROJECT_SCRIPT=true
-    ;;
-  node\ scripts/*|node\ bin/dev-cli.js*)
-    IS_PROJECT_SCRIPT=true
-    ;;
-  *awesome-slash-dev*|npx\ awesome-slash-dev*)
+  *npm\ test*|*npm\ run\ *|*npm\ build*|*node\ scripts/*|*node\ bin/dev-cli.js*|*awesome-slash-dev*)
     IS_PROJECT_SCRIPT=true
     ;;
 esac
-
-# Also check for patterns that may appear with prefixes (e.g., cd ... && npm test)
-if [ "$IS_PROJECT_SCRIPT" = false ]; then
-  case "$COMMAND" in
-    *"npm test"*|*"npm run "*|*"npm build"*)
-      IS_PROJECT_SCRIPT=true
-      ;;
-    *"node scripts/"*|*"node bin/dev-cli.js"*)
-      IS_PROJECT_SCRIPT=true
-      ;;
-    *"awesome-slash-dev"*)
-      IS_PROJECT_SCRIPT=true
-      ;;
-  esac
-fi
 
 if [ "$IS_PROJECT_SCRIPT" = true ]; then
   echo "[HOOK] Project script detected. If this command failed, you MUST report the failure with exact error output before attempting any manual workaround. Do NOT silently fall back to doing the work by hand. Fix the script, not the symptom. (CLAUDE.md Rule #13)"
