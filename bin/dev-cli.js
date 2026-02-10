@@ -18,10 +18,6 @@ const { execSync } = require('child_process');
 const VERSION = require('../package.json').version;
 const ROOT_DIR = path.join(__dirname, '..');
 
-// ---------------------------------------------------------------------------
-// Command registry
-// ---------------------------------------------------------------------------
-
 const VALIDATE_SUBCOMMANDS = {
   'plugins': {
     description: 'Validate plugin structure',
@@ -347,10 +343,6 @@ const COMMANDS = {
   }
 };
 
-// ---------------------------------------------------------------------------
-// Argument parsing
-// ---------------------------------------------------------------------------
-
 function parseArgs(args) {
   const result = {
     help: false,
@@ -399,10 +391,6 @@ function parseArgs(args) {
 
   return result;
 }
-
-// ---------------------------------------------------------------------------
-// Help output
-// ---------------------------------------------------------------------------
 
 function printHelp() {
   console.log(`
@@ -477,10 +465,6 @@ function printCommandHelp(cmdName, cmd) {
   console.log('');
 }
 
-// ---------------------------------------------------------------------------
-// Router
-// ---------------------------------------------------------------------------
-
 function route(parsed) {
   // Global flags
   if (parsed.version) {
@@ -530,10 +514,6 @@ function route(parsed) {
 
   return cmd.handler(parsed.rest);
 }
-
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
 
 if (require.main === module) {
   const parsed = parseArgs(process.argv.slice(2));

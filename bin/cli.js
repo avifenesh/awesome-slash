@@ -61,9 +61,6 @@ function commandExists(cmd) {
   }
 }
 
-/**
- * Recursively copy a directory
- */
 function copyDirRecursive(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
   const entries = fs.readdirSync(src, { withFileTypes: true });
@@ -78,9 +75,6 @@ function copyDirRecursive(src, dest) {
   }
 }
 
-/**
- * Parse command line arguments
- */
 function parseArgs(args) {
   const result = {
     help: false,
@@ -138,9 +132,6 @@ function parseArgs(args) {
   return result;
 }
 
-/**
- * Interactive multi-select prompt
- */
 async function multiSelect(question, options) {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -251,10 +242,6 @@ function installForClaude() {
   }
 }
 
-/**
- * Development mode: Install directly to ~/.claude/plugins
- * Bypasses marketplace for testing RC/dev versions
- */
 function installForClaudeDevelopment() {
   console.log('\n[INSTALL] Installing for Claude Code (DEVELOPMENT MODE)...\n');
 

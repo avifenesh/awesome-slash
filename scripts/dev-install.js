@@ -33,10 +33,6 @@ const transforms = require(path.join(SOURCE_DIR, 'lib', 'adapter-transforms'));
 const HOME = process.env.HOME || process.env.USERPROFILE;
 const CLAUDE_PLUGINS_DIR = path.join(HOME, '.claude', 'plugins');
 
-/**
- * Get OpenCode config directory following XDG Base Directory Specification.
- * OpenCode uses ~/.config/opencode/ by default, or $XDG_CONFIG_HOME/opencode if set.
- */
 function getOpenCodeConfigDir() {
   const xdgConfigHome = process.env.XDG_CONFIG_HOME;
   if (xdgConfigHome && xdgConfigHome.trim()) {
@@ -67,9 +63,6 @@ function commandExists(cmd) {
   }
 }
 
-/**
- * Clean all installations
- */
 function cleanAll() {
   log('Cleaning all installations...');
 
@@ -186,9 +179,6 @@ function cleanAll() {
   log('Clean complete.');
 }
 
-/**
- * Install for Claude in development mode
- */
 function installClaude() {
   log('Installing for Claude Code (development mode)...');
 
@@ -272,9 +262,6 @@ function installClaude() {
   return true;
 }
 
-/**
- * Install for OpenCode
- */
 function installOpenCode() {
   log('Installing for OpenCode...');
 
@@ -353,9 +340,6 @@ function installOpenCode() {
   return true;
 }
 
-/**
- * Install for Codex
- */
 function installCodex() {
   log('Installing for Codex CLI...');
 
@@ -399,9 +383,6 @@ function installCodex() {
   return true;
 }
 
-/**
- * Copy source to ~/.awesome-slash (for OpenCode/Codex)
- */
 let awesomeSlashCopied = false;
 function copyToAwesomeSlash() {
   if (awesomeSlashCopied) return;
@@ -428,9 +409,6 @@ function copyToAwesomeSlash() {
   log('  [OK] ~/.awesome-slash');
 }
 
-/**
- * Main
- */
 function main() {
   const args = process.argv.slice(2);
 
