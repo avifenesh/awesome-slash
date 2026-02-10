@@ -5,7 +5,7 @@
 const path = require('path');
 const fs = require('fs');
 
-const { parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, route } = require('../bin/dev-cli.js');
+const { parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, NEW_SUBCOMMANDS, route } = require('../bin/dev-cli.js');
 
 // ---------------------------------------------------------------------------
 // parseArgs
@@ -48,11 +48,32 @@ describe('parseArgs', () => {
     expect(result.subcommand).toBe('plugins');
   });
 
-  test('does not extract subcommand for non-validate commands', () => {
+  test('does not extract subcommand for commands without subcommands', () => {
     const result = parseArgs(['bump', '4.2.0']);
     expect(result.command).toBe('bump');
     expect(result.subcommand).toBeNull();
     expect(result.rest).toEqual(['4.2.0']);
+  });
+
+  test('extracts new subcommand', () => {
+    const result = parseArgs(['new', 'plugin', 'my-plugin']);
+    expect(result.command).toBe('new');
+    expect(result.subcommand).toBe('plugin');
+    expect(result.rest).toEqual(['my-plugin']);
+  });
+
+  test('extracts new agent subcommand with --plugin flag', () => {
+    const result = parseArgs(['new', 'agent', 'my-agent', '--plugin', 'foo']);
+    expect(result.command).toBe('new');
+    expect(result.subcommand).toBe('agent');
+    expect(result.rest).toEqual(['my-agent', '--plugin', 'foo']);
+  });
+
+  test('new with no subcommand leaves subcommand null', () => {
+    const result = parseArgs(['new']);
+    expect(result.command).toBe('new');
+    expect(result.subcommand).toBeNull();
+    expect(result.rest).toEqual([]);
   });
 
   test('captures rest args after subcommand', () => {
@@ -91,7 +112,7 @@ describe('COMMANDS registry', () => {
     const expected = [
       'validate', 'bump', 'sync-lib', 'setup-hooks', 'dev-install',
       'detect', 'verify', 'status', 'test', 'migrate-opencode', 'test-transform',
-      'preflight'
+      'preflight', 'gen-docs', 'expand-templates', 'gen-adapters', 'new'
     ];
     for (const name of expected) {
       expect(COMMANDS).toHaveProperty(name);
@@ -112,6 +133,21 @@ describe('VALIDATE_SUBCOMMANDS registry', () => {
       expect(typeof VALIDATE_SUBCOMMANDS[name].handler).toBe('function');
       expect(typeof VALIDATE_SUBCOMMANDS[name].description).toBe('string');
     }
+  });
+});
+
+describe('NEW_SUBCOMMANDS registry', () => {
+  test('has expected subcommands', () => {
+    const expected = ['plugin', 'agent', 'skill', 'command'];
+    for (const name of expected) {
+      expect(NEW_SUBCOMMANDS).toHaveProperty(name);
+      expect(typeof NEW_SUBCOMMANDS[name].handler).toBe('function');
+      expect(typeof NEW_SUBCOMMANDS[name].description).toBe('string');
+    }
+  });
+
+  test('COMMANDS.new references NEW_SUBCOMMANDS', () => {
+    expect(COMMANDS['new'].subcommands).toBe(NEW_SUBCOMMANDS);
   });
 });
 
@@ -167,6 +203,24 @@ describe('route', () => {
     expect(code).toBe(0);
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Subcommands'));
   });
+
+  test('new with no subcommand shows usage', () => {
+    const code = route({ version: false, help: false, command: 'new', subcommand: null, rest: [] });
+    expect(code).toBe(1);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Available types'));
+  });
+
+  test('new --help shows subcommands', () => {
+    const code = route({ version: false, help: true, command: 'new', subcommand: null, rest: [] });
+    expect(code).toBe(0);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('Subcommands'));
+  });
+
+  test('unknown new subcommand returns 1', () => {
+    const code = route({ version: false, help: false, command: 'new', subcommand: 'nonexistent', rest: [] });
+    expect(code).toBe(1);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Unknown subcommand'));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -189,11 +243,12 @@ describe('dev-cli module', () => {
     expect(cliSource).toContain('require.main === module');
   });
 
-  test('exports parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, route', () => {
+  test('exports parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, NEW_SUBCOMMANDS, route', () => {
     expect(cliSource).toContain('module.exports');
     expect(typeof parseArgs).toBe('function');
     expect(typeof COMMANDS).toBe('object');
     expect(typeof VALIDATE_SUBCOMMANDS).toBe('object');
+    expect(typeof NEW_SUBCOMMANDS).toBe('object');
     expect(typeof route).toBe('function');
   });
 
