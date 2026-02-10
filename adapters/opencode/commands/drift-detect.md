@@ -43,37 +43,6 @@ Example: `/drift-detect --sources github,docs --depth quick --output file`
 
 Send all collected data to plan-synthesizer for deep semantic analysis:
 
-*(JavaScript reference - not executable in OpenCode)*markdown
-# Reality Check Report
-
-## Executive Summary
-[2-3 sentences: Overall project health and biggest concerns]
-
-## Issues to Close (Already Done)
-- #XX: [title] - Implemented in [file/location]
-- #YY: [title] - No longer relevant because [reason]
-
-## Phases Marked Complete But NOT Actually Done
-### [Phase Name]
-**Status in docs**: Complete [OK]
-**Actual status**: INCOMPLETE
-**Missing**:
-- [ ] [Specific missing item 1]
-- [ ] [Specific missing item 2]
-
-## Release Blockers
-If you're planning to ship soon, these MUST be addressed:
-1. [Specific blocker with file/issue reference]
-2. [Specific blocker with file/issue reference]
-
-## Issues That Need Attention
-- #XX: [why it's stale/blocked/misprioritized]
-
-## Quick Wins
-Things you can do right now:
-1. Close issue #XX (already done)
-2. Update Phase Y status (not complete)
-3. Add test for [specific untested code]
 - Invoke `@plan-synthesizer` agent
 
 

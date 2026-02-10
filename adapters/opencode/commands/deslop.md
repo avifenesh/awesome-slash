@@ -130,4 +130,3 @@ For detailed pattern documentation, consult:
 ### Scripts
 
 - **`scripts/detect.js`** - Detection pipeline CLI (run with `--help` for options)
-</path>

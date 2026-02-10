@@ -1,3 +1,7 @@
+---
+codex-description: "Create GitHub issues for non-security deferred findings identified by /audit-project."
+---
+
 # Phase 8: GitHub Issue Creation - Reference
 
 This file contains GitHub integration for `/audit-project`.

@@ -44,7 +44,7 @@ const mapStatus = repoMap.status(process.cwd());
 if (!mapStatus.exists) {
   console.log('Repo map not found. For faster, more accurate drift detection, run: /repo-map init');
 } else if (mapStatus.status?.staleness?.isStale) {
-  console.log(`Repo map is stale (${mapStatus.status.staleness.reason}). Consider: /repo-map update`);
+  console.log('Repo map is stale (' + mapStatus.status.staleness.reason + '). Consider: /repo-map update');
 }
 
 // Parse arguments
@@ -188,7 +188,6 @@ Output SPECIFIC actions, not generic advice:
 
 ## Output Format
 
-```markdown
 # Reality Check Report
 
 ## Executive Summary
@@ -219,7 +218,6 @@ Things you can do right now:
 1. Close issue #XX (already done)
 2. Update Phase Y status (not complete)
 3. Add test for [specific untested code]
-```
 `;
 
 await Task({

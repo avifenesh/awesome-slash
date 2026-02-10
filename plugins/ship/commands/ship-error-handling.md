@@ -1,3 +1,7 @@
+---
+codex-description: "Use when handling and recovering from /ship command errors."
+---
+
 # Error Handling & Recovery - Reference
 
 This file contains error handling procedures for `/ship`.
