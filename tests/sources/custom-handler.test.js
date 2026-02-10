@@ -3,8 +3,8 @@
  * Tests for custom source handling: type questions, CLI probing, config building
  */
 
-const customHandler = require('../../lib/sources/custom-handler');
-const sourceCache = require('../../lib/sources/source-cache');
+const customHandler = require('@awesome-slash/lib/sources/custom-handler');
+const sourceCache = require('@awesome-slash/lib/sources/source-cache');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -16,7 +16,7 @@ jest.mock('child_process', () => ({
 }));
 
 // Mock source-cache to avoid file system side effects
-jest.mock('../../lib/sources/source-cache', () => ({
+jest.mock('@awesome-slash/lib/sources/source-cache', () => ({
   savePreference: jest.fn(),
   saveToolCapabilities: jest.fn(),
   getPreference: jest.fn()

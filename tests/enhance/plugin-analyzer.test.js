@@ -6,11 +6,11 @@ const fs = require('fs');
 const path = require('path');
 
 // Import modules under test
-const pluginPatterns = require('../../lib/enhance/plugin-patterns');
-const toolPatterns = require('../../lib/enhance/tool-patterns');
-const securityPatterns = require('../../lib/enhance/security-patterns');
-const reporter = require('../../lib/enhance/reporter');
-const fixer = require('../../lib/enhance/fixer');
+const pluginPatterns = require('@awesome-slash/lib/enhance/plugin-patterns');
+const toolPatterns = require('@awesome-slash/lib/enhance/tool-patterns');
+const securityPatterns = require('@awesome-slash/lib/enhance/security-patterns');
+const reporter = require('@awesome-slash/lib/enhance/reporter');
+const fixer = require('@awesome-slash/lib/enhance/fixer');
 
 describe('Plugin Patterns', () => {
   describe('missing_additional_properties', () => {

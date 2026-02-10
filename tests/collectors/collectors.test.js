@@ -16,11 +16,11 @@ const path = require('path');
 const os = require('os');
 
 // Import modules under test
-const collectors = require('../../lib/collectors');
-const github = require('../../lib/collectors/github');
-const documentation = require('../../lib/collectors/documentation');
-const codebase = require('../../lib/collectors/codebase');
-const docsPatterns = require('../../lib/collectors/docs-patterns');
+const collectors = require('@awesome-slash/lib/collectors');
+const github = require('@awesome-slash/lib/collectors/github');
+const documentation = require('@awesome-slash/lib/collectors/documentation');
+const codebase = require('@awesome-slash/lib/collectors/codebase');
+const docsPatterns = require('@awesome-slash/lib/collectors/docs-patterns');
 
 describe('Collectors Index', () => {
   describe('exports', () => {

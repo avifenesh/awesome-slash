@@ -7,9 +7,9 @@ const path = require('path');
 const os = require('os');
 
 // Import modules under test
-const projectmemoryPatterns = require('../../lib/enhance/projectmemory-patterns');
-const projectmemoryAnalyzer = require('../../lib/enhance/projectmemory-analyzer');
-const reporter = require('../../lib/enhance/reporter');
+const projectmemoryPatterns = require('@awesome-slash/lib/enhance/projectmemory-patterns');
+const projectmemoryAnalyzer = require('@awesome-slash/lib/enhance/projectmemory-analyzer');
+const reporter = require('@awesome-slash/lib/enhance/reporter');
 
 describe('Project Memory Patterns', () => {
   describe('missing_critical_rules', () => {
@@ -696,7 +696,7 @@ describe('Reporter - Project Memory', () => {
 
 describe('Integration', () => {
   it('should export from index.js correctly', () => {
-    const enhance = require('../../lib/enhance');
+    const enhance = require('@awesome-slash/lib/enhance');
 
     expect(enhance.projectmemoryAnalyzer).toBeDefined();
     expect(enhance.projectmemoryPatterns).toBeDefined();

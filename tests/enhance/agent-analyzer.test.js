@@ -7,9 +7,9 @@ const path = require('path');
 const os = require('os');
 
 // Import modules under test
-const agentPatterns = require('../../lib/enhance/agent-patterns');
-const agentAnalyzer = require('../../lib/enhance/agent-analyzer');
-const fixer = require('../../lib/enhance/fixer');
+const agentPatterns = require('@awesome-slash/lib/enhance/agent-patterns');
+const agentAnalyzer = require('@awesome-slash/lib/enhance/agent-analyzer');
+const fixer = require('@awesome-slash/lib/enhance/fixer');
 
 describe('Agent Patterns', () => {
   describe('missing_frontmatter', () => {

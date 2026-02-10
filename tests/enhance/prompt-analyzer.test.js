@@ -5,9 +5,9 @@
 const path = require('path');
 
 // Import modules under test
-const promptPatterns = require('../../lib/enhance/prompt-patterns');
-const promptAnalyzer = require('../../lib/enhance/prompt-analyzer');
-const reporter = require('../../lib/enhance/reporter');
+const promptPatterns = require('@awesome-slash/lib/enhance/prompt-patterns');
+const promptAnalyzer = require('@awesome-slash/lib/enhance/prompt-analyzer');
+const reporter = require('@awesome-slash/lib/enhance/reporter');
 
 describe('Prompt Patterns', () => {
   describe('vague_instructions', () => {
