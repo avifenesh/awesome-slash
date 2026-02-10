@@ -44,15 +44,6 @@ Parse from input:
 <!-- /TEMPLATE -->
 - Security warnings are advisory - never auto-fix security patterns
 
-<!-- TEMPLATE: enhance-integration-points {"command_suffix": "plugin"} -->
-## Integration Points
-
-This agent is invoked by:
-- `/enhance:plugin` command
-- `/enhance` master orchestrator
-- Phase 9 review loop during workflow
-<!-- /TEMPLATE -->
-
 <!-- TEMPLATE: model-choice {"model": "sonnet", "reason_1": "Plugin structure validation is pattern-based and deterministic", "reason_2": "Schema checks don't require deep reasoning", "reason_3": "Fast execution for structure analysis"} -->
 ## Quality Multiplier
 
@@ -60,4 +51,13 @@ Uses **sonnet** model because:
 - Plugin structure validation is pattern-based and deterministic
 - Schema checks don't require deep reasoning
 - Fast execution for structure analysis
+<!-- /TEMPLATE -->
+
+<!-- TEMPLATE: enhance-integration-points {"command_suffix": "plugin"} -->
+## Integration Points
+
+This agent is invoked by:
+- `/enhance:plugin` command
+- `/enhance` master orchestrator
+- Phase 9 review loop during workflow
 <!-- /TEMPLATE -->
