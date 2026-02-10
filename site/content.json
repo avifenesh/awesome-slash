@@ -28,7 +28,7 @@
       "suffix": ""
     },
     {
-      "value": "41",
+      "value": "40",
       "label": "Agents",
       "suffix": ""
     },
@@ -300,8 +300,8 @@
     }
   ],
   "agents": {
-    "total": 41,
-    "file_based": 31,
+    "total": 40,
+    "file_based": 30,
     "role_based": 10,
     "by_model": [
       {
