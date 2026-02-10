@@ -40,19 +40,57 @@ function parseFrontmatter(content) {
   const frontmatterBlock = content.substring(4, endIdx);
   const result = {};
   const lines = frontmatterBlock.split('\n');
+  let currentKey = null;
+  let currentArray = null;
+
   for (const line of lines) {
+    // Check for YAML array item (e.g. "  - Read")
+    const arrayItemMatch = line.match(/^\s+-\s+(.+)$/);
+    if (arrayItemMatch && currentKey && currentArray) {
+      let item = arrayItemMatch[1].trim();
+      // Strip surrounding quotes from array items
+      if ((item.startsWith('"') && item.endsWith('"')) ||
+          (item.startsWith("'") && item.endsWith("'"))) {
+        item = item.slice(1, -1);
+      }
+      currentArray.push(item);
+      continue;
+    }
+
     const colonIdx = line.indexOf(':');
     if (colonIdx > 0) {
+      // Flush any pending array
+      if (currentKey && currentArray) {
+        result[currentKey] = currentArray;
+        currentKey = null;
+        currentArray = null;
+      }
+
       const key = line.substring(0, colonIdx).trim();
       let value = line.substring(colonIdx + 1).trim();
-      // Strip surrounding quotes
-      if ((value.startsWith('"') && value.endsWith('"')) ||
-          (value.startsWith("'") && value.endsWith("'"))) {
-        value = value.slice(1, -1);
+
+      if (value === '') {
+        // Key with no value - could be start of a YAML array
+        currentKey = key;
+        currentArray = [];
+      } else {
+        // Strip surrounding quotes
+        if ((value.startsWith('"') && value.endsWith('"')) ||
+            (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        result[key] = value;
+        currentKey = null;
+        currentArray = null;
       }
-      result[key] = value;
     }
   }
+
+  // Flush any trailing array
+  if (currentKey && currentArray) {
+    result[currentKey] = currentArray;
+  }
+
   return result;
 }
 
@@ -144,7 +182,7 @@ function discoverCommands(repoRoot) {
  * Discover all file-based agents by scanning plugins/<name>/agents/*.md.
  *
  * @param {string} [repoRoot] - Repository root path
- * @returns {Array<{name: string, plugin: string, file: string}>}
+ * @returns {Array<{name: string, plugin: string, file: string, frontmatter: Object}>}
  */
 function discoverAgents(repoRoot) {
   const cached = getCache(repoRoot);
@@ -160,10 +198,14 @@ function discoverAgents(repoRoot) {
 
     const files = fs.readdirSync(agentsDir).filter(f => f.endsWith('.md')).sort();
     for (const file of files) {
+      const filePath = path.join(agentsDir, file);
+      const content = fs.readFileSync(filePath, 'utf8');
+      const frontmatter = parseFrontmatter(content);
       agents.push({
         name: file.replace(/\.md$/, ''),
         plugin,
-        file
+        file,
+        frontmatter
       });
     }
   }
@@ -176,7 +218,7 @@ function discoverAgents(repoRoot) {
  * Discover all skills by scanning plugins/<name>/skills/<skill>/SKILL.md.
  *
  * @param {string} [repoRoot] - Repository root path
- * @returns {Array<{name: string, plugin: string, dir: string}>}
+ * @returns {Array<{name: string, plugin: string, dir: string, frontmatter: Object}>}
  */
 function discoverSkills(repoRoot) {
   const cached = getCache(repoRoot);
@@ -194,10 +236,13 @@ function discoverSkills(repoRoot) {
     for (const entry of entries) {
       const skillFile = path.join(skillsDir, entry, 'SKILL.md');
       if (fs.existsSync(skillFile)) {
+        const content = fs.readFileSync(skillFile, 'utf8');
+        const frontmatter = parseFrontmatter(content);
         skills.push({
           name: entry,
           plugin,
-          dir: entry
+          dir: entry,
+          frontmatter
         });
       }
     }
