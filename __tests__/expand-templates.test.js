@@ -170,7 +170,7 @@ describe('expand-templates', () => {
   });
 
   describe('checkFreshness', () => {
-    test('returns fresh when no agent files have TEMPLATE markers', () => {
+    test('returns fresh when all templates are already expanded', () => {
       const result = expandTemplates.checkFreshness();
       expect(result.status).toBe('fresh');
       expect(result.staleFiles).toEqual([]);
