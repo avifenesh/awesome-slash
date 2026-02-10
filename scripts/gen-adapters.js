@@ -135,6 +135,8 @@ function computeAdapters() {
  */
 function findOrphanedAdapters(generatedFiles) {
   const orphans = [];
+  // Hand-maintained files that should not be treated as orphans
+  const EXCLUDED_FILES = new Set(['README.md', 'install.sh']);
 
   function scanDirectory(dir, relativeBase) {
     if (!fs.existsSync(dir)) return;
@@ -146,8 +148,7 @@ function findOrphanedAdapters(generatedFiles) {
 
       if (entry.isDirectory()) {
         scanDirectory(absPath, relPath);
-      } else if (entry.isFile() && entry.name.endsWith('.md')) {
-        // Check if this file is in the generated map
+      } else if (entry.isFile() && entry.name.endsWith('.md') && !EXCLUDED_FILES.has(entry.name)) {
         if (!generatedFiles.has(relPath)) {
           orphans.push(relPath);
         }
