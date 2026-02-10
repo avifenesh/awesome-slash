@@ -848,6 +848,38 @@ function checkDocsFreshness() {
   }
 }
 
+/**
+ * i) Check that agent template expansions are up to date.
+ *    Uses expand-templates.js checkFreshness() to detect stale markers.
+ */
+function checkTemplateFreshness() {
+  try {
+    const { checkFreshness } = require(path.join(ROOT_DIR, 'scripts', 'expand-templates.js'));
+    const result = checkFreshness();
+
+    if (result.status === 'fresh') {
+      return {
+        name: 'gap:template-freshness',
+        status: 'pass',
+        message: result.message
+      };
+    }
+
+    return {
+      name: 'gap:template-freshness',
+      status: 'fail',
+      message: result.message,
+      details: result.staleFiles.map(f => `${f}: template expansion out of date`)
+    };
+  } catch (err) {
+    return {
+      name: 'gap:template-freshness',
+      status: 'error',
+      message: `Failed to check template freshness: ${err.message}`
+    };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Gap check orchestrator
 // ---------------------------------------------------------------------------
@@ -905,6 +937,12 @@ function runGapChecks(relevantChecklists, changedFiles, options) {
       relevantChecklists.has('new-skill') || relevantChecklists.has('new-command') ||
       relevantChecklists.has('release')) {
     results.push(checkDocsFreshness());
+  }
+
+  // template freshness: relevant to new-agent, release
+  if (runAll || relevantChecklists.has('new-agent') ||
+      relevantChecklists.has('release')) {
+    results.push(checkTemplateFreshness());
   }
 
   return results;
