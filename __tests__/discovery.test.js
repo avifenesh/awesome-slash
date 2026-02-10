@@ -72,12 +72,13 @@ describe('discovery module', () => {
       expect(agents.length).toBe(30);
     });
 
-    test('each agent has name, plugin, and file', () => {
+    test('each agent has name, plugin, file, and frontmatter', () => {
       const agents = discovery.discoverAgents(REPO_ROOT);
       for (const agent of agents) {
         expect(agent).toHaveProperty('name');
         expect(agent).toHaveProperty('plugin');
         expect(agent).toHaveProperty('file');
+        expect(agent).toHaveProperty('frontmatter');
         expect(agent.file).toMatch(/\.md$/);
       }
     });
@@ -93,6 +94,27 @@ describe('discovery module', () => {
       const perfAgents = agents.filter(a => a.plugin === 'perf');
       expect(perfAgents.length).toBe(6);
     });
+
+    test('agents have model field in frontmatter', () => {
+      const agents = discovery.discoverAgents(REPO_ROOT);
+      const modelsFound = new Set();
+      for (const agent of agents) {
+        if (agent.frontmatter.model) {
+          modelsFound.add(agent.frontmatter.model);
+        }
+      }
+      expect(modelsFound.has('opus')).toBe(true);
+      expect(modelsFound.has('sonnet')).toBe(true);
+      expect(modelsFound.has('haiku')).toBe(true);
+    });
+
+    test('agents have tools array in frontmatter', () => {
+      const agents = discovery.discoverAgents(REPO_ROOT);
+      const exploration = agents.find(a => a.name === 'exploration-agent');
+      expect(exploration).toBeDefined();
+      expect(Array.isArray(exploration.frontmatter.tools)).toBe(true);
+      expect(exploration.frontmatter.tools).toContain('Read');
+    });
   });
 
   describe('discoverSkills', () => {
@@ -101,12 +123,13 @@ describe('discovery module', () => {
       expect(skills.length).toBe(26);
     });
 
-    test('each skill has name, plugin, and dir', () => {
+    test('each skill has name, plugin, dir, and frontmatter', () => {
       const skills = discovery.discoverSkills(REPO_ROOT);
       for (const skill of skills) {
         expect(skill).toHaveProperty('name');
         expect(skill).toHaveProperty('plugin');
         expect(skill).toHaveProperty('dir');
+        expect(skill).toHaveProperty('frontmatter');
       }
     });
   });
@@ -185,6 +208,28 @@ describe('discovery module', () => {
       const content = '---\ndescription: Use when: user asks\n---\n';
       const fm = discovery.parseFrontmatter(content);
       expect(fm.description).toBe('Use when: user asks');
+    });
+
+    test('parses YAML arrays', () => {
+      const content = '---\nname: test-agent\ntools:\n  - Read\n  - Write\n  - Bash(git:*)\nmodel: opus\n---\n# Content';
+      const fm = discovery.parseFrontmatter(content);
+      expect(fm.name).toBe('test-agent');
+      expect(fm.model).toBe('opus');
+      expect(Array.isArray(fm.tools)).toBe(true);
+      expect(fm.tools).toEqual(['Read', 'Write', 'Bash(git:*)']);
+    });
+
+    test('parses YAML arrays with quoted items', () => {
+      const content = '---\ntools:\n  - "Read"\n  - \'Write\'\n---\n';
+      const fm = discovery.parseFrontmatter(content);
+      expect(fm.tools).toEqual(['Read', 'Write']);
+    });
+
+    test('handles trailing YAML array at end of frontmatter', () => {
+      const content = '---\nname: test\nitems:\n  - one\n  - two\n---\n';
+      const fm = discovery.parseFrontmatter(content);
+      expect(fm.name).toBe('test');
+      expect(fm.items).toEqual(['one', 'two']);
     });
   });
 
