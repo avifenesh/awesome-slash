@@ -90,7 +90,8 @@ describe('COMMANDS registry', () => {
   test('has expected top-level commands', () => {
     const expected = [
       'validate', 'bump', 'sync-lib', 'setup-hooks', 'dev-install',
-      'detect', 'verify', 'status', 'test', 'migrate-opencode', 'test-transform'
+      'detect', 'verify', 'status', 'test', 'migrate-opencode', 'test-transform',
+      'preflight'
     ];
     for (const name of expected) {
       expect(COMMANDS).toHaveProperty(name);

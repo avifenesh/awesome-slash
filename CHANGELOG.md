@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Preflight command** - Unified change-aware checklist enforcement (`npm run preflight`, `preflight --all`, `preflight --release`, `preflight --json`)
+  - Detects changed files and runs only relevant checklist validators
+  - Includes 7 existing validators + 7 new gap checks (CHANGELOG, labels, codex triggers, lib exports, lib sync, test existence, staged files)
+  - Pre-push hook now delegates to preflight for validation
 - **Unified Dev CLI** (`awesome-slash-dev`) - Single discoverable entry point for all dev scripts
   - `awesome-slash-dev validate` runs all 7 validators sequentially
   - `awesome-slash-dev validate <sub>` runs individual validators (plugins, cross-platform, consistency, etc.)
