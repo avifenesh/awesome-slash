@@ -145,6 +145,10 @@ npx awesome-slash-dev gen-docs          # Auto-generate doc sections
 npx awesome-slash-dev gen-docs --check  # Validate docs are fresh (CI)
 npx awesome-slash-dev expand-templates  # Expand template markers in agents
 npx awesome-slash-dev expand-templates --check # Validate templates are fresh (CI)
+npx awesome-slash-dev new plugin <name>  # Scaffold new plugin
+npx awesome-slash-dev new agent <name> --plugin=<plugin>  # Scaffold new agent
+npx awesome-slash-dev new skill <name> --plugin=<plugin>  # Scaffold new skill
+npx awesome-slash-dev new command <name> --plugin=<plugin>  # Scaffold new command
 npx awesome-slash-dev --help           # Show all commands
 
 # Alternative: direct invocation
@@ -160,6 +164,10 @@ npm run gen-docs             # Auto-generate documentation
 npm run gen-docs:check       # Check if docs are stale
 npm run expand-templates     # Expand agent templates
 npm run expand-templates:check # Check if templates are stale
+npm run new:plugin           # Scaffold new plugin
+npm run new:agent            # Scaffold new agent
+npm run new:skill            # Scaffold new skill
+npm run new:command          # Scaffold new command
 npm run bump <version>       # Bump versions via dev-cli
 npm pack                     # Build package
 awesome-slash                # Run installer
