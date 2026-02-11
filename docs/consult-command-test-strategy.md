@@ -1,5 +1,10 @@
 # Test Strategy for /consult Command
 
+> **Note**: The consult plugin is entirely markdown-based with no JavaScript implementation.
+> The function names below (e.g., `parseArguments()`, `getClaudeModel()`) are hypothetical
+> examples showing what would be tested if the plugin had a JS implementation. The actual
+> tests in `__tests__/consult-command.test.js` validate markdown content instead.
+
 ## Overview
 
 The `/consult` command has unique testing requirements:

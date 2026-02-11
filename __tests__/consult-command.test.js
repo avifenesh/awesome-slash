@@ -109,7 +109,7 @@ describe('consult plugin structure', () => {
   });
 
   test('all files have valid frontmatter', () => {
-    for (const [name, content] of [
+    for (const [_label, content] of [
       ['command', commandContent],
       ['skill', skillContent],
       ['agent', agentContent]
@@ -440,16 +440,6 @@ describe('output format', () => {
 
 // ─── 8. Error Handling Coverage ─────────────────────────────────────
 describe('error handling coverage', () => {
-  const errorScenarios = [
-    'no question',
-    'not installed',
-    'execution fail',
-    'timeout',
-    'no tools',
-    'session not found',
-    'API key'
-  ];
-
   test('command error table covers all scenarios', () => {
     // Command should have error handling section with table
     expect(commandContent).toMatch(/## Error Handling/);
