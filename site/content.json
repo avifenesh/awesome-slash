@@ -164,6 +164,13 @@
       "description": "Progressive discovery gathers 10-40 online sources, scores them by quality, and synthesizes a structured guide with RAG index. Creates reusable knowledge in agent-knowledge/.",
       "example": "/learn react hooks --depth=deep",
       "category": "learning"
+    },
+    {
+      "name": "/consult",
+      "tagline": "Get a second opinion from another AI tool",
+      "description": "Cross-tool AI consultation. Ask Gemini, Codex, Claude, OpenCode, or Copilot for a second opinion on any question. Supports session continuations, context injection, and configurable thinking effort.",
+      "example": "/consult \"Is this the right approach?\" --tool=gemini --effort=high",
+      "category": "analysis"
     }
   ],
   "philosophy": [
