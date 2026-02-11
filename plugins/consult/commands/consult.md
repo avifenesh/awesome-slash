@@ -52,7 +52,7 @@ If no question text and no `--continue` flag found, show:
 
 ### Phase 2: Interactive Parameter Selection
 
-Resolve missing parameters interactively. If ALL flags are provided, skip directly to Phase 3.
+MUST resolve ALL missing parameters interactively before Phase 3. ONLY skip this phase if ALL of --tool AND --effort are explicitly provided by the user in $ARGUMENTS. Do NOT silently default any parameter.
 
 #### Step 2a: Handle --continue
 
@@ -89,7 +89,7 @@ If zero tools are installed: `[ERROR] No AI CLI tools found. Install at least on
 
 Map the user's choice to lowercase: "Claude" -> "claude", "Codex" -> "codex", etc.
 
-#### Step 2c: Effort Selection (if no --effort)
+#### Step 2c: Effort Selection (MUST ask if no --effort)
 
 ```
 AskUserQuestion:
@@ -104,6 +104,8 @@ AskUserQuestion:
 ```
 
 Map the user's choice: "Medium (Recommended)" -> "medium", "Low" -> "low", "High" -> "high", "Max" -> "max".
+
+IMPORTANT: Do NOT skip this step. Do NOT default to "medium" without asking. If --effort was not explicitly provided in $ARGUMENTS, you MUST present this picker before proceeding to Phase 3.
 
 ### Phase 3: Invoke Consult Skill
 
