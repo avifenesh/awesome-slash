@@ -14,6 +14,14 @@ agent: general
 
 Get a second opinion from another AI CLI tool without leaving your current session.
 
+## Constraints
+
+- NEVER expose API keys in commands or output
+- NEVER run with permission-bypassing flags (`--dangerously-skip-permissions`, `bypassPermissions`)
+- MUST use safe-mode defaults (`-a suggest` for Codex, `--allowedTools "Read,Glob,Grep"` for Claude)
+- MUST enforce 120s timeout on all tool executions
+- NEVER execute tools the user has not explicitly requested
+
 ## Arguments
 
 Parse from $ARGUMENTS:
@@ -22,51 +30,60 @@ Parse from $ARGUMENTS:
 - **--tool**: Target tool: `gemini`, `codex`, `claude`, `opencode`, `copilot` (interactive picker if omitted)
 - **--effort**: Thinking effort: `low`, `medium` (default), `high`, `max`
 - **--model**: Specific model name (overrides effort-based selection). Free text.
-- **--context**: Auto-include context: `diff` (git diff), `file` (attach file), `none` (default)
+- **--context**: Auto-include context: `diff` (git diff), `file=PATH` (attach specific file), `none` (default)
 - **--continue**: Continue last consultation session, or `--continue=SESSION_ID` for specific session
 
 ## Execution
 
 ### Phase 1: Parse Arguments
 
-*(JavaScript reference - not executable in OpenCode)*
+Extract from `$ARGUMENTS`:
+- `--tool` flag for routing (or null for interactive picker)
+- `--continue` flag for session flow
+- Everything else passed through to the agent/skill
+
+If no question and no `--continue`:
+```
+[ERROR] Usage: /consult "your question" [--tool=gemini|codex|claude|opencode|copilot] [--effort=low|medium|high|max]
+```
 
 ### Phase 2: Detect Available Tools
 
 If `--tool` not specified, detect which tools are installed and let user pick.
 
-*(JavaScript reference - not executable in OpenCode)*
+Run cross-platform detection:
+- Windows: `where.exe <tool> 2>nul`
+- Unix: `which <tool> 2>/dev/null`
 
-If no `--tool` flag, use AskUserQuestion:
+If no `--tool` flag, use AskUserQuestion with only installed tools:
 
-- Use AskUserQuestion tool for user input
-
-
-Tool descriptions for picker:
-- **Claude**: Claude Code (Anthropic) - deep code reasoning
-- **Gemini**: Gemini CLI (Google) - fast multimodal analysis
-- **Codex**: Codex CLI (OpenAI) - agentic coding
-- **OpenCode**: OpenCode (multi-provider) - flexible model choice
-- **Copilot**: Copilot CLI (GitHub) - GitHub-integrated AI
+Tool options for picker (labels must be under 30 chars for OpenCode):
+- **Claude**: Deep code reasoning
+- **Gemini**: Fast multimodal analysis
+- **Codex**: Agentic coding
+- **OpenCode**: Flexible model choice
+- **Copilot**: GitHub-integrated AI
 
 ### Phase 3: Handle Continue Session
 
-If `--continue` is set, load last session from state file:
+If `--continue` is set, load last session state:
 
 *(JavaScript reference - not executable in OpenCode)*
 
 ### Phase 4: Spawn Consult Agent
 
+Spawn `consult-agent` (sonnet - orchestration only, no complex reasoning needed):
+
 *(JavaScript reference - not executable in OpenCode)*
 
 ### Phase 5: Present Results
 
-*(JavaScript reference - not executable in OpenCode)*
+Parse the structured JSON from between `=== CONSULT_RESULT ===` and `=== END_RESULT ===` markers.
 
 Display:
 
 ```markdown
-## Consultation Result
+[OK] Consultation Complete
 
 **Tool**: {tool} ({model})
 **Effort**: {effort}
@@ -78,8 +95,10 @@ Display:
 
 ### Session
 
-{session_id if continuable, with hint to use --continue}
+{session_id if continuable, with hint: "Use --continue to resume this session"}
 ```
+
+On failure: `[ERROR] Consultation Failed: {error message}`
 
 ## Error Handling
 
@@ -92,6 +111,15 @@ Display:
 | No tools available | Suggest installing at least one tool |
 | Session not found | Warn, start fresh consultation |
 
+## Success Criteria
+
+- Target tool detected and verified as installed
+- CLI command executed within 120s timeout
+- Response parsed from the tool's output format
+- Results presented in structured markdown with status markers
+- Session state saved for continuable tools (Claude, Gemini)
+- Errors produce actionable messages with install instructions
+
 ## Example Usage
 
 ```bash
@@ -100,4 +128,6 @@ Display:
 /consult "What alternative patterns would you suggest?" --tool=claude --effort=max
 /consult "Suggest improvements" --tool=opencode --model=github-copilot/claude-opus-4-6
 /consult "Continue from where we left off" --continue
+/consult "Explain this error" --context=diff --tool=gemini
+/consult "Review this file" --context=file=src/index.js --tool=claude
 ```

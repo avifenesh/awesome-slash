@@ -9,31 +9,27 @@ argument-hint: "[question] [--tool=gemini|codex|claude|opencode|copilot] [--effo
 
 Cross-tool AI consultation: query another AI CLI tool and return the response.
 
-## Parse Arguments
+## When to Use
 
-```javascript
-const args = '$ARGUMENTS';
+Invoke this skill when:
+- User wants a second opinion from a different AI tool
+- User asks to consult, ask, or cross-check with gemini/codex/claude/opencode/copilot
+- User needs to compare responses across AI tools
+- User wants to validate a decision with an external AI
 
-const toolMatch = args.match(/--tool=(gemini|codex|claude|opencode|copilot)/);
-const effortMatch = args.match(/--effort=(low|medium|high|max)/);
-const modelMatch = args.match(/--model=(\S+)/);
-const contextMatch = args.match(/--context=(diff|file|none)/);
-const continueMatch = args.match(/--continue(?:=(\S+))?/);
+## Arguments
 
-const tool = toolMatch ? toolMatch[1] : null;
-const effort = effortMatch ? effortMatch[1] : 'medium';
-const model = modelMatch ? modelMatch[1] : null;
-const context = contextMatch ? contextMatch[1] : 'none';
-const continueSession = continueMatch ? (continueMatch[1] || true) : false;
+Parse from `$ARGUMENTS`:
 
-const question = args
-  .replace(/--tool=\S+/g, '')
-  .replace(/--effort=\S+/g, '')
-  .replace(/--model=\S+/g, '')
-  .replace(/--context=\S+/g, '')
-  .replace(/--continue(?:=\S+)?/g, '')
-  .trim();
-```
+| Flag | Values | Default | Description |
+|------|--------|---------|-------------|
+| `--tool` | gemini, codex, claude, opencode, copilot | (picker) | Target tool |
+| `--effort` | low, medium, high, max | medium | Thinking effort level |
+| `--model` | any model name | (from effort) | Override model selection |
+| `--context` | diff, file=PATH, none | none | Auto-include context |
+| `--continue` | (flag) or SESSION_ID | false | Resume previous session |
+
+Question text is everything in `$ARGUMENTS` except the flags above.
 
 ## Provider Configurations
 
@@ -124,76 +120,36 @@ Given the parsed arguments, build the complete CLI command:
 
 ### Step 1: Resolve Model
 
-If `--model` is specified, use it directly. Otherwise, use the effort-based model from the table above.
+If `--model` is specified, use it directly. Otherwise, use the effort-based model from the provider table above.
 
 ### Step 2: Build Command String
 
-**Claude**:
-```bash
-claude -p "QUESTION" --output-format json --model MODEL --max-turns TURNS --allowedTools "Read,Glob,Grep"
-```
-If continuing: append `--resume SESSION_ID`
+Use the command template from the provider's configuration section. Substitute QUESTION, MODEL, TURNS, LEVEL, and VARIANT with resolved values.
 
-**Gemini**:
-```bash
-gemini -p "QUESTION" --output-format json -m MODEL
-```
-If continuing: append `--resume SESSION_ID`
-
-**Codex**:
-```bash
-codex -q "QUESTION" --json -m MODEL -a suggest -c model_reasoning_effort="LEVEL"
-```
-
-**OpenCode**:
-```bash
-opencode run "QUESTION" --format json --model MODEL --variant VARIANT
-```
-If max effort: append `--thinking`
-
-**Copilot**:
-```bash
-copilot -p "QUESTION"
-```
+If continuing a session (Claude or Gemini): append `--resume SESSION_ID`.
+If OpenCode at max effort: append `--thinking`.
 
 ### Step 3: Context Packaging
 
-If `--context=diff`:
-```bash
-DIFF=$(git diff 2>/dev/null)
-QUESTION="Context (git diff):\n${DIFF}\n\nQuestion: ${ORIGINAL_QUESTION}"
-```
-
-If `--context=file`:
-Read the file content and prepend to question.
+If `--context=diff`: Run `git diff 2>/dev/null` and prepend output to the question.
+If `--context=file=PATH`: Read the specified file and prepend its content to the question.
 
 ### Step 4: Shell Escaping
 
-Escape the question for safe shell execution:
+Escape the question for safe shell execution (cross-platform):
 - Replace `"` with `\"`
-- Replace `$` with `\$`
-- Replace backticks with `\``
+- Replace `$` with `\$` (Unix) or leave as-is (Windows cmd)
+- Replace backticks with `` \` ``
 - Wrap in double quotes
 
 ## Provider Detection
 
 Cross-platform tool detection:
 
-```bash
-# Windows
-where.exe claude 2>nul && echo "claude:available" || echo "claude:missing"
-where.exe gemini 2>nul && echo "gemini:available" || echo "gemini:missing"
-where.exe codex 2>nul && echo "codex:available" || echo "codex:missing"
-where.exe opencode 2>nul && echo "opencode:available" || echo "opencode:missing"
-where.exe copilot 2>nul && echo "copilot:available" || echo "copilot:missing"
+- **Windows**: `where.exe TOOL 2>nul` -- returns 0 if found
+- **Unix**: `which TOOL 2>/dev/null` -- returns 0 if found
 
-# Unix
-which claude 2>/dev/null && echo "claude:available" || echo "claude:missing"
-which gemini 2>/dev/null && echo "gemini:available" || echo "gemini:missing"
-which codex 2>/dev/null && echo "codex:available" || echo "codex:missing"
-which opencode 2>/dev/null && echo "opencode:available" || echo "opencode:missing"
-which copilot 2>/dev/null && echo "copilot:available" || echo "copilot:missing"
-```
+Check each tool (claude, gemini, codex, opencode, copilot) and return only the available ones.
 
 ## Session Management
 
@@ -212,6 +168,8 @@ After successful consultation, save to `{AI_STATE_DIR}/consult/last-session.json
   "continuable": true
 }
 ```
+
+`AI_STATE_DIR` defaults to `.claude` for Claude Code, `config/.opencode` for OpenCode, `.codex` for Codex.
 
 ### Load Session
 
@@ -234,7 +192,6 @@ Return structured JSON between markers:
   "effort": "high",
   "duration_ms": 12300,
   "response": "The AI's response text here...",
-  "raw_output": {},
   "session_id": "abc-123",
   "continuable": true
 }
@@ -257,7 +214,7 @@ When a tool is not found, return these install commands:
 
 | Error | Response |
 |-------|----------|
-| Tool not installed | Return install instructions |
+| Tool not installed | Return install instructions from table above |
 | Tool execution timeout | Return `"response": "Timeout after 120s"` |
 | JSON parse error | Return raw text as response |
 | Empty output | Return `"response": "No output received"` |
@@ -268,4 +225,4 @@ When a tool is not found, return these install commands:
 
 This skill is invoked by:
 - `consult-agent` for `/consult` command
-- Can be invoked directly: `Skill('consult', '"question" --tool=gemini --effort=high')`
+- Direct invocation: `Skill('consult', '"question" --tool=gemini --effort=high')`

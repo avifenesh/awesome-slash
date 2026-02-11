@@ -18,7 +18,7 @@
 </p>
 
 <p align="center">
-  <b>11 plugins · 40 agents · 26 skills · 26k lines of lib code · 3,357 tests · 3 platforms</b>
+  <b>12 plugins · 41 agents · 27 skills · 26k lines of lib code · 3,357 tests · 3 platforms</b>
 </p>
 
 <p align="center">
@@ -112,8 +112,8 @@ Skills give your agents specialized capabilities. When you install a plugin, its
 | Section | What's there |
 |---------|--------------|
 | [The Approach](#the-approach) | Why it's built this way |
-| [Commands](#commands) | All 11 commands overview |
-| [Skills](#skills) | 26 skills across plugins |
+| [Commands](#commands) | All 12 commands overview |
+| [Skills](#skills) | 27 skills across plugins |
 | [Command Details](#command-details) | Deep dive into each command |
 | [How Commands Work Together](#how-commands-work-together) | Standalone vs integrated |
 | [Design Philosophy](#design-philosophy) | The thinking behind the architecture |

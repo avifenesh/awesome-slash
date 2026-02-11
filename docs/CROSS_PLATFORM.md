@@ -323,8 +323,8 @@ The plugin auto-detects the platform and uses the appropriate directory. Overrid
 - Works with any model provider (Claude, OpenAI, Google, local)
 - State directory: `.opencode/`
 - Slash commands in `~/.config/opencode/commands/`
-- Agents in `~/.config/opencode/agents/` (30 agents)
-- Skills in `~/.config/opencode/skills/` (26 skills)
+- Agents in `~/.config/opencode/agents/` (31 agents)
+- Skills in `~/.config/opencode/skills/` (27 skills)
 - Native plugin in `~/.config/opencode/plugins/awesome-slash.ts`
 - **Native plugin features:**
   - Auto-thinking selection (adjusts budget per agent)
