@@ -44,7 +44,7 @@ awesome-slash uses 39 specialized agents across 10 plugins (9 have agents - ship
 | haiku | Mechanical execution, no judgment | Low |
 
 **Agent types:**
-- **File-based agents** (30) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 30 -->
+- **File-based agents** (31) - Defined in `plugins/*/agents/*.md` with frontmatter <!-- AGENT_COUNT_FILE_BASED: 31 -->
 - **Role-based agents** (10) - Defined inline via Task tool with specialized prompts <!-- AGENT_COUNT_ROLE_BASED: 10 -->
 
 ---

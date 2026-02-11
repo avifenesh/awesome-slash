@@ -187,7 +187,7 @@ function generateSkillsTable(skills) {
   // Defined category order
   const categoryOrder = [
     'Performance', 'Enhancement', 'Workflow', 'Cleanup',
-    'Analysis', 'Learning', 'Linting', 'Other'
+    'Analysis', 'Productivity', 'Learning', 'Linting', 'Other'
   ];
 
   const lines = [

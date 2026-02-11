@@ -3,12 +3,12 @@
 name: consult
 description: "Cross-tool AI consultation. Use when user asks to 'consult gemini', 'ask codex', 'get second opinion', 'cross-check with claude', 'consult another AI', 'ask opencode', 'copilot opinion', or wants a second opinion from a different AI tool."
 version: 1.0.0
-argument-hint: "[question] [--tool=gemini|codex|claude|opencode|copilot] [--effort=low|medium|high|max] [--model=MODEL] [--context=diff|file|none] [--continue]"
+argument-hint: "[question] [--tool] [--effort]"
 ---
 
 > **OpenCode Note**: Invoke agents using `@agent-name` syntax.
 > Available agents: task-discoverer, exploration-agent, planning-agent,
-> implementation-agent, deslop-agent, delivery-validator, sync-docs-agent
+> implementation-agent, deslop-agent, delivery-validator, sync-docs-agent, consult-agent
 > Example: `@exploration-agent analyze the codebase`
 
 
@@ -43,8 +43,8 @@ Question text is everything in `$ARGUMENTS` except the flags above.
 ### Claude
 
 ```
-Command: claude -p "QUESTION" --output-format json --model MODEL --max-turns TURNS --allowedTools "Read,Glob,Grep"
-Session resume: --resume SESSION_ID
+Command: claude -p "QUESTION" --output-format json --model "MODEL" --max-turns TURNS --allowedTools "Read,Glob,Grep"
+Session resume: --resume "SESSION_ID"
 ```
 
 | Effort | Model | Max Turns |
@@ -61,8 +61,8 @@ Session resume: --resume SESSION_ID
 ### Gemini
 
 ```
-Command: gemini -p "QUESTION" --output-format json -m MODEL
-Session resume: --resume SESSION_ID
+Command: gemini -p "QUESTION" --output-format json -m "MODEL"
+Session resume: --resume "SESSION_ID"
 ```
 
 | Effort | Model |
@@ -78,7 +78,7 @@ Session resume: --resume SESSION_ID
 ### Codex
 
 ```
-Command: codex -q "QUESTION" --json -m MODEL -a suggest -c model_reasoning_effort="LEVEL"
+Command: codex -q "QUESTION" --json -m "MODEL" -a suggest -c model_reasoning_effort="LEVEL"
 ```
 
 | Effort | Model | Reasoning |
@@ -94,7 +94,7 @@ Command: codex -q "QUESTION" --json -m MODEL -a suggest -c model_reasoning_effor
 ### OpenCode
 
 ```
-Command: opencode run "QUESTION" --format json --model MODEL --variant VARIANT
+Command: opencode run "QUESTION" --format json --model "MODEL" --variant "VARIANT"
 With thinking: add --thinking flag
 ```
 
@@ -121,9 +121,18 @@ Command: copilot -p "QUESTION"
 **Parse output**: Raw text from stdout
 **Continuable**: No
 
+## Input Validation
+
+Before building commands, validate all user-provided arguments:
+
+- **--tool**: MUST be one of: gemini, codex, claude, opencode, copilot. Reject all other values.
+- **--effort**: MUST be one of: low, medium, high, max. Default to medium.
+- **--model**: Allow any string, but quote it in the command.
+- **--context=file=PATH**: MUST resolve within the current project directory. Reject absolute paths outside cwd and paths containing `..` that escape the project root.
+
 ## Command Building
 
-Given the parsed arguments, build the complete CLI command:
+Given the parsed arguments, build the complete CLI command. All user-provided values MUST be quoted in the shell command to prevent injection.
 
 ### Step 1: Resolve Model
 
@@ -143,10 +152,10 @@ If `--context=file=PATH`: Read the specified file and prepend its content to the
 
 ### Step 4: Shell Escaping
 
-Escape the question for safe shell execution (cross-platform):
+Escape ALL user-provided values (question, model, session ID) for safe shell execution:
 - Replace `"` with `\"`
 - Replace `$` with `\$` (Unix) or leave as-is (Windows cmd)
-- Replace backticks with `` \` ``
+- Replace backticks with `\``
 - Wrap in double quotes
 
 ## Provider Detection
@@ -176,7 +185,7 @@ After successful consultation, save to `{AI_STATE_DIR}/consult/last-session.json
 }
 ```
 
-`AI_STATE_DIR` defaults to `.opencode` for Claude Code, `config/.opencode` for OpenCode, `.codex` for Codex.
+`AI_STATE_DIR` defaults to `.opencode` for Claude Code, `.opencode` for OpenCode, `.codex` for Codex.
 
 ### Load Session
 

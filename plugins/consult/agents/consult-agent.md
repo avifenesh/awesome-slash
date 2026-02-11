@@ -3,7 +3,14 @@ name: consult-agent
 description: "Execute cross-tool AI consultations. Use when spawned to consult gemini, codex, claude, opencode, or copilot. Invoked by the consult command or directly via Task."
 tools:
   - Skill
-  - Bash(claude:*, gemini:*, codex:*, opencode:*, copilot:*, git:*, where.exe:*, which:*)
+  - Bash(claude:*)
+  - Bash(gemini:*)
+  - Bash(codex:*)
+  - Bash(opencode:*)
+  - Bash(copilot:*)
+  - Bash(git:*)
+  - Bash(where.exe:*)
+  - Bash(which:*)
   - Read
   - Write
   - Glob

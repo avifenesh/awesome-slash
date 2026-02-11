@@ -14,6 +14,9 @@ Get a second opinion from another AI CLI tool without leaving your current sessi
 - NEVER run with permission-bypassing flags (`--dangerously-skip-permissions`, `bypassPermissions`)
 - MUST use safe-mode defaults (`-a suggest` for Codex, `--allowedTools "Read,Glob,Grep"` for Claude)
 - MUST enforce 120s timeout on all tool executions
+- MUST validate `--tool` against allow-list: gemini, codex, claude, opencode, copilot (reject all others)
+- MUST validate `--context=file=PATH` is within the project directory (reject absolute paths outside cwd)
+- MUST quote all user-provided values in shell commands to prevent injection
 - NEVER execute tools the user has not explicitly requested
 
 ## Arguments
@@ -64,6 +67,7 @@ If `--continue` is set, load last session state:
 
 ```javascript
 // Reference implementation - compute session file path
+// Actual path is platform-dependent. See consult skill for details.
 const stateDir = process.env.AI_STATE_DIR || '.claude';
 const sessionFile = `${stateDir}/consult/last-session.json`;
 // Load saved tool + session_id from file

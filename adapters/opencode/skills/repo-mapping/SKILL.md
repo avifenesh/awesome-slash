@@ -7,7 +7,7 @@ argument-hint: "[action] [--force]"
 
 > **OpenCode Note**: Invoke agents using `@agent-name` syntax.
 > Available agents: task-discoverer, exploration-agent, planning-agent,
-> implementation-agent, deslop-agent, delivery-validator, sync-docs-agent
+> implementation-agent, deslop-agent, delivery-validator, sync-docs-agent, consult-agent
 > Example: `@exploration-agent analyze the codebase`
 
 

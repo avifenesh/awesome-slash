@@ -99,6 +99,7 @@ Each command works standalone. Together, they form complete workflows.
 | **Workflow** | `next-task:discover-tasks`, `next-task:orchestrate-review`, `next-task:validate-delivery` |
 | **Cleanup** | `deslop:deslop`, `sync-docs:sync-docs` |
 | **Analysis** | `drift-detect:drift-analysis`, `repo-map:repo-mapping` |
+| **Productivity** | `consult:consult` |
 | **Learning** | `learn:learn` |
 | **Linting** | `agnix:agnix` |
 <!-- GEN:END:readme-skills -->
