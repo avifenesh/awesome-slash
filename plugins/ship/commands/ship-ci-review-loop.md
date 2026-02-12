@@ -1,3 +1,7 @@
+---
+description: "Reference for CI monitoring and review loop in /ship. Details mandatory wait periods, auto-reviewer handling, and comment resolution."
+---
+
 <ci-review-loop>
 # Phase 4: CI & Review Monitor Loop - Reference
 

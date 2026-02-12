@@ -1,3 +1,7 @@
+---
+description: "Reference for deployment and validation phases in /ship. Details Railway/Vercel deployment, smoke testing, and rollback procedures."
+---
+
 # Phases 7-10: Deploy & Validate - Reference
 
 This file contains platform-specific deployment and validation for `/ship`.
