@@ -29,7 +29,7 @@ const LOOKS_LIKE_JSON_CONTENT = /[:,]/;
 const NOT_JSON_KEYWORDS = /(function|const|let|var|if|for|while|class)\b/;
 // JS patterns require syntax context (not just keywords that might appear in JSON strings)
 const LOOKS_LIKE_JS = /\b(function\s*\(|const\s+\w+\s*=|let\s+\w+\s*=|var\s+\w+\s*=|=>\s*[{(]|async\s+function|await\s+\w|class\s+\w+\s*{|import\s+\{|export\s+(const|function|class|default)|require\s*\()/;
-const LOOKS_LIKE_PYTHON = /\b(def\s+\w+|import\s+\w+|from\s+\w+\s+import|class\s+\w+:|if[ \t]+[^\n]*:|\s{4}|print\()\b/;
+const LOOKS_LIKE_PYTHON = /\b(def\s+\w+|import\s+\w+|from\s+\w+\s+import|class\s+\w+:|if\s[^:\n]*:|\s{4}|print\()\b/;
 
 // Memoization caches for performance (keyed by content hash)
 let _lastContent = null;
@@ -1140,19 +1140,15 @@ const promptPatterns = {
       if (!creationTasks.test(content)) return null;
 
       // Check for pattern reference indicators
-      const patternRefs = [
-        /\blike\s+\S+\b/i,
-        /\bsimilar\s+to\b/i,
-        /\bfollow(?:ing)?[ \t]+(?:the[ \t]+)?(?:same[ \t]+)?pattern\b/i,
-        /\bsee[ \t]+\S+[ \t]+(?:for|as)[ \t]+(?:an?[ \t]+)?example\b/i,
-        /\blook\s+at\s+(?:how|the)\b/i,
-        /\S+\.(?:js|ts|py)[ \t]+(?:is|as)[ \t]+(?:a[ \t]+)?(?:good[ \t]+)?example/i
-      ];
-
-      for (const pattern of patternRefs) {
-        if (pattern.test(content)) {
-          return null;
-        }
+      // Use string-based checks to avoid ReDoS from overlapping optional groups
+      const lcRef = content.toLowerCase();
+      if (/\blike\s+\S+\b/i.test(content) ||
+          lcRef.includes('similar to') ||
+          (lcRef.includes('follow') && lcRef.includes('pattern')) ||
+          (lcRef.includes('see ') && lcRef.includes('example')) ||
+          (lcRef.includes('look at')) ||
+          (/\.(?:js|ts|py)\b/.test(content) && lcRef.includes('example'))) {
+        return null;
       }
 
       return {
