@@ -983,9 +983,9 @@ const promptPatterns = {
                        // JSON in JavaScript/TypeScript code blocks (quoted keys)
                        (/```(?:javascript|js|typescript|ts)\b/.test(content) && /\{\s*"[a-zA-Z]+"/i.test(content)) ||
                        // JavaScript object literal assignment (const x = { prop: ... })
-                       /(?:const|let|var)\s+\w+\s*=\s*\{/.test(content) ||
+                       (/\b(?:const|let|var)\b/.test(content) && /=\s*\{/.test(content)) ||
                        // JSON example with quoted property names in prose
-                       /\{(?:\n[ \t]*)?"[a-zA-Z_]+"[ \t]*:/i.test(content) ||
+                       /\{"[a-zA-Z_]+"[ \t]*:/i.test(content) || /\{\n[ \t]*"[a-zA-Z_]+"[ \t]*:/i.test(content) ||
                        // Inline schema description: { prop, prop, prop } or { prop: type, ... }
                        /\{[ \t]*[a-zA-Z_]+[ \t]*,[ \t]*[a-zA-Z_]+[ \t]*,[ \t]*[a-zA-Z_]+/i.test(content) ||
                        // Interface-style: { prop: value } patterns with multiple lines
