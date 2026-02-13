@@ -66,12 +66,14 @@ function commandExists(cmd) {
 function cleanAll() {
   log('Cleaning all installations...');
 
-  // Clean Claude plugins
+  // Clean Claude plugins (current and pre-rename)
   for (const plugin of PLUGINS) {
-    const pluginDir = path.join(CLAUDE_PLUGINS_DIR, `${plugin}@agentsys`);
-    if (fs.existsSync(pluginDir)) {
-      fs.rmSync(pluginDir, { recursive: true, force: true });
-      log(`  Removed Claude plugin: ${plugin}`);
+    for (const suffix of ['agentsys', 'awesome-slash']) {
+      const pluginDir = path.join(CLAUDE_PLUGINS_DIR, `${plugin}@${suffix}`);
+      if (fs.existsSync(pluginDir)) {
+        fs.rmSync(pluginDir, { recursive: true, force: true });
+        log(`  Removed Claude plugin: ${plugin}@${suffix}`);
+      }
     }
   }
 
@@ -210,10 +212,13 @@ function installClaude() {
 
   for (const plugin of PLUGINS) {
     if (!/^[a-z0-9][a-z0-9-]*$/.test(plugin)) continue;
-    try {
-      execSync(`claude plugin uninstall ${plugin}@agentsys`, { stdio: 'pipe' });
-    } catch {
-      // May not be installed
+    // Uninstall both current and pre-rename plugin IDs
+    for (const suffix of ['agentsys', 'awesome-slash']) {
+      try {
+        execSync(`claude plugin uninstall ${plugin}@${suffix}`, { stdio: 'pipe' });
+      } catch {
+        // May not be installed
+      }
     }
   }
 
@@ -262,6 +267,8 @@ function installClaude() {
       const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
       settings.enabledPlugins = settings.enabledPlugins || {};
       for (const plugin of PLUGINS) {
+        // Remove pre-rename entries and add current ones
+        delete settings.enabledPlugins[`${plugin}@awesome-slash`];
         settings.enabledPlugins[`${plugin}@agentsys`] = true;
       }
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));

@@ -266,11 +266,14 @@ function installForClaudeDevelopment() {
   for (const plugin of plugins) {
     // Validate plugin name before shell use (prevents injection)
     if (!/^[a-z0-9][a-z0-9-]*$/.test(plugin)) continue;
-    try {
-      execSync(`claude plugin uninstall ${plugin}@agentsys`, { stdio: 'pipe' });
-      console.log(`  [OK] Uninstalled ${plugin}`);
-    } catch {
-      // May not be installed
+    // Uninstall both current and pre-rename plugin IDs
+    for (const suffix of ['agentsys', 'awesome-slash']) {
+      try {
+        execSync(`claude plugin uninstall ${plugin}@${suffix}`, { stdio: 'pipe' });
+        console.log(`  [OK] Uninstalled ${plugin}@${suffix}`);
+      } catch {
+        // May not be installed
+      }
     }
   }
 
