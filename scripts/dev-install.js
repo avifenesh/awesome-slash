@@ -107,11 +107,13 @@ function cleanAll() {
     }
   }
 
-  // Clean plugin file
-  const pluginFile = path.join(opencodePluginDir, 'agentsys.ts');
-  if (fs.existsSync(pluginFile)) {
-    fs.unlinkSync(pluginFile);
-    log('  Removed OpenCode plugin');
+  // Clean plugin files (current and pre-rename)
+  for (const name of ['agentsys.ts', 'awesome-slash.ts']) {
+    const pluginFile = path.join(opencodePluginDir, name);
+    if (fs.existsSync(pluginFile)) {
+      fs.unlinkSync(pluginFile);
+      log(`  Removed OpenCode plugin ${name}`);
+    }
   }
 
   // Clean agent files installed by us - only known agentsys agents
@@ -306,6 +308,11 @@ function installOpenCode() {
   if (fs.existsSync(pluginSrcDir)) {
     const srcPath = path.join(pluginSrcDir, 'index.ts');
     const destPath = path.join(pluginDir, 'agentsys.ts');
+    // Remove legacy plugin file from pre-rename installs to prevent dual loading
+    const legacyPluginFile = path.join(pluginDir, 'awesome-slash.ts');
+    if (fs.existsSync(legacyPluginFile)) {
+      fs.unlinkSync(legacyPluginFile);
+    }
     if (fs.existsSync(srcPath)) {
       fs.copyFileSync(srcPath, destPath);
       log('  [OK] Native plugin');
