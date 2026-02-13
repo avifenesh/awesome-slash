@@ -17,6 +17,7 @@
   <a href="https://github.com/avifenesh/agentsys/stargazers"><img src="https://img.shields.io/github/stars/avifenesh/agentsys?style=social" alt="GitHub stars"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://avifenesh.github.io/agentsys/"><img src="https://img.shields.io/badge/Website-AgentSys-blue?style=flat&logo=github" alt="Website"></a>
+  <a href="https://github.com/hesreallyhim/awesome-claude-code"><img src="https://awesome.re/mentioned-badge.svg" alt="Mentioned in Awesome Claude Code"></a>
 </p>
 
 <p align="center">
