@@ -8,7 +8,9 @@ This directory contains adapters for using agentsys commands with different AI c
 The primary target. Install via marketplace:
 ```bash
 claude plugin marketplace add avifenesh/agentsys
+# Install specific plugins (e.g., next-task, ship, enhance)
 claude plugin install next-task@agentsys
+claude plugin install ship@agentsys
 ```
 
 See main [README.md](../README.md) for details.
@@ -204,7 +206,7 @@ git pull origin main
 
 ### Command not found
 **Codex CLI:**
-- Check `~/.codex/prompts/agentsys/commands/`
+- Check `~/.codex/skills/*/SKILL.md`
 - Restart Codex CLI
 
 **OpenCode:**
