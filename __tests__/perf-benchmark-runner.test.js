@@ -9,10 +9,10 @@ const {
 } = require('../lib/perf/benchmark-runner');
 
 jest.mock('child_process', () => ({
-  execSync: jest.fn()
+  execFileSync: jest.fn()
 }));
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 describe('normalizeBenchmarkOptions', () => {
   it('uses default duration for full mode', () => {
@@ -96,24 +96,24 @@ describe('runBenchmark', () => {
   });
 
   it('executes command and returns result', () => {
-    execSync.mockImplementation(() => {
+    execFileSync.mockImplementation(() => {
       return 'benchmark output';
     });
 
     const result = runBenchmark('echo test', { allowShort: true });
     expect(result.success).toBe(true);
     expect(result.output).toBe('benchmark output');
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       stdio: 'pipe',
       encoding: 'utf8'
     }));
   });
 
   it('sets PERF_RUN_DURATION env variable by default', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     runBenchmark('echo test', { allowShort: true });
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       env: expect.objectContaining({
         PERF_RUN_DURATION: String(DEFAULT_MIN_DURATION)
       })
@@ -121,18 +121,18 @@ describe('runBenchmark', () => {
   });
 
   it('does not set PERF_RUN_DURATION when setDurationEnv is false', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     runBenchmark('echo test', { setDurationEnv: false, allowShort: true });
-    const callEnv = execSync.mock.calls[0][1].env;
+    const callEnv = execFileSync.mock.calls[0][2].env;
     expect(callEnv.PERF_RUN_DURATION).toBeUndefined();
   });
 
   it('sets PERF_RUN_MODE when runMode is provided', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     runBenchmark('echo test', { runMode: 'oneshot', allowShort: true });
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       env: expect.objectContaining({
         PERF_RUN_MODE: 'oneshot'
       })
@@ -140,7 +140,7 @@ describe('runBenchmark', () => {
   });
 
   it('returns duration information in result', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     const result = runBenchmark('echo test', { duration: 90, allowShort: true });
     expect(result.duration).toBe(90);
@@ -149,14 +149,14 @@ describe('runBenchmark', () => {
   });
 
   it('throws when benchmark finishes too quickly', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     expect(() => runBenchmark('echo test', { duration: 60 }))
       .toThrow(/Benchmark finished too quickly/);
   });
 
   it('does not throw on short duration when allowShort is true', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     const result = runBenchmark('echo test', { duration: 60, allowShort: true });
     expect(result.success).toBe(true);
@@ -164,17 +164,17 @@ describe('runBenchmark', () => {
 
   it('does not throw on short duration when PERF_ALLOW_SHORT=1', () => {
     process.env.PERF_ALLOW_SHORT = '1';
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     const result = runBenchmark('echo test', { duration: 60 });
     expect(result.success).toBe(true);
   });
 
   it('merges custom env variables', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     runBenchmark('echo test', { env: { CUSTOM_VAR: 'value' }, allowShort: true });
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       env: expect.objectContaining({
         CUSTOM_VAR: 'value'
       })
@@ -182,7 +182,7 @@ describe('runBenchmark', () => {
   });
 
   it('returns elapsed time in result', () => {
-    execSync.mockImplementation(() => 'output');
+    execFileSync.mockImplementation(() => 'output');
 
     const result = runBenchmark('echo test', { allowShort: true });
     expect(typeof result.elapsedSeconds).toBe('number');
@@ -197,7 +197,7 @@ describe('runBenchmarkSeries', () => {
   });
 
   it('runs benchmark once by default', () => {
-    execSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
+    execFileSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
 
     const result = runBenchmarkSeries('echo test', { allowShort: true });
     expect(result.runs).toBe(1);
@@ -207,7 +207,7 @@ describe('runBenchmarkSeries', () => {
 
   it('runs benchmark multiple times when runs is specified', () => {
     let callCount = 0;
-    execSync.mockImplementation(() => {
+    execFileSync.mockImplementation(() => {
       callCount++;
       return `PERF_METRICS latency_ms=${100 + callCount * 10}`;
     });
@@ -215,12 +215,12 @@ describe('runBenchmarkSeries', () => {
     const result = runBenchmarkSeries('echo test', { runs: 3 });
     expect(result.runs).toBe(3);
     expect(result.samples).toHaveLength(3);
-    expect(execSync).toHaveBeenCalledTimes(3);
+    expect(execFileSync).toHaveBeenCalledTimes(3);
   });
 
   it('aggregates multiple runs using median by default', () => {
     let callCount = 0;
-    execSync.mockImplementation(() => {
+    execFileSync.mockImplementation(() => {
       callCount++;
       const values = [100, 200, 150];
       return `PERF_METRICS latency_ms=${values[callCount - 1]}`;
@@ -233,7 +233,7 @@ describe('runBenchmarkSeries', () => {
 
   it('supports custom aggregate function', () => {
     let callCount = 0;
-    execSync.mockImplementation(() => {
+    execFileSync.mockImplementation(() => {
       callCount++;
       const values = [100, 200, 150];
       return `PERF_METRICS latency_ms=${values[callCount - 1]}`;
@@ -245,10 +245,10 @@ describe('runBenchmarkSeries', () => {
   });
 
   it('uses oneshot mode for multiple runs by default', () => {
-    execSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
+    execFileSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
 
     runBenchmarkSeries('echo test', { runs: 3 });
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       env: expect.objectContaining({
         PERF_RUN_MODE: 'oneshot'
       })
@@ -256,10 +256,10 @@ describe('runBenchmarkSeries', () => {
   });
 
   it('uses duration mode for single run by default', () => {
-    execSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
+    execFileSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
 
     runBenchmarkSeries('echo test', { runs: 1, allowShort: true });
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       env: expect.objectContaining({
         PERF_RUN_MODE: 'duration'
       })
@@ -276,25 +276,25 @@ describe('runBenchmarkSeries', () => {
   });
 
   it('throws when metrics parsing fails', () => {
-    execSync.mockImplementation(() => 'no metrics here');
+    execFileSync.mockImplementation(() => 'no metrics here');
 
     expect(() => runBenchmarkSeries('echo test', { allowShort: true }))
       .toThrow(/Metrics parse failed/);
   });
 
   it('floors fractional runs value', () => {
-    execSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
+    execFileSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
 
     const result = runBenchmarkSeries('echo test', { runs: 2.9 });
     expect(result.runs).toBe(2);
-    expect(execSync).toHaveBeenCalledTimes(2);
+    expect(execFileSync).toHaveBeenCalledTimes(2);
   });
 
   it('supports custom runMode override', () => {
-    execSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
+    execFileSync.mockImplementation(() => 'PERF_METRICS latency_ms=100');
 
     runBenchmarkSeries('echo test', { runs: 3, runMode: 'duration', allowShort: true });
-    expect(execSync).toHaveBeenCalledWith('echo test', expect.objectContaining({
+    expect(execFileSync).toHaveBeenCalledWith('echo', ['test'], expect.objectContaining({
       env: expect.objectContaining({
         PERF_RUN_MODE: 'duration'
       })

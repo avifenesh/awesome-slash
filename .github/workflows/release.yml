@@ -16,9 +16,12 @@ on:
         type: boolean
         default: false
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
   validate:
@@ -76,6 +79,23 @@ jobs:
           fi
           echo "[OK] Version format valid: $VERSION"
 
+      - name: Enforce release source ref
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "[ERROR] workflow_dispatch releases must run from refs/heads/main (got ${GITHUB_REF})"
+            exit 1
+          fi
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            git fetch origin main
+            if ! git merge-base --is-ancestor "${GITHUB_SHA}" "origin/main"; then
+              echo "[ERROR] Release tag commit is not reachable from origin/main"
+              exit 1
+            fi
+          fi
+
+          echo "[OK] Release source ref is valid"
+
       - name: Verify version consistency
         run: |
           VERSION="${{ steps.version.outputs.version }}"
@@ -122,11 +142,23 @@ jobs:
       - name: Validate plugin structure
         run: node scripts/validate-plugins.js
 
+      - name: Validate repo consistency
+        run: npm run validate
+
+      - name: Validate agent templates
+        run: node scripts/expand-templates.js --check
+
+      - name: Validate adapter freshness
+        run: node scripts/gen-adapters.js --check
+
   publish-npm:
     name: Publish to npm
     runs-on: ubuntu-latest
     needs: [validate, test]
     environment: npm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -155,6 +187,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [validate, publish-npm]
     if: ${{ !inputs.dry_run }}
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:

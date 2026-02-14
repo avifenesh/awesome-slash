@@ -13,7 +13,8 @@
  */
 
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
+const { resolveExecutableForPlatform } = require('../lib/utils/command-parser');
 
 const VERSION = require('../package.json').version;
 const ROOT_DIR = path.join(__dirname, '..');
@@ -293,13 +294,22 @@ const COMMANDS = {
     description: 'Run test suite',
     handler: (args) => {
       try {
-        const cmd = ['npm', 'test'];
+        const cmdArgs = ['test'];
         if (args.length > 0) {
-          cmd.push('--');
-          cmd.push(...args);
+          cmdArgs.push('--');
+          cmdArgs.push(...args);
         }
-        execSync(cmd.join(' '), { cwd: ROOT_DIR, stdio: 'inherit' });
-        return 0;
+        const npmExecutable = resolveExecutableForPlatform('npm');
+        const result = spawnSync(npmExecutable, cmdArgs, {
+          cwd: ROOT_DIR,
+          stdio: 'inherit',
+          shell: false,
+          windowsHide: true
+        });
+        if (result.error) {
+          throw result.error;
+        }
+        return typeof result.status === 'number' ? result.status : 1;
       } catch (err) {
         return err.status || 1;
       }

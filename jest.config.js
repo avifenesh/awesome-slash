@@ -16,8 +16,12 @@ module.exports = {
     '/worktrees/'
   ],
   collectCoverageFrom: [
+    'bin/**/*.js',
+    'scripts/**/*.js',
+    'adapters/**/*.js',
     'lib/**/*.js',
-    '!lib/**/*.test.js'
+    '!lib/**/*.test.js',
+    '!adapters/**/README.md'
   ],
   moduleNameMapper: {
     '^@agentsys/lib$': '<rootDir>/lib/index.js',
@@ -25,6 +29,14 @@ module.exports = {
   },
   coverageDirectory: 'coverage',
   coverageReporters: ['text', 'lcov', 'html'],
+  coverageThreshold: {
+    global: {
+      branches: 5,
+      functions: 10,
+      lines: 10,
+      statements: 10
+    }
+  },
   verbose: true,
   // Clear mocks between tests
   clearMocks: true,

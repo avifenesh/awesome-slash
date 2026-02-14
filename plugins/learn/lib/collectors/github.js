@@ -14,6 +14,7 @@ const { execFileSync } = require('child_process');
 const DEFAULT_OPTIONS = {
   issueLimit: 100,
   prLimit: 50,
+  milestoneLimit: 100,
   timeout: 10000,
   cwd: process.cwd()
 };
@@ -25,16 +26,41 @@ const DEFAULT_OPTIONS = {
  * @returns {Object|null} Parsed JSON result or null
  */
 function execGh(args, options = {}) {
+  const result = execGhWithResult(args, options);
+  return result.ok ? result.data : null;
+}
+
+function execGhWithResult(args, options = {}) {
   try {
-    const result = execFileSync('gh', args, {
+    const output = execFileSync('gh', args, {
       encoding: 'utf8',
       stdio: 'pipe',
       timeout: options.timeout || DEFAULT_OPTIONS.timeout,
       cwd: options.cwd || DEFAULT_OPTIONS.cwd
     });
-    return JSON.parse(result);
-  } catch {
-    return null;
+
+    try {
+      return { ok: true, data: JSON.parse(output) };
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          type: 'parse',
+          message: `Failed to parse gh output as JSON: ${error.message}`,
+          raw: output.slice(0, 500)
+        }
+      };
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      error: {
+        type: error.killed ? 'timeout' : 'process',
+        message: error.message,
+        exitCode: error.status ?? null,
+        stderr: error.stderr ? String(error.stderr).trim() : ''
+      }
+    };
   }
 }
 
@@ -192,10 +218,18 @@ function scanGitHubState(options = {}) {
 
   const result = {
     available: false,
+    partial: false,
+    errors: [],
     summary: { issueCount: 0, prCount: 0, milestoneCount: 0 },
     issues: [],
     prs: [],
     milestones: [],
+    overdueMilestones: [],
+    pagination: {
+      issues: { requestedLimit: opts.issueLimit, fetchedCount: 0, hasMore: false },
+      prs: { requestedLimit: opts.prLimit, fetchedCount: 0, hasMore: false },
+      milestones: { requestedLimit: opts.milestoneLimit, fetchedCount: 0, hasMore: false }
+    },
     categorized: { bugs: [], features: [], security: [], enhancements: [], other: [] },
     stale: [],
     themes: []
@@ -209,44 +243,74 @@ function scanGitHubState(options = {}) {
   result.available = true;
 
   // Fetch open issues
-  const issues = execGh([
+  const issuesResult = execGhWithResult([
     'issue', 'list',
     '--state', 'open',
     '--json', 'number,title,labels,milestone,createdAt,updatedAt,body',
     '--limit', String(opts.issueLimit)
   ], opts);
 
-  if (issues) {
+  if (issuesResult.ok && Array.isArray(issuesResult.data)) {
+    const issues = issuesResult.data;
     result.issues = issues.map(summarizeIssue);
     result.summary.issueCount = issues.length;
+    result.pagination.issues.fetchedCount = issues.length;
+    result.pagination.issues.hasMore = opts.issueLimit > 0 && issues.length >= opts.issueLimit;
     categorizeIssues(result, issues);
     findStaleItems(result, issues, 90);
     extractThemes(result, issues);
+  } else if (!issuesResult.ok) {
+    result.errors.push({ source: 'issues', ...issuesResult.error });
   }
 
   // Fetch open PRs with files changed
-  const prs = execGh([
+  const prsResult = execGhWithResult([
     'pr', 'list',
     '--state', 'open',
     '--json', 'number,title,labels,isDraft,createdAt,updatedAt,body,files',
     '--limit', String(opts.prLimit)
   ], opts);
 
-  if (prs) {
+  if (prsResult.ok && Array.isArray(prsResult.data)) {
+    const prs = prsResult.data;
     result.prs = prs.map(summarizePR);
     result.summary.prCount = prs.length;
+    result.pagination.prs.fetchedCount = prs.length;
+    result.pagination.prs.hasMore = opts.prLimit > 0 && prs.length >= opts.prLimit;
+  } else if (!prsResult.ok) {
+    result.errors.push({ source: 'prs', ...prsResult.error });
   }
 
   // Fetch milestones
-  const milestones = execGh([
+  const milestonesResult = execGhWithResult([
     'api', 'repos/{owner}/{repo}/milestones',
-    '--jq', '.[].{title,state,due_on,open_issues,closed_issues}'
+    '--paginate',
+    '--slurp'
   ], opts);
 
-  if (milestones) {
-    result.milestones = Array.isArray(milestones) ? milestones : [milestones];
+  if (milestonesResult.ok && Array.isArray(milestonesResult.data)) {
+    const pages = milestonesResult.data;
+    const allMilestones = pages.flatMap(page => Array.isArray(page) ? page : []);
+    const mappedMilestones = allMilestones.map((milestone) => ({
+      title: milestone.title,
+      state: milestone.state,
+      due_on: milestone.due_on,
+      open_issues: milestone.open_issues,
+      closed_issues: milestone.closed_issues
+    }));
+
+    result.pagination.milestones.fetchedCount = mappedMilestones.length;
+    result.pagination.milestones.hasMore = opts.milestoneLimit > 0 && mappedMilestones.length > opts.milestoneLimit;
+    result.milestones = mappedMilestones.slice(0, opts.milestoneLimit);
     result.summary.milestoneCount = result.milestones.length;
     findOverdueMilestones(result);
+  } else if (!milestonesResult.ok) {
+    result.errors.push({ source: 'milestones', ...milestonesResult.error });
+  }
+
+  result.partial = result.errors.length > 0;
+  if (result.partial && !result.error) {
+    result.error = 'Partial GitHub data collected';
   }
 
   return result;

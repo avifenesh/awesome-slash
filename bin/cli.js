@@ -214,6 +214,7 @@ function installForClaude() {
 
     // Discover plugins from filesystem convention
     const plugins = discovery.discoverPlugins(PACKAGE_DIR);
+    const failedPlugins = [];
     for (const plugin of plugins) {
       // Validate plugin name before shell use (prevents injection)
       if (!/^[a-z0-9][a-z0-9-]*$/.test(plugin)) continue;
@@ -232,9 +233,15 @@ function installForClaude() {
         try {
           execSync(`claude plugin update ${plugin}@agentsys`, { stdio: 'pipe' });
         } catch {
-          // Ignore if update also fails
+          failedPlugins.push(plugin);
         }
       }
+    }
+
+    if (failedPlugins.length > 0) {
+      console.log(`\n[ERROR] Failed to install/update ${failedPlugins.length} plugin(s): ${failedPlugins.join(', ')}`);
+      console.log('Retry with: /plugin install <plugin>@agentsys');
+      return false;
     }
 
     console.log('\n[OK] Claude Code installation complete!\n');
@@ -696,22 +703,34 @@ async function main() {
   }
 
   // Install for each platform
+  const failedPlatforms = [];
   for (const platform of selected) {
     switch (platform) {
       case 'claude':
-        if (args.development) {
-          installForClaudeDevelopment();
+        if (args.development && !installForClaudeDevelopment()) {
+          failedPlatforms.push('claude');
         } else {
-          installForClaude();
+          if (!args.development && !installForClaude()) {
+            failedPlatforms.push('claude');
+          }
         }
         break;
       case 'opencode':
-        installForOpenCode(installDir, { stripModels: args.stripModels });
+        if (!installForOpenCode(installDir, { stripModels: args.stripModels })) {
+          failedPlatforms.push('opencode');
+        }
         break;
       case 'codex':
-        installForCodex(installDir);
+        if (!installForCodex(installDir)) {
+          failedPlatforms.push('codex');
+        }
         break;
     }
+  }
+
+  if (failedPlatforms.length > 0) {
+    console.log(`\n[ERROR] Installation failed for: ${failedPlatforms.join(', ')}`);
+    process.exitCode = 1;
   }
 
   console.log('─'.repeat(45));

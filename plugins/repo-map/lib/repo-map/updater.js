@@ -6,7 +6,6 @@
 
 'use strict';
 
-const fs = require('fs');
 const fsPromises = require('fs').promises;
 const path = require('path');
 const { execFileSync } = require('child_process');
@@ -14,6 +13,15 @@ const { execFileSync } = require('child_process');
 const runner = require('./runner');
 const cache = require('./cache');
 const installer = require('./installer');
+const { runWithConcurrency } = require('./concurrency');
+
+const SCAN_CONCURRENCY = 8;
+const SCANNABLE_EXTENSIONS = new Set(Object.values(runner.LANGUAGE_EXTENSIONS).flat());
+
+function isScannableFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  return SCANNABLE_EXTENSIONS.has(ext);
+}
 
 /**
  * Perform incremental update based on git diff
@@ -46,6 +54,10 @@ async function incrementalUpdate(basePath, map) {
       error: 'Invalid repo map',
       needsFullRebuild: true
     };
+  }
+  map.stats = map.stats || {};
+  if (!Array.isArray(map.stats.errors)) {
+    map.stats.errors = [];
   }
   if (map.docs) {
     delete map.docs;
@@ -118,19 +130,46 @@ async function incrementalUpdate(basePath, map) {
     })
   );
 
-  // Process files that exist
-  for (const { file, fullPath, exists } of existenceChecks) {
-    if (!exists) continue;
+  // Process files that exist with bounded concurrency
+  const scanTargets = existenceChecks.filter(({ file, exists }) => exists && isScannableFile(file));
+  const scanResults = await runWithConcurrency(scanTargets, SCAN_CONCURRENCY, async ({ file, fullPath }) => {
+    const astErrors = [];
+    const fileData = await runner.scanSingleFileAsync(installed.command, fullPath, basePath, {
+      onError: (error) => astErrors.push(error)
+    });
+    return { file, fileData, astErrors };
+  });
 
-    const fileData = await runner.scanSingleFileAsync(installed.command, fullPath, basePath);
-    if (fileData) {
-      map.files[file] = fileData;
-      if (fileData.imports && fileData.imports.length > 0) {
-        map.dependencies[file] = Array.from(new Set(fileData.imports.map(imp => imp.source)));
-      } else {
-        delete map.dependencies[file];
-      }
+  const scanFailures = [];
+  for (const result of scanResults) {
+    if (!result) continue;
+
+    if (result.astErrors.length > 0) {
+      map.stats.errors.push(...result.astErrors);
     }
+
+    if (!result.fileData) {
+      if (result.astErrors.length > 0) {
+        scanFailures.push(result.file);
+      }
+      continue;
+    }
+
+    map.files[result.file] = result.fileData;
+    if (result.fileData.imports && result.fileData.imports.length > 0) {
+      map.dependencies[result.file] = Array.from(new Set(result.fileData.imports.map(imp => imp.source)));
+    } else {
+      delete map.dependencies[result.file];
+    }
+  }
+
+  if (scanFailures.length > 0) {
+    return {
+      success: false,
+      error: `Failed to rescan ${scanFailures.length} file(s) during incremental update`,
+      needsFullRebuild: true,
+      failedFiles: scanFailures
+    };
   }
 
   // Recalculate stats
@@ -163,6 +202,10 @@ async function incrementalUpdate(basePath, map) {
 async function updateWithoutGit(basePath, map, cmd) {
   const currentFiles = new Set();
   const languages = map.project?.languages || [];
+  map.stats = map.stats || {};
+  if (!Array.isArray(map.stats.errors)) {
+    map.stats.errors = [];
+  }
   if (map.docs) {
     delete map.docs;
   }
@@ -204,31 +247,76 @@ async function updateWithoutGit(basePath, map, cmd) {
   }
 
   // Process existing files for modifications (async file reads)
-  for (const file of filesToCheck) {
+  const checkResults = await runWithConcurrency(filesToCheck, SCAN_CONCURRENCY, async (file) => {
     const fullPath = path.join(basePath, file);
-    const fileData = await runner.scanSingleFileAsync(cmd, fullPath, basePath);
-    if (fileData && fileData.hash !== map.files[file].hash) {
-      map.files[file] = fileData;
-      if (fileData.imports && fileData.imports.length > 0) {
-        map.dependencies[file] = Array.from(new Set(fileData.imports.map(imp => imp.source)));
+    const astErrors = [];
+    const fileData = await runner.scanSingleFileAsync(cmd, fullPath, basePath, {
+      onError: (error) => astErrors.push(error)
+    });
+    return { file, fileData, astErrors };
+  });
+
+  const scanFailures = [];
+  for (const result of checkResults) {
+    if (!result) continue;
+
+    if (result.astErrors.length > 0) {
+      map.stats.errors.push(...result.astErrors);
+    }
+
+    if (!result.fileData) {
+      scanFailures.push(result.file);
+      continue;
+    }
+
+    if (result.fileData.hash !== map.files[result.file].hash) {
+      map.files[result.file] = result.fileData;
+      if (result.fileData.imports && result.fileData.imports.length > 0) {
+        map.dependencies[result.file] = Array.from(new Set(result.fileData.imports.map(imp => imp.source)));
       } else {
-        delete map.dependencies[file];
+        delete map.dependencies[result.file];
       }
-      changes.modified.push(file);
+      changes.modified.push(result.file);
     }
   }
 
   // Process new files (async file reads)
-  for (const file of currentFiles) {
+  const addedFiles = Array.from(currentFiles);
+  const addResults = await runWithConcurrency(addedFiles, SCAN_CONCURRENCY, async (file) => {
     const fullPath = path.join(basePath, file);
-    const fileData = await runner.scanSingleFileAsync(cmd, fullPath, basePath);
-    if (fileData) {
-      map.files[file] = fileData;
-      if (fileData.imports && fileData.imports.length > 0) {
-        map.dependencies[file] = Array.from(new Set(fileData.imports.map(imp => imp.source)));
-      }
-      changes.added.push(file);
+    const astErrors = [];
+    const fileData = await runner.scanSingleFileAsync(cmd, fullPath, basePath, {
+      onError: (error) => astErrors.push(error)
+    });
+    return { file, fileData, astErrors };
+  });
+
+  for (const result of addResults) {
+    if (!result) continue;
+
+    if (result.astErrors.length > 0) {
+      map.stats.errors.push(...result.astErrors);
     }
+
+    if (!result.fileData) {
+      scanFailures.push(result.file);
+      continue;
+    }
+
+    map.files[result.file] = result.fileData;
+    if (result.fileData.imports && result.fileData.imports.length > 0) {
+      map.dependencies[result.file] = Array.from(new Set(result.fileData.imports.map(imp => imp.source)));
+    }
+    changes.added.push(result.file);
+  }
+
+  if (scanFailures.length > 0) {
+    return {
+      success: false,
+      error: `Failed to rescan ${scanFailures.length} file(s) during non-git update`,
+      needsFullRebuild: true,
+      failedFiles: scanFailures
+    };
   }
 
   changes.total = changes.added.length + changes.modified.length + changes.deleted.length;

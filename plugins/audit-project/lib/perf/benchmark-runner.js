@@ -4,8 +4,9 @@
  * @module lib/perf/benchmark-runner
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const { validateBaseline } = require('./schemas');
+const { parseCommand, resolveExecutableForPlatform } = require('../utils/command-parser');
 
 const DEFAULT_MIN_DURATION = 60;
 const BINARY_SEARCH_MIN_DURATION = 30;
@@ -55,6 +56,8 @@ function runBenchmark(command, options = {}) {
     throw new Error('Benchmark command must be a non-empty string');
   }
 
+  const parsedCommand = parseCommand(command, 'Benchmark command');
+  const executable = resolveExecutableForPlatform(parsedCommand.executable);
   const normalized = normalizeBenchmarkOptions(options);
   const setDurationEnv = options.setDurationEnv !== false;
   const env = {
@@ -71,18 +74,20 @@ function runBenchmark(command, options = {}) {
   const start = Date.now();
   let output;
   try {
-    output = execSync(command, {
+    output = execFileSync(executable, parsedCommand.args, {
       stdio: 'pipe',
       encoding: 'utf8',
-      env
+      env,
+      windowsHide: true,
+      cwd: options.cwd || process.cwd()
     });
   } catch (error) {
-    const stderr = error.stderr ? error.stderr.toString().trim() : '';
-    const stdout = error.stdout ? error.stdout.toString().trim() : '';
+    const stderr = error.stderr ? String(error.stderr).trim() : '';
+    const stdout = error.stdout ? String(error.stdout).trim() : '';
     const exitCode = error.status ?? 'unknown';
     const details = stderr || stdout || error.message || 'No error details available';
     throw new Error(
-      `Benchmark command failed (exit code ${exitCode}): ${command}\n` +
+      `Benchmark command failed (exit code ${exitCode}): ${parsedCommand.display}\n` +
       `Details: ${details}`
     );
   }

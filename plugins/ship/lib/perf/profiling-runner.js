@@ -4,8 +4,9 @@
  * @module lib/perf/profiling-runner
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const profilers = require('./profilers');
+const { parseCommand, resolveExecutableForPlatform } = require('../utils/command-parser');
 
 /**
  * Run a profiling command and return artifacts/hotspots metadata.
@@ -16,6 +17,9 @@ const profilers = require('./profilers');
  */
 function runProfiling(options = {}) {
   const repoPath = options.repoPath || process.cwd();
+  const timeoutMs = Number.isFinite(options.timeoutMs)
+    ? Math.max(1, Math.floor(options.timeoutMs))
+    : null;
   const profiler = profilers.selectProfiler(repoPath);
 
   if (!profiler || typeof profiler.buildCommand !== 'function') {
@@ -27,14 +31,29 @@ function runProfiling(options = {}) {
     output: options.output,
     ...(options.profileOptions || {})
   });
+  const parsedCommand = parseCommand(command, 'Profiling command');
+  const executable = resolveExecutableForPlatform(parsedCommand.executable);
   const env = {
     ...process.env,
     ...(options.env || {})
   };
   try {
-    execSync(command, { stdio: 'pipe', env });
+    const execOptions = {
+      stdio: 'pipe',
+      env,
+      cwd: repoPath,
+      windowsHide: true
+    };
+    if (timeoutMs !== null) {
+      execOptions.timeout = timeoutMs;
+    }
+
+    execFileSync(executable, parsedCommand.args, execOptions);
   } catch (error) {
-    return { ok: false, error: error.message };
+    const stderr = error.stderr ? String(error.stderr).trim() : '';
+    const stdout = error.stdout ? String(error.stdout).trim() : '';
+    const details = stderr || stdout || error.message;
+    return { ok: false, error: `Profiling command failed: ${details}` };
   }
 
   const parsed = typeof profiler.parseOutput === 'function'
@@ -43,7 +62,7 @@ function runProfiling(options = {}) {
 
   const result = {
     tool: profiler.id,
-    command,
+    command: parsedCommand.display,
     hotspots: parsed.hotspots || [],
     artifacts: parsed.artifacts || []
   };

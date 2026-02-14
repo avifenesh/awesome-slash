@@ -243,6 +243,12 @@ describe('dev-cli module', () => {
     expect(cliSource).toContain('require.main === module');
   });
 
+  test('test command resolves npm executable without shell interpolation', () => {
+    expect(cliSource).toContain('resolveExecutableForPlatform');
+    expect(cliSource).toContain('spawnSync(npmExecutable');
+    expect(cliSource).toContain('shell: false');
+  });
+
   test('exports parseArgs, COMMANDS, VALIDATE_SUBCOMMANDS, NEW_SUBCOMMANDS, route', () => {
     expect(cliSource).toContain('module.exports');
     expect(typeof parseArgs).toBe('function');

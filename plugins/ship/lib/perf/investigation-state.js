@@ -14,12 +14,12 @@ const crypto = require('crypto');
 const { getStateDir } = require('../platform/state-dir');
 const { validateInvestigationState, assertValid } = require('./schemas');
 const { writeJsonAtomic, writeFileAtomic } = require('../utils/atomic-write');
+const { isPlainObject, updatesApplied, sleepForRetry } = require('../utils/state-helpers');
 
 const SCHEMA_VERSION = 1;
 const INVESTIGATION_FILE = 'investigation.json';
 const LOG_DIR = 'investigations';
 const BASELINE_DIR = 'baselines';
-
 const PHASES = [
   'setup',
   'baseline',
@@ -196,10 +196,12 @@ function writeInvestigation(state, basePath = process.cwd()) {
  * @returns {object|null}
  */
 function updateInvestigation(updates, basePath = process.cwd()) {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 5;
+  let fallbackState = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const current = readInvestigation(basePath) || {};
+    fallbackState = current;
     const initialVersion = current._version || 0;
     const nextState = { ...current };
 
@@ -209,10 +211,7 @@ function updateInvestigation(updates, basePath = process.cwd()) {
 
       if (value === null) {
         nextState[key] = null;
-      } else if (
-        value && typeof value === 'object' && !Array.isArray(value) &&
-        nextState[key] && typeof nextState[key] === 'object' && !Array.isArray(nextState[key])
-      ) {
+      } else if (isPlainObject(value) && isPlainObject(nextState[key])) {
         nextState[key] = { ...nextState[key], ...value };
       } else {
         nextState[key] = value;
@@ -226,23 +225,23 @@ function updateInvestigation(updates, basePath = process.cwd()) {
 
     // Re-read to verify our write succeeded
     const afterWrite = readInvestigation(basePath);
-    if (afterWrite && afterWrite._version === initialVersion + 1) {
+    if (afterWrite) {
+      fallbackState = afterWrite;
+    }
+    if (afterWrite && afterWrite._version >= initialVersion + 1 && updatesApplied(afterWrite, updates)) {
       return afterWrite; // Success
     }
 
     // Version conflict - retry after brief delay
     if (attempt < MAX_RETRIES - 1) {
       const delay = Math.floor(Math.random() * 50) + 10;
-      const start = Date.now();
-      while (Date.now() - start < delay) {
-        // Busy wait (synchronous delay)
-      }
+      sleepForRetry(delay);
     }
   }
 
   // All retries exhausted
-  console.error('[WARN] updateInvestigation: max retries exceeded, possible version conflict');
-  return readInvestigation(basePath);
+  console.error('[ERROR] updateInvestigation: failed to apply updates after max retries');
+  return readInvestigation(basePath) || fallbackState || { ...updates };
 }
 
 /**

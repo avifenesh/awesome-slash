@@ -16,11 +16,11 @@ const path = require('path');
 const crypto = require('crypto');
 const { getStateDir } = require('../platform/state-dir');
 const { writeJsonAtomic } = require('../utils/atomic-write');
+const { isPlainObject, updatesApplied, sleepForRetry } = require('../utils/state-helpers');
 
 // File paths
 const TASKS_FILE = 'tasks.json';
 const FLOW_FILE = 'flow.json';
-
 /**
  * Validate and resolve path to prevent path traversal attacks
  * @param {string} basePath - Base directory path
@@ -223,7 +223,7 @@ function writeFlow(flow, worktreePath = process.cwd()) {
  * Uses optimistic locking with version check and retry
  */
 function updateFlow(updates, worktreePath = process.cwd()) {
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 5;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const flow = readFlow(worktreePath) || {};
@@ -238,10 +238,7 @@ function updateFlow(updates, worktreePath = process.cwd()) {
         flow[key] = null;
       }
       // Deep merge if both source and target are non-null objects
-      else if (
-        value && typeof value === 'object' && !Array.isArray(value) &&
-        flow[key] && typeof flow[key] === 'object' && !Array.isArray(flow[key])
-      ) {
+      else if (isPlainObject(value) && isPlainObject(flow[key])) {
         flow[key] = { ...flow[key], ...value };
       }
       // Otherwise direct assignment
@@ -258,24 +255,26 @@ function updateFlow(updates, worktreePath = process.cwd()) {
 
     // Re-read to verify our write succeeded
     const afterWrite = readFlow(worktreePath);
-    if (afterWrite && afterWrite._version === initialVersion + 1) {
+    if (afterWrite && afterWrite._version >= initialVersion + 1 && updatesApplied(afterWrite, updates)) {
       return true; // Success
     }
 
-    // Version conflict - retry after brief delay
+    // Version conflict or overwrite - retry after brief delay
     if (attempt < MAX_RETRIES - 1) {
-      // Small random delay to reduce collision probability
       const delay = Math.floor(Math.random() * 50) + 10;
-      const start = Date.now();
-      while (Date.now() - start < delay) {
-        // Busy wait (synchronous delay)
-      }
+      sleepForRetry(delay);
     }
   }
 
-  // All retries exhausted
-  console.error('[WARN] updateFlow: max retries exceeded, possible version conflict');
-  return true; // Return true to not break callers, but log warning
+  // All retries exhausted. One final read can detect if another writer
+  // applied the same updates while we were retrying.
+  const latest = readFlow(worktreePath);
+  if (latest && updatesApplied(latest, updates)) {
+    return true;
+  }
+
+  console.error('[ERROR] updateFlow: failed to apply updates after max retries');
+  return false;
 }
 
 /**
@@ -420,8 +419,8 @@ function completePhase(result = null, worktreePath = process.cwd()) {
     }
   }
 
-  updateFlow(updates, worktreePath);
-  return readFlow(worktreePath);
+  const updated = updateFlow(updates, worktreePath);
+  return updated ? readFlow(worktreePath) : null;
 }
 
 /**
@@ -454,16 +453,17 @@ function failWorkflow(error, worktreePath = process.cwd()) {
 function completeWorkflow(worktreePath = process.cwd()) {
   const flow = readFlow(worktreePath);
 
-  // Clear active task from main project if projectPath is stored
-  if (flow && flow.projectPath) {
-    clearActiveTask(flow.projectPath);
-  }
-
-  return updateFlow({
+  const updated = updateFlow({
     phase: 'complete',
     status: 'completed',
     completedAt: new Date().toISOString()
   }, worktreePath);
+
+  if (updated && flow && flow.projectPath) {
+    clearActiveTask(flow.projectPath);
+  }
+
+  return updated;
 }
 
 /**
@@ -473,16 +473,17 @@ function completeWorkflow(worktreePath = process.cwd()) {
 function abortWorkflow(reason, worktreePath = process.cwd()) {
   const flow = readFlow(worktreePath);
 
-  // Clear active task from main project if projectPath is stored
-  if (flow && flow.projectPath) {
-    clearActiveTask(flow.projectPath);
-  }
-
-  return updateFlow({
+  const updated = updateFlow({
     status: 'aborted',
     abortReason: reason,
     abortedAt: new Date().toISOString()
   }, worktreePath);
+
+  if (updated && flow && flow.projectPath) {
+    clearActiveTask(flow.projectPath);
+  }
+
+  return updated;
 }
 
 // =============================================================================

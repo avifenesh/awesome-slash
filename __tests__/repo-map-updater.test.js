@@ -96,6 +96,54 @@ describe('repo-map/updater', () => {
       await incrementalUpdate(process.cwd(), map);
       expect(map.docs).toBeUndefined();
     });
+
+    test('ignores unsupported changed files without forcing rebuild', async () => {
+      jest.resetModules();
+
+      jest.doMock('child_process', () => ({
+        execFileSync: jest.fn((cmd, args) => {
+          if (cmd !== 'git') throw new Error('unexpected command');
+          if (args[0] === 'cat-file') return '';
+          if (args[0] === 'diff') return 'M	README.md';
+          throw new Error(`unexpected git args: ${args.join(' ')}`);
+        }),
+        execSync
+      }));
+
+      jest.doMock('../lib/repo-map/installer', () => ({
+        checkInstalledSync: () => ({ found: true, version: '1.44.0', command: 'sg' }),
+        meetsMinimumVersion: () => true,
+        getMinimumVersion: () => '1.44.0',
+        getInstallInstructions: () => 'install'
+      }));
+
+      const scanSingleFileAsync = jest.fn();
+      jest.doMock('../lib/repo-map/runner', () => ({
+        getGitInfo: () => ({ commit: 'fedcba9', branch: 'main' }),
+        scanSingleFileAsync,
+        LANGUAGE_EXTENSIONS: { javascript: ['.js'] }
+      }));
+
+      const { incrementalUpdate: incrementalUpdateWithMocks } = require('../lib/repo-map/updater');
+      const map = {
+        files: {},
+        dependencies: {},
+        stats: { totalFiles: 0, totalSymbols: 0, errors: [] },
+        git: { commit: 'abcdef1', branch: 'main' },
+        project: { languages: ['javascript'] }
+      };
+
+      const result = await incrementalUpdateWithMocks(process.cwd(), map);
+
+      expect(result.success).toBe(true);
+      expect(result.needsFullRebuild).toBeUndefined();
+      expect(scanSingleFileAsync).not.toHaveBeenCalled();
+
+      jest.dontMock('child_process');
+      jest.dontMock('../lib/repo-map/installer');
+      jest.dontMock('../lib/repo-map/runner');
+      jest.resetModules();
+    });
   });
 
   describe('updateWithoutGit', () => {
