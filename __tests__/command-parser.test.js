@@ -7,6 +7,11 @@ describe('command parser', () => {
     expect(parsed.args).toEqual(['test', '--', '--watch']);
   });
 
+  test('preserves original command text for display', () => {
+    const parsed = parseCommand('  node -e "console.log(\"hello world\")"  ');
+    expect(parsed.display).toBe('node -e "console.log(\"hello world\")"');
+  });
+
   test('parses quoted arguments with spaces', () => {
     const parsed = parseCommand('node -e "console.log(\\"hello world\\")"');
     expect(parsed.executable).toBe('node');

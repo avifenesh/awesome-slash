@@ -413,8 +413,8 @@ function completePhase(result = null, worktreePath = process.cwd()) {
     }
   }
 
-  updateFlow(updates, worktreePath);
-  return readFlow(worktreePath);
+  const updated = updateFlow(updates, worktreePath);
+  return updated ? readFlow(worktreePath) : null;
 }
 
 /**

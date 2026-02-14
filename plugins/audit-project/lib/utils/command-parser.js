@@ -132,7 +132,7 @@ function parseCommand(command, label = 'Command') {
   return {
     executable,
     args,
-    display: [executable, ...args].join(' ')
+    display: command.trim()
   };
 }
 

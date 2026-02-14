@@ -46,13 +46,11 @@ function sleepForRetry(ms) {
 
   const delayMs = Math.floor(ms);
   if (RETRY_SLEEP_STATE) {
-    Atomics.wait(RETRY_SLEEP_STATE, 0, 0, delayMs);
-    return;
-  }
-
-  const until = Date.now() + delayMs;
-  while (Date.now() < until) {
-    // Busy wait fallback for runtimes without Atomics.wait.
+    try {
+      Atomics.wait(RETRY_SLEEP_STATE, 0, 0, delayMs);
+    } catch {
+      // Ignore environments where Atomics.wait exists but cannot be used.
+    }
   }
 }
 
