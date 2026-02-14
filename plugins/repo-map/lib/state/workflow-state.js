@@ -447,16 +447,17 @@ function failWorkflow(error, worktreePath = process.cwd()) {
 function completeWorkflow(worktreePath = process.cwd()) {
   const flow = readFlow(worktreePath);
 
-  // Clear active task from main project if projectPath is stored
-  if (flow && flow.projectPath) {
-    clearActiveTask(flow.projectPath);
-  }
-
-  return updateFlow({
+  const updated = updateFlow({
     phase: 'complete',
     status: 'completed',
     completedAt: new Date().toISOString()
   }, worktreePath);
+
+  if (updated && flow && flow.projectPath) {
+    clearActiveTask(flow.projectPath);
+  }
+
+  return updated;
 }
 
 /**
@@ -466,16 +467,17 @@ function completeWorkflow(worktreePath = process.cwd()) {
 function abortWorkflow(reason, worktreePath = process.cwd()) {
   const flow = readFlow(worktreePath);
 
-  // Clear active task from main project if projectPath is stored
-  if (flow && flow.projectPath) {
-    clearActiveTask(flow.projectPath);
-  }
-
-  return updateFlow({
+  const updated = updateFlow({
     status: 'aborted',
     abortReason: reason,
     abortedAt: new Date().toISOString()
   }, worktreePath);
+
+  if (updated && flow && flow.projectPath) {
+    clearActiveTask(flow.projectPath);
+  }
+
+  return updated;
 }
 
 // =============================================================================

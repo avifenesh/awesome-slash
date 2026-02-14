@@ -30,6 +30,16 @@ describe('command parser', () => {
   test('throws on empty command', () => {
     expect(() => parseCommand('   ')).toThrow('must be a non-empty string');
   });
+
+  test('preserves empty quoted argument', () => {
+    const parsed = parseCommand('node -e ""');
+    expect(parsed.args).toEqual(['-e', '']);
+  });
+
+  test('preserves empty quoted argument in middle of argv', () => {
+    const parsed = parseCommand('tool "" --flag');
+    expect(parsed.args).toEqual(['', '--flag']);
+  });
 });
 
 describe('resolveExecutableForPlatform', () => {

@@ -19,7 +19,7 @@ function runProfiling(options = {}) {
   const repoPath = options.repoPath || process.cwd();
   const timeoutMs = Number.isFinite(options.timeoutMs)
     ? Math.max(1, Math.floor(options.timeoutMs))
-    : 300000;
+    : null;
   const profiler = profilers.selectProfiler(repoPath);
 
   if (!profiler || typeof profiler.buildCommand !== 'function') {
@@ -38,13 +38,17 @@ function runProfiling(options = {}) {
     ...(options.env || {})
   };
   try {
-    execFileSync(executable, parsedCommand.args, {
+    const execOptions = {
       stdio: 'pipe',
       env,
       cwd: repoPath,
-      timeout: timeoutMs,
       windowsHide: true
-    });
+    };
+    if (timeoutMs !== null) {
+      execOptions.timeout = timeoutMs;
+    }
+
+    execFileSync(executable, parsedCommand.args, execOptions);
   } catch (error) {
     const stderr = error.stderr ? String(error.stderr).trim() : '';
     const stdout = error.stdout ? String(error.stdout).trim() : '';

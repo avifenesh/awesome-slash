@@ -149,7 +149,9 @@ async function incrementalUpdate(basePath, map) {
     }
 
     if (!result.fileData) {
-      scanFailures.push(result.file);
+      if (result.astErrors.length > 0) {
+        scanFailures.push(result.file);
+      }
       continue;
     }
 
